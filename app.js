@@ -231,9 +231,10 @@
     if (!st.version) return null;
     if (stage === "copy") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Copy · versão ${st.version.number}`), st.version.copy_text || "");
     const paths = st.version.asset_paths || [];
-    const oppCopy = isOpp(post) ? G.latestVersion(data.versions, post.id, "copy") : null;
+    // A copy mais recente aparece junto da arte, para o cliente avaliar a peça completa
+    const cp = G.latestVersion(data.versions, post.id, "copy");
     return el("div", { class: "stack-0" },
-      oppCopy ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Legenda"), oppCopy.copy_text || "") : null,
+      cp ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Legenda · copy v${cp.number}`), cp.copy_text || "") : null,
       el("div", { class: "eyebrow" }, isOpp(post) ? `Post pronto · versão ${st.version.number}` : `Arte · versão ${st.version.number}`),
       el("div", { class: "slides" }, paths.map((p, i) => {
         const url = data.urls[p];
