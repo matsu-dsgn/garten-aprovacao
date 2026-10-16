@@ -2,7 +2,7 @@
   const { el } = G;
   const cfg = window.GARTEN_CONFIG;
   const app = document.getElementById("app");
-  document.getElementById("brand").prepend(G.logoMark());
+  document.getElementById("brand").replaceChildren(el("img", { src: "assets/logo.svg", alt: "garten" }));
   document.getElementById("top-actions").append(GartenTheme.button());
 
   const params = new URLSearchParams(location.search);
@@ -65,11 +65,11 @@
 
     const left = el("div", {},
       el("div", { class: "eyebrow neon" }, "Garten · Instagram"),
-      el("h1", {}, data.month.title),
+      el("h1", {}, el("span", { class: "ln off" }, "Pauta de"), el("span", { class: "ln hl" }, data.month.title)),
       el("p", { class: "sub" }, `${total} ${total === 1 ? "conteúdo" : "conteúdos"}${range ? ", " + range : ""}`),
       ov.intro ? el("p", { class: "intro" }, ov.intro) : null);
 
-    if (!pils.length) return el("section", { class: "hero" }, el("div", { class: "wrap" }, left));
+    if (!pils.length) return el("section", { class: "hero" }, GartenIso.outline("hero-mark"), el("div", { class: "wrap" }, left));
 
     const { svg, groups } = GartenIso.build(pils.map((p) => p.nome), pils.map((p) => p.count));
     const headName = el("b", {});
@@ -96,7 +96,7 @@
     stopCycle();
     if (!reduce && pils.length > 1) cycleTimer = setInterval(() => { cur = (cur + 1) % pils.length; select(cur); }, 3200);
 
-    return el("section", { class: "hero" }, el("div", { class: "wrap hero-grid" },
+    return el("section", { class: "hero" }, GartenIso.outline("hero-mark"), el("div", { class: "wrap hero-grid" },
       left,
       el("div", { class: "iso-wrap" },
         el("div", { class: "eyebrow" }, "O mês por pilar · toque para filtrar o calendário"),
@@ -307,9 +307,9 @@
         data.posts.length ? el("div", { class: "cards" }, data.posts.map(card)) : el("p", { class: "empty-state" }, "Nenhum post cadastrado ainda.")),
       data.posts.length ? dock() : "");
     observe();
-    const hero = document.querySelector(".hero");
-    if (hero && "IntersectionObserver" in window) {
-      new IntersectionObserver(([e]) => document.getElementById("dock")?.classList.toggle("hide", e.isIntersecting), { threshold: 0.15 }).observe(hero);
+    const heroEl = document.querySelector(".hero");
+    if (heroEl && "IntersectionObserver" in window) {
+      new IntersectionObserver(([e]) => document.getElementById("dock")?.classList.toggle("hide", e.isIntersecting), { threshold: 0.15 }).observe(heroEl);
     }
   }
 

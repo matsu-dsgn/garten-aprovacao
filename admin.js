@@ -3,7 +3,7 @@
   const cfg = window.GARTEN_CONFIG;
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.publishableKey);
   const app = document.getElementById("app");
-  document.getElementById("brand").prepend(G.logoMark());
+  document.getElementById("brand").replaceChildren(el("img", { src: "assets/logo.svg", alt: "garten" }));
   document.getElementById("top-actions").append(GartenTheme.button());
 
   const SLUG_RE = /^[a-z0-9-]{3,40}$/;
