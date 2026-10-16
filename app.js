@@ -236,15 +236,42 @@
     return el("div", { class: "stack-0" },
       cp ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Legenda · copy v${cp.number}`), cp.copy_text || "") : null,
       el("div", { class: "eyebrow" }, isOpp(post) ? `Post pronto · versão ${st.version.number}` : `Arte · versão ${st.version.number}`),
-      el("div", { class: "slides" }, paths.map((p, i) => {
+      paths.length > 1 ? el("div", { class: "slides-hint" }, `${paths.length} lâminas · arraste para o lado · toque para ampliar`) : el("div", { class: "slides-hint" }, "Toque para ampliar"),
+      el("div", { class: `slides${paths.length > 1 ? " multi" : ""}` }, paths.map((p, i) => {
         const url = data.urls[p];
         const media = /\.mp4$/i.test(p)
           ? el("video", { src: url, controls: true, preload: "metadata" })
-          : el("img", { src: url, alt: `Lâmina ${i + 1}`, loading: "lazy" });
+          : el("img", { src: url, alt: `Lâmina ${i + 1}`, loading: "lazy", onclick: () => lightbox(paths, i) });
         return el("div", { class: "slide" }, media,
           post.format === "carrossel" && paths.length > 1
             ? el("textarea", { "data-slide": String(i), placeholder: `Obs. da lâmina ${i + 1}`, maxlength: "500" }) : null);
       })));
+  }
+
+  // Visualização em tela cheia, com navegação entre lâminas
+  function lightbox(paths, start) {
+    const imgs = paths.filter((p) => !/\.mp4$/i.test(p));
+    let i = Math.max(0, imgs.indexOf(paths[start]));
+    const img = el("img", { alt: "" });
+    const count = el("span", { class: "lb-count" });
+    const show = () => { img.src = data.urls[imgs[i]]; img.alt = `Lâmina ${i + 1}`; count.textContent = `${i + 1} / ${imgs.length}`; };
+    const go = (d) => { i = (i + d + imgs.length) % imgs.length; show(); };
+    const close = () => { box.remove(); document.removeEventListener("keydown", key); };
+    const key = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") go(1); if (e.key === "ArrowLeft") go(-1); };
+    const nav = imgs.length > 1;
+    const box = el("div", { class: "lightbox", role: "dialog", "aria-modal": "true", "aria-label": "Arte ampliada",
+      onclick: (e) => { if (e.target === box) close(); } },
+      el("button", { class: "lb-close", type: "button", "aria-label": "Fechar", onclick: close }, "✕"),
+      nav ? el("button", { class: "lb-nav prev", type: "button", "aria-label": "Anterior", onclick: () => go(-1) }, "‹") : null,
+      img,
+      nav ? el("button", { class: "lb-nav next", type: "button", "aria-label": "Próxima", onclick: () => go(1) }, "›") : null,
+      nav ? count : null);
+    let x0 = null;
+    box.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+    box.addEventListener("touchend", (e) => { if (x0 == null || !nav) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); x0 = null; });
+    document.addEventListener("keydown", key);
+    document.body.append(box); show();
+    box.querySelector(".lb-close").focus();
   }
 
   function decideForm(post, stage, st) {
@@ -314,7 +341,7 @@
     const checklist = post.checklist || [];
     return el("article", { class: `card reveal${opp ? " is-opp" : ""}`, id: `post-${post.id}`, "data-status": G.postSummary(data, post), "data-opp": opp ? "1" : null },
       el("div", { class: "date-col" }, el("b", {}, d.getDate()), el("span", {}, `${G.DOW[d.getDay()]} · ${G.MONTHS[d.getMonth()]}`)),
-      el("div", { class: "card-body" },
+      el("div", { class: `card-body${current === "arte" && st.version ? " art-mode" : ""}` },
         el("div", { class: "card-main" },
           opp ? el("div", { class: "meta" }, oppBadge(post), deadlineChip(post)) : null,
           el("h3", {}, post.title),
