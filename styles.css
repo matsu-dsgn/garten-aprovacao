@@ -42,7 +42,7 @@
   --hero-soft: var(--powder);
   --iso-top: #3c4b61; --iso-left: #26324a; --iso-right: var(--charcoal);
   --iso-stroke: #4d5f7a; --iso-base: #0d3a63; --iso-base-side: #062f57;
-  --cta-bg: var(--charcoal); --cta-ink: var(--neon);
+  --cta-bg: var(--powder); --cta-ink: var(--carbon);
   /* Status (funcionais). Ajuste usa âmbar: exceção fora da paleta, só para alerta de UI */
   --ok: var(--mint); --ok-bg: #cdeedb;
   --bad: #b45309; --bad-bg: #fbe8cf;
