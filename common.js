@@ -73,7 +73,7 @@ window.G = (() => {
       el("summary", {}, `Histórico (${decisions.length})`),
       el("ul", { class: "history" }, decisions.slice().reverse().map((d) =>
         el("li", { class: d.status },
-          el("span", { class: "who" }, actorName(data, d.actor)), " — ", STATUS_LABEL[d.status] || d.status,
+          el("span", { class: "whoname" }, actorName(data, d.actor)), " — ", STATUS_LABEL[d.status] || d.status,
           el("time", {}, when(d.created_at)),
           d.note ? el("div", {}, d.note) : null,
           ...Object.entries(d.slide_notes || {}).map(([k, v]) => el("div", {}, `Lâmina ${Number(k) + 1}: ${v}`)),

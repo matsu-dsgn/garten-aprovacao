@@ -4,6 +4,7 @@
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.publishableKey);
   const app = document.getElementById("app");
   document.getElementById("brand").prepend(G.logoMark());
+  document.getElementById("top-actions").append(GartenTheme.button());
 
   const SLUG_RE = /^[a-z0-9-]{3,40}$/;
   const FORMATS = Object.keys(G.FORMATS);
@@ -169,6 +170,7 @@
       theme: p.theme ? String(p.theme).slice(0, 60) : null,
       objective: p.objective ? String(p.objective).slice(0, 400) : null,
       direction: p.direction ? String(p.direction).slice(0, 4000) : null,
+      checklist: Array.isArray(p.checklist) ? p.checklist.slice(0, 15).map((c) => String(c).trim().slice(0, 300)).filter(Boolean) : [],
       sort: i,
     };
   }

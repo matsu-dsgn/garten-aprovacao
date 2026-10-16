@@ -29,6 +29,6 @@ Front estático (GitHub Pages) + Supabase (banco, storage e Edge Function).
 
 Formato do JSON de pauta:
 ```json
-{"posts":[{"date":"2026-12-03","format":"carrossel","theme":"Base sólida","title":"…","objective":"…","direction":"…"}]}
+{"posts":[{"date":"2026-12-03","format":"carrossel","theme":"Base sólida","title":"…","objective":"…","direction":"…","checklist":["item 1","item 2"]}]}
 ```
 `format`: estatico, carrossel, reels ou stories.

@@ -2,14 +2,17 @@
   const { el } = G;
   const cfg = window.GARTEN_CONFIG;
   const app = document.getElementById("app");
-  const brand = document.getElementById("brand");
-  brand.prepend(G.logoMark());
+  document.getElementById("brand").prepend(G.logoMark());
+  document.getElementById("top-actions").append(GartenTheme.button());
 
   const params = new URLSearchParams(location.search);
   const slug = params.get("m");
   const token = new URLSearchParams(location.hash.slice(1)).get("k");
-  const openTab = {}; // post_id -> stage
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const openTab = {};
   let data = null;
+  let pillarFocus = null; // pilar escolhido pelo usuário (filtra o calendário)
+  let cycleTimer = null;
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -27,102 +30,142 @@
     return json;
   }
 
-  function gate(title, text) {
-    app.replaceChildren(el("div", { class: "gate wrap" }, el("h1", {}, title), el("p", {}, text)));
+  const gate = (title, text) => app.replaceChildren(el("div", { class: "gate wrap" }, el("h1", {}, title), el("p", {}, text)));
+  const norm = (s) => (s || "").trim().toLowerCase();
+
+  // ---------- Pilares ----------
+  function pillars() {
+    const ov = (data.month.overview || {}).pilares || [];
+    const names = ov.length ? ov.map((p) => p.nome) : [...new Set(data.posts.map((p) => p.theme).filter(Boolean))];
+    return names.slice(0, 9).map((nome) => ({
+      nome,
+      desc: (ov.find((p) => p.nome === nome) || {}).desc || "",
+      count: data.posts.filter((p) => norm(p.theme) === norm(nome)).length,
+    }));
   }
 
-  function countUp(node, to) {
-    const start = performance.now(); const dur = 900;
-    const step = (t) => {
-      const p = Math.min(1, (t - start) / dur);
-      node.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
-      if (p < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }
-
-  function hero() {
-    const ov = data.month.overview || {};
-    const counts = { total: data.posts.length, aprovado: 0, reprovado: 0, pendente: 0 };
+  function counts() {
+    const c = { aprovado: 0, ajuste: 0, pendente: 0 };
     for (const p of data.posts) {
       const s = G.postSummary(data, p);
-      if (s === "aprovado") counts.aprovado++;
-      else if (s === "reprovado" || s === "contestado") counts.reprovado++;
-      else counts.pendente++;
+      if (s === "aprovado") c.aprovado++;
+      else if (s === "reprovado" || s === "contestado") c.ajuste++;
+      else c.pendente++;
     }
-    const ns = "http://www.w3.org/2000/svg";
-    const line = document.createElementNS(ns, "svg");
-    line.setAttribute("viewBox", "0 0 420 360"); line.setAttribute("class", "hero-line"); line.setAttribute("aria-hidden", "true");
-    const path = document.createElementNS(ns, "path");
-    path.setAttribute("d", "M20 40 H150 L210 100 L270 40 H400 V150 L330 220 H230 L170 160 L110 220 V340");
-    line.append(path);
-
-    const stat = (cls, n, label) => {
-      const b = el("b", {}, "0"); setTimeout(() => countUp(b, n), 200);
-      return el("div", { class: `stat ${cls}` }, b, el("span", {}, label));
-    };
-    const title = data.month.title || "";
-    return el("section", { class: "hero" }, line,
-      el("div", { class: "wrap" },
-        el("div", { class: "eyebrow neon" }, "Planejamento do mês"),
-        el("h1", {}, title),
-        ov.intro ? el("p", { class: "intro" }, ov.intro) : null,
-        el("div", { class: "stats" },
-          stat("", counts.total, "posts no mês"),
-          stat("ok", counts.aprovado, "aprovados"),
-          stat("", counts.reprovado, "com ajuste"),
-          stat("", counts.pendente, "pendentes"))));
+    return c;
   }
 
-  function pilares() {
-    const list = (data.month.overview || {}).pilares || [];
-    if (!list.length) return null;
-    return el("section", { class: "block wrap reveal" },
-      el("div", { class: "eyebrow" }, "Overview"),
-      el("h2", {}, "Os assuntos do mês"),
-      el("div", { class: "pilares" }, list.map((p) =>
-        el("div", { class: "pilar" }, el("h3", {}, p.nome || ""), el("p", {}, p.desc || "")))));
+  // ---------- Hero ----------
+  function hero() {
+    const ov = data.month.overview || {};
+    const pils = pillars();
+    const total = data.posts.length;
+    const dates = data.posts.map((p) => G.fmtDate(p.post_date));
+    const range = dates.length ? `de ${dates[0].getDate()} a ${dates[dates.length - 1].getDate()}` : "";
+
+    const left = el("div", {},
+      el("div", { class: "eyebrow neon" }, "Garten · Instagram"),
+      el("h1", {}, data.month.title),
+      el("p", { class: "sub" }, `${total} ${total === 1 ? "conteúdo" : "conteúdos"}${range ? ", " + range : ""}`),
+      ov.intro ? el("p", { class: "intro" }, ov.intro) : null);
+
+    if (!pils.length) return el("section", { class: "hero" }, el("div", { class: "wrap" }, left));
+
+    const { svg, groups } = GartenIso.build(pils.map((p) => p.nome), pils.map((p) => p.count));
+    const headName = el("b", {});
+    const headCount = el("span", {});
+    const chips = pils.map((p, i) => el("button", {
+      class: "pil", type: "button", "aria-pressed": "false",
+      onclick: () => { stopCycle(); pillarFocus = pillarFocus === i ? null : i; select(i, true); },
+      onmouseenter: () => { if (pillarFocus == null) { stopCycle(); select(i); } },
+    }, el("b", {}, p.nome), el("span", {}, `${p.count} de ${total}`)));
+
+    function select(i, user) {
+      const p = pils[i];
+      const pct = total ? Math.round((p.count / total) * 100) : 0;
+      headName.textContent = `${p.nome} · ${pct}% do mês`;
+      headCount.textContent = p.desc || `${p.count} de ${total} conteúdos`;
+      groups.forEach((g, j) => g?.classList.toggle("on", j === i));
+      chips.forEach((c, j) => c.setAttribute("aria-pressed", String(user ? pillarFocus === j : j === i)));
+      if (user) applyCalendarFilter();
+    }
+    groups.forEach((g, i) => g?.addEventListener("click", () => chips[i].click()));
+
+    let cur = 0;
+    select(0);
+    stopCycle();
+    if (!reduce && pils.length > 1) cycleTimer = setInterval(() => { cur = (cur + 1) % pils.length; select(cur); }, 3200);
+
+    return el("section", { class: "hero" }, el("div", { class: "wrap hero-grid" },
+      left,
+      el("div", { class: "iso-wrap" },
+        el("div", { class: "eyebrow" }, "O mês por pilar · toque para filtrar o calendário"),
+        svg, el("div", { class: "pil-head" }, headName, headCount), el("div", { class: "pils" }, chips))));
+  }
+  function stopCycle() { if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; } }
+
+  function applyCalendarFilter() {
+    const p = pillarFocus == null ? null : pillars()[pillarFocus];
+    document.querySelectorAll("[data-theme-name]").forEach((n) => {
+      n.style.opacity = !p || norm(n.dataset.themeName) === norm(p.nome) ? "" : ".3";
+    });
+  }
+
+  // ---------- Calendário ----------
+  function calPost(p) {
+    const s = G.postSummary(data, p);
+    return el("button", {
+      class: "cal-post", type: "button", "data-theme-name": p.theme || "",
+      onclick: () => goTo(p.id),
+    }, el("b", {}, el("i", { class: `dot ${s}` }), p.title),
+      el("span", {}, [G.FORMATS[p.format], p.theme].filter(Boolean).join(" · ")));
   }
 
   function calendar() {
     if (!data.posts.length) return null;
     const first = G.fmtDate(data.posts[0].post_date);
-    const y = first.getFullYear(), m = first.getMonth();
-    const days = new Date(y, m + 1, 0).getDate();
-    const offset = new Date(y, m, 1).getDay();
+    const last = G.fmtDate(data.posts[data.posts.length - 1].post_date);
     const byDay = {};
-    for (const p of data.posts) {
-      const d = G.fmtDate(p.post_date);
-      if (d.getMonth() !== m) continue;
-      (byDay[d.getDate()] ||= []).push(p);
-    }
+    for (const p of data.posts) (byDay[p.post_date] ||= []).push(p);
+    const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    // só as semanas que têm posts
+    const start = new Date(first); start.setDate(start.getDate() - start.getDay());
+    const end = new Date(last); end.setDate(end.getDate() + (6 - end.getDay()));
     const cells = [];
-    for (let i = 0; i < offset; i++) cells.push(el("div", { class: "cal-day empty" }));
-    for (let d = 1; d <= days; d++) {
-      const posts = byDay[d];
-      if (!posts) { cells.push(el("div", { class: "cal-day" }, d)); continue; }
-      cells.push(el("button", {
-        class: "cal-day has", type: "button", "aria-label": `${d}: ${posts.map((p) => p.title).join(", ")}`,
-        onclick: () => document.getElementById(`post-${posts[0].id}`)?.scrollIntoView({ behavior: "smooth" }),
-      }, d, el("span", { class: "dots" }, posts.map((p) => el("span", { class: `dot ${G.postSummary(data, p)}` })))));
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const posts = byDay[key(d)];
+      const inRange = d >= first && d <= last;
+      cells.push(el("div", { class: `cal-day ${posts ? "has" : ""} ${inRange ? "" : "out"} ${!posts && inRange ? "empty-day" : ""}` },
+        el("div", { class: "cal-num" }, el("b", {}, d.getDate()), el("span", {}, G.DOW[d.getDay()])),
+        posts ? posts.map(calPost) : null));
     }
-    return el("section", { class: "block wrap reveal" },
-      el("div", { class: "eyebrow" }, "Calendário"),
-      el("h2", {}, `${G.MONTHS[m][0].toUpperCase()}${G.MONTHS[m].slice(1)} ${y}`),
-      el("div", { class: "cal" }, el("div", { class: "cal-grid" },
-        G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells)));
+    const list = Object.entries(byDay).map(([k, posts]) => {
+      const d = G.fmtDate(k);
+      return el("div", { class: "row-day" },
+        el("div", {}, el("b", {}, d.getDate()), G.DOW[d.getDay()]),
+        el("div", { class: "posts" }, posts.map(calPost)));
+    });
+
+    return el("section", { class: "block wrap reveal", id: "calendario" },
+      el("div", { class: "sec-head" },
+        el("div", {}, el("div", { class: "eyebrow" }, "O mês num relance · toque num post para ir até ele"),
+          el("h2", {}, `${G.MONTHS[first.getMonth()][0].toUpperCase()}${G.MONTHS[first.getMonth()].slice(1)} ${first.getFullYear()}`)),
+        el("div", { class: "legend" },
+          el("span", {}, el("i", { class: "aprovado" }), "Aprovado"),
+          el("span", {}, el("i", { class: "reprovado" }), "Ajuste"),
+          el("span", {}, el("i", { class: "contestado" }), "Em discussão"),
+          el("span", {}, el("i", {}), "Pendente"))),
+      el("div", { class: "cal" },
+        el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells),
+        el("div", { class: "cal-list" }, list)));
   }
 
+  // ---------- Cards ----------
   function stageContent(post, stage, st) {
-    if (stage === "pauta") {
-      return el("div", { class: "content-box" },
-        el("span", { class: "label" }, "Direcional"), post.direction || "—");
-    }
-    if (!st.version) return el("div", { class: "content-box" }, stage === "copy" ? "A copy ainda não subiu." : "A arte ainda não subiu.");
-    if (stage === "copy") {
-      return el("div", { class: "content-box" },
-        el("span", { class: "label" }, `Copy · versão ${st.version.number}`), st.version.copy_text || "");
-    }
+    if (stage === "pauta") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Pauta"), "Aprove o tema e o direcional ao lado. Copy e arte vêm nas próximas etapas.");
+    if (!st.version) return null;
+    if (stage === "copy") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Copy · versão ${st.version.number}`), st.version.copy_text || "");
     const paths = st.version.asset_paths || [];
     return el("div", {},
       el("div", { class: "eyebrow" }, `Arte · versão ${st.version.number}`),
@@ -131,125 +174,143 @@
         const media = /\.mp4$/i.test(p)
           ? el("video", { src: url, controls: true, preload: "metadata" })
           : el("img", { src: url, alt: `Lâmina ${i + 1}`, loading: "lazy" });
-        const children = [media];
-        if (post.format === "carrossel" && paths.length > 1) {
-          children.push(el("textarea", { "data-slide": String(i), placeholder: `Observação da lâmina ${i + 1} (opcional)`, maxlength: "500" }));
-        }
-        return el("div", { class: "slide" }, children);
+        return el("div", { class: "slide" }, media,
+          post.format === "carrossel" && paths.length > 1
+            ? el("textarea", { "data-slide": String(i), placeholder: `Obs. da lâmina ${i + 1}`, maxlength: "500" }) : null);
       })));
   }
 
   function decideForm(post, stage, st) {
     if (stage !== "pauta" && !st.version) return null;
-    let reason = null;
-    if (post.scheduled) reason = "Post agendado. Mudanças agora viram pedido de alteração com a agência.";
-    else if (stage === "pauta" && G.pauteLocked(data, post)) reason = "A arte já subiu, então a pauta está travada.";
-    if (reason) return el("p", { class: "msg" }, reason);
+    if (post.scheduled) return el("p", { class: "msg" }, "Post agendado. Mudanças agora viram pedido de alteração com a agência.");
+    if (stage === "pauta" && G.pauteLocked(data, post)) return el("p", { class: "msg" }, "A arte já subiu, então a pauta está travada.");
 
-    const select = el("select", { "aria-label": "Quem está aprovando" },
-      el("option", { value: "" }, "Quem está aprovando?"),
-      data.approvers.map((a) => el("option", { value: a.slug }, a.name)));
-    select.value = store.get("garten-approver") || "";
-    select.addEventListener("change", () => store.set("garten-approver", select.value));
+    let actor = store.get("garten-approver") || "";
+    const whoBtns = data.approvers.map((a) => el("button", {
+      type: "button", "aria-pressed": String(actor === a.slug),
+      onclick: (e) => {
+        actor = a.slug; store.set("garten-approver", a.slug);
+        whoBtns.forEach((b) => b.setAttribute("aria-pressed", String(b === e.currentTarget)));
+      },
+    }, a.name));
     const note = el("textarea", { placeholder: "Observação ou motivo do ajuste", maxlength: "1500" });
     const msg = el("p", { class: "msg", role: "status" });
-
-    async function send(status, btns, form) {
-      msg.className = "msg";
-      if (!select.value) { msg.className = "msg err"; msg.textContent = "Selecione quem está aprovando."; return; }
-      if (status === "reprovado" && note.value.trim().length < 3) { msg.className = "msg err"; msg.textContent = "Conte o motivo do ajuste."; note.focus(); return; }
-      const slide_notes = {};
-      form.closest(".stage-body")?.querySelectorAll("textarea[data-slide]").forEach((t) => {
-        if (t.value.trim()) slide_notes[t.dataset.slide] = t.value.trim();
-      });
-      btns.forEach((b) => (b.disabled = true));
-      msg.textContent = "Salvando…";
-      try {
-        const next = await api("POST", { post_id: post.id, stage, status, actor: select.value, note: note.value, slide_notes });
-        data = { ...data, ...next };
-        render(post.id);
-      } catch (e) {
-        msg.className = "msg err"; msg.textContent = e.message;
-        btns.forEach((b) => (b.disabled = false));
-      }
-    }
     const ok = el("button", { class: "btn ok", type: "button" }, "Aprovar");
     const bad = el("button", { class: "btn bad", type: "button" }, "Pedir ajuste");
+
+    async function send(status) {
+      msg.className = "msg";
+      if (!actor) { msg.className = "msg err"; msg.textContent = "Quem está respondendo?"; return; }
+      if (status === "reprovado" && note.value.trim().length < 3) { msg.className = "msg err"; msg.textContent = "Conte o que precisa ajustar."; note.focus(); return; }
+      const slide_notes = {};
+      form.closest(".card-side")?.querySelectorAll("textarea[data-slide]").forEach((t) => {
+        if (t.value.trim()) slide_notes[t.dataset.slide] = t.value.trim();
+      });
+      ok.disabled = bad.disabled = true; msg.textContent = "Salvando…";
+      try {
+        data = { ...data, ...(await api("POST", { post_id: post.id, stage, status, actor, note: note.value, slide_notes })) };
+        refresh(post.id);
+      } catch (e) { msg.className = "msg err"; msg.textContent = e.message; ok.disabled = bad.disabled = false; }
+    }
+    ok.addEventListener("click", () => send("aprovado"));
+    bad.addEventListener("click", () => send("reprovado"));
     const form = el("div", { class: "decide" },
-      el("div", { class: "decide-row" }, select), note, el("div", { class: "decide-row" }, ok, bad), msg);
-    ok.addEventListener("click", () => send("aprovado", [ok, bad], form));
-    bad.addEventListener("click", () => send("reprovado", [ok, bad], form));
+      el("div", { class: "eyebrow" }, "Resposta da Garten"),
+      el("div", { class: "who" }, whoBtns), note, el("div", { class: "decide-row" }, ok, bad), msg);
     return form;
   }
 
   function card(post) {
     const d = G.fmtDate(post.post_date);
     const states = Object.fromEntries(G.STAGES.map((s) => [s.key, G.stageState(data, post, s.key)]));
-    const defaultTab = ["arte", "copy"].find((k) => states[k].version) || "pauta";
-    const current = openTab[post.id] || defaultTab;
-    const body = el("div", { class: "stage-body" });
-
-    const tabs = G.STAGES.map((s) => {
-      const st = states[s.key];
-      return el("button", {
-        class: "stage-tab", type: "button", role: "tab", "aria-selected": String(s.key === current),
-        disabled: s.key !== "pauta" && !st.version,
-        onclick: () => { openTab[post.id] = s.key; render(post.id); },
-      }, s.label, el("span", { class: `pill ${st.status}` }, G.STATUS_LABEL[st.status]));
-    });
-
+    const current = openTab[post.id] || ["arte", "copy"].find((k) => states[k].version) || "pauta";
     const st = states[current];
-    body.append(stageContent(post, current, st));
-    if (st.last?.status === "contestado") {
-      body.append(el("p", { class: "msg" }, "A agência contestou o ajuste. Vejam o argumento no histórico e decidam de novo."));
-    }
-    const form = decideForm(post, current, st);
-    if (form) body.append(form);
-    const hist = G.historyList(data, st.decisions);
-    if (hist) body.append(hist);
+    const longDate = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
-    return el("article", { class: "card reveal", id: `post-${post.id}` },
-      el("div", { class: "card-head" },
-        el("div", { class: "date-badge" }, el("b", {}, d.getDate()), el("span", {}, G.DOW[d.getDay()])),
-        el("div", {},
-          el("div", { class: "chips" },
-            el("span", { class: "chip fmt" }, G.FORMATS[post.format] || post.format),
-            post.theme ? el("span", { class: "chip" }, post.theme) : null,
-            post.scheduled ? el("span", { class: "chip lock" }, "Agendado") : null),
-          el("h3", {}, post.title),
-          post.objective ? el("p", { class: "obj" }, post.objective) : null)),
+    const tabs = G.STAGES.map((s) => el("button", {
+      class: "stage-tab", type: "button", role: "tab", "aria-selected": String(s.key === current),
+      disabled: s.key !== "pauta" && !states[s.key].version,
+      onclick: () => { openTab[post.id] = s.key; refresh(post.id); },
+    }, s.label, el("span", { class: `pill ${states[s.key].status}` }, G.STATUS_LABEL[states[s.key].status])));
+
+    const side = el("div", { class: "card-side" },
       el("div", { class: "stages", role: "tablist" }, tabs),
-      body);
+      el("div", { class: "stage-body" },
+        stageContent(post, current, st),
+        st.last?.status === "contestado" ? el("p", { class: "msg" }, "A agência contestou o ajuste. Veja o argumento no histórico e decida de novo.") : null,
+        decideForm(post, current, st),
+        G.historyList(data, st.decisions)));
+
+    const checklist = post.checklist || [];
+    return el("article", { class: "card reveal", id: `post-${post.id}`, "data-status": G.postSummary(data, post) },
+      el("div", { class: "date-col" }, el("b", {}, d.getDate()), el("span", {}, `${G.DOW[d.getDay()]} · ${G.MONTHS[d.getMonth()]}`)),
+      el("div", { class: "card-body" },
+        el("div", { class: "card-main" },
+          el("h3", {}, post.title),
+          el("div", { class: "meta" },
+            el("span", { class: "mono" }, longDate[0].toUpperCase() + longDate.slice(1)),
+            el("span", { class: "chip" }, G.FORMATS[post.format] || post.format),
+            post.theme ? el("span", {}, post.theme) : null,
+            post.scheduled ? el("span", { class: "chip lock" }, "Agendado") : null),
+          post.objective ? el("p", { class: "objective" }, `Objetivo: ${post.objective}`) : null,
+          post.direction ? el("p", { class: "direction" }, post.direction) : null,
+          checklist.length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
+            el("ul", {}, checklist.map((c) => el("li", {}, c)))) : null),
+        side));
+  }
+
+  // ---------- Barra fixa ----------
+  function goTo(id) {
+    document.getElementById(`post-${id}`)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }
+  function dock() {
+    const c = counts();
+    const next = el("button", { class: "btn dark", type: "button", disabled: c.pendente === 0 }, c.pendente ? "Próximo sem resposta" : "Tudo respondido ✓");
+    next.addEventListener("click", () => {
+      const pend = [...document.querySelectorAll('.card[data-status="pendente"]')];
+      const after = pend.find((n) => n.getBoundingClientRect().top > 80) || pend[0];
+      after?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    });
+    const up = el("button", { class: "btn ghost", type: "button", onclick: () => document.getElementById("calendario")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" }) }, "↑ Calendário");
+    const hidden = window.scrollY < (document.querySelector(".hero")?.offsetHeight || 0) - 80;
+    return el("div", { class: `dock${hidden ? " hide" : ""}`, id: "dock", role: "region", "aria-label": "Progresso do mês" },
+      el("div", { class: "counts" },
+        el("span", { class: "count" }, el("b", {}, c.aprovado), " aprovados"),
+        el("span", { class: "count" }, el("b", {}, c.ajuste), " com ajuste"),
+        el("span", { class: "count" }, el("b", {}, c.pendente), " sem resposta")),
+      up, next);
   }
 
   function observe() {
     const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => {
       es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
-    }, { threshold: 0.08 }) : null;
-    document.querySelectorAll(".reveal").forEach((n) => io ? io.observe(n) : n.classList.add("in"));
+    }, { threshold: 0.06 }) : null;
+    document.querySelectorAll(".reveal:not(.in)").forEach((n) => io ? io.observe(n) : n.classList.add("in"));
   }
 
-  function render(keepPostId) {
-    if (keepPostId) {
-      // re-render só o card alterado e o topo, sem pular a página
-      const old = document.getElementById(`post-${keepPostId}`);
-      const post = data.posts.find((p) => p.id === keepPostId);
-      if (old && post) { const n = card(post); n.classList.add("in"); old.replaceWith(n); }
-      const h = app.querySelector(".hero"); if (h) h.replaceWith(hero());
-      const cal = app.querySelector(".cal")?.closest("section"); const nc = calendar(); if (cal && nc) { nc.classList.add("in"); cal.replaceWith(nc); }
-      return;
-    }
+  // Re-render parcial: card alterado, calendário e barra, sem pular a página
+  function refresh(postId) {
+    const post = data.posts.find((p) => p.id === postId);
+    const old = document.getElementById(`post-${postId}`);
+    if (post && old) { const n = card(post); n.classList.add("in"); old.replaceWith(n); }
+    const cal = document.getElementById("calendario"); const nc = calendar();
+    if (cal && nc) { nc.classList.add("in"); cal.replaceWith(nc); applyCalendarFilter(); }
+    document.getElementById("dock")?.replaceWith(dock());
+  }
+
+  function render() {
     app.replaceChildren(
       hero(),
-      pilares(),
       calendar() || "",
       el("section", { class: "block wrap" },
-        el("div", { class: "eyebrow reveal" }, "Posts"),
-        el("h2", { class: "reveal" }, "Card a card"),
-        data.posts.length
-          ? el("div", { class: "cards" }, data.posts.map(card))
-          : el("p", { class: "empty-state" }, "Nenhum post cadastrado ainda.")));
+        el("div", { class: "eyebrow reveal" }, "Post a post"),
+        data.posts.length ? el("div", { class: "cards" }, data.posts.map(card)) : el("p", { class: "empty-state" }, "Nenhum post cadastrado ainda.")),
+      data.posts.length ? dock() : "");
     observe();
+    const hero = document.querySelector(".hero");
+    if (hero && "IntersectionObserver" in window) {
+      new IntersectionObserver(([e]) => document.getElementById("dock")?.classList.toggle("hide", e.isIntersecting), { threshold: 0.15 }).observe(hero);
+    }
   }
 
   async function init() {
@@ -258,9 +319,7 @@
       data = await api("GET");
       document.title = `Garten — ${data.month.title}`;
       render();
-    } catch (e) {
-      gate("Não foi possível abrir", e.message);
-    }
+    } catch (e) { gate("Não foi possível abrir", e.message); }
   }
   init();
 })();
