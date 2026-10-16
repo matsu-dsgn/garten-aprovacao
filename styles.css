@@ -272,3 +272,4 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .dock { transition: opacity .3s, transform .3s; }
 .dock.hide { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
 @media (max-width: 720px) { .dock.hide { transform: translateY(20px); } }
+.btn.dark:hover:not(:disabled) { background: var(--neon); color: var(--carbon); }
