@@ -29,6 +29,9 @@ Front estático (GitHub Pages) + Supabase (banco, storage e Edge Function).
 
 Formato do JSON de pauta:
 ```json
-{"posts":[{"date":"2026-12-03","format":"carrossel","theme":"Base sólida","title":"…","objective":"…","direction":"…","checklist":["item 1","item 2"]}]}
+{"posts":[{"date":"2026-12-03","format":"carrossel","editoria":"prazo-certo","theme":"IRPJ trimestral","title":"…","objective":"…","direction":"…","checklist":["item 1","item 2"]}]}
 ```
 `format`: estatico, carrossel, reels ou stories.
+
+`editoria`: prazo-certo, imposto-em-mapa, proximo-passo, do-zero-ao-cnpj ou com-o-gabriel.
+O mix ideal do mês (em %) e o motivo são definidos em "Dados do mês" no painel.

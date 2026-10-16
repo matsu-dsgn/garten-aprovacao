@@ -33,16 +33,17 @@
   const gate = (title, text) => app.replaceChildren(el("div", { class: "gate wrap" }, el("h1", {}, title), el("p", {}, text)));
   const norm = (s) => (s || "").trim().toLowerCase();
 
-  // ---------- Pilares ----------
+  // ---------- Editorias ----------
+  // Linhas editoriais fixas (banco). Cada mês define o mix ideal em overview.mix.
   function pillars() {
-    const ov = (data.month.overview || {}).pilares || [];
-    const names = ov.length ? ov.map((p) => p.nome) : [...new Set(data.posts.map((p) => p.theme).filter(Boolean))];
-    return names.slice(0, 9).map((nome) => ({
-      nome,
-      desc: (ov.find((p) => p.nome === nome) || {}).desc || "",
-      count: data.posts.filter((p) => norm(p.theme) === norm(nome)).length,
+    const mix = (data.month.overview || {}).mix || {};
+    return (data.editorias || []).slice(0, 9).map((e) => ({
+      slug: e.slug, nome: e.name, desc: e.description || "", shape: e.shape,
+      count: data.posts.filter((p) => p.editoria === e.slug).length,
+      ideal: Number.isFinite(+mix[e.slug]) ? +mix[e.slug] : null,
     }));
   }
+  const edName = (slug) => ((data.editorias || []).find((e) => e.slug === slug) || {}).name || "";
 
   function counts() {
     const c = { aprovado: 0, ajuste: 0, pendente: 0 };
@@ -71,54 +72,88 @@
 
     if (!pils.length) return el("section", { class: "hero" }, GartenIso.outline("hero-mark"), el("div", { class: "wrap" }, left));
 
-    const { svg, groups } = GartenIso.build(pils.map((p) => p.nome), pils.map((p) => p.count));
+    const { svg, groups } = GartenIso.build(pils, pils.map((p) => p.count));
     const headName = el("b", {});
     const headCount = el("span", {});
     const chips = pils.map((p, i) => el("button", {
       class: "pil", type: "button", "aria-pressed": "false",
       onclick: () => { stopCycle(); pillarFocus = pillarFocus === i ? null : i; select(i, true); },
       onmouseenter: () => { if (pillarFocus == null) { stopCycle(); select(i); } },
-    }, el("b", {}, p.nome), el("span", {}, `${p.count} de ${total}`)));
+    }, el("b", {}, p.nome), el("span", {}, `${p.count} ${p.count === 1 ? "post" : "posts"}`)));
 
     function select(i, user) {
       const p = pils[i];
       const pct = total ? Math.round((p.count / total) * 100) : 0;
       headName.textContent = `${p.nome} · ${pct}% do mês`;
-      headCount.textContent = p.desc || `${p.count} de ${total} conteúdos`;
+      headCount.textContent = p.desc;
       groups.forEach((g, j) => g?.classList.toggle("on", j === i));
       chips.forEach((c, j) => c.setAttribute("aria-pressed", String(user ? pillarFocus === j : j === i)));
       if (user) applyCalendarFilter();
     }
     groups.forEach((g, i) => g?.addEventListener("click", () => chips[i].click()));
 
-    let cur = 0;
-    select(0);
+    let cur = pils.reduce((best, p, i) => (p.count > pils[best].count ? i : best), 0);
+    select(cur);
     stopCycle();
     if (!reduce && pils.length > 1) cycleTimer = setInterval(() => { cur = (cur + 1) % pils.length; select(cur); }, 3200);
 
     return el("section", { class: "hero" }, GartenIso.outline("hero-mark"), el("div", { class: "wrap hero-grid" },
       left,
       el("div", { class: "iso-wrap" },
-        el("div", { class: "eyebrow" }, "O mês por pilar · toque para filtrar o calendário"),
+        el("div", { class: "eyebrow" }, "O mês por editoria · toque para filtrar o calendário"),
         svg, el("div", { class: "pil-head" }, headName, headCount), el("div", { class: "pils" }, chips))));
   }
   function stopCycle() { if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; } }
 
   function applyCalendarFilter() {
     const p = pillarFocus == null ? null : pillars()[pillarFocus];
-    document.querySelectorAll("[data-theme-name]").forEach((n) => {
-      n.style.opacity = !p || norm(n.dataset.themeName) === norm(p.nome) ? "" : ".3";
+    document.querySelectorAll("[data-ed]").forEach((n) => {
+      n.style.opacity = !p || n.dataset.ed === p.slug ? "" : ".3";
     });
+  }
+
+  // ---------- Mix do mês: ideal x planejado ----------
+  function mixChart() {
+    const pils = pillars();
+    const total = data.posts.length;
+    if (!pils.length || !total) return null;
+    const ov = data.month.overview || {};
+    const hasIdeal = pils.some((p) => p.ideal != null);
+    const rows = pils.map((p) => {
+      const pct = Math.round((p.count / total) * 100);
+      const gap = p.ideal == null ? 0 : pct - p.ideal;
+      const flag = p.ideal == null || Math.abs(gap) < 10 ? null : gap > 0 ? "acima do ideal" : "abaixo do ideal";
+      const fill = el("div", { class: "mix-fill" });
+      requestAnimationFrame(() => setTimeout(() => { fill.style.width = `${pct}%`; }, 120));
+      const marker = p.ideal != null ? el("div", { class: "mix-ideal", title: `Ideal ${p.ideal}%` }) : null;
+      if (marker) marker.style.left = `${Math.min(100, p.ideal)}%`;
+      return el("div", { class: "mix-row", "data-ed": p.slug },
+        el("div", { class: "mix-name" }, el("b", {}, p.nome), el("span", {}, `${p.count} ${p.count === 1 ? "post" : "posts"}`)),
+        el("div", { class: "mix-track", role: "img", "aria-label": `${p.nome}: ${pct}% planejado${p.ideal != null ? `, ideal ${p.ideal}%` : ""}` }, fill, marker),
+        el("div", { class: "mix-val" }, el("b", {}, `${pct}%`),
+          p.ideal != null ? el("span", {}, `ideal ${p.ideal}%`) : null,
+          flag ? el("em", { class: gap > 0 ? "up" : "down" }, flag) : null));
+    });
+    return el("section", { class: "block wrap reveal", id: "mix" },
+      el("div", { class: "sec-head" },
+        el("div", {}, el("div", { class: "eyebrow" }, "O mix do mês"),
+          el("h2", {}, hasIdeal ? "Ideal × planejado" : "Posts por editoria")),
+        hasIdeal ? el("div", { class: "legend" },
+          el("span", {}, el("i", { class: "mix-key-fill" }), "Planejado"),
+          el("span", {}, el("i", { class: "mix-key-ideal" }), "Ideal do mês")) : null),
+      el("div", { class: "mix" },
+        ov.mix_motivo ? el("p", { class: "mix-why" }, ov.mix_motivo) : null,
+        rows));
   }
 
   // ---------- Calendário ----------
   function calPost(p) {
     const s = G.postSummary(data, p);
     return el("button", {
-      class: "cal-post", type: "button", "data-theme-name": p.theme || "",
+      class: "cal-post", type: "button", "data-ed": p.editoria || "",
       onclick: () => goTo(p.id),
     }, el("b", {}, el("i", { class: `dot ${s}` }), p.title),
-      el("span", {}, [G.FORMATS[p.format], p.theme].filter(Boolean).join(" · ")));
+      el("span", {}, [G.FORMATS[p.format], edName(p.editoria)].filter(Boolean).join(" · ")));
   }
 
   function calendar() {
@@ -250,6 +285,7 @@
           el("div", { class: "meta" },
             el("span", { class: "mono" }, longDate[0].toUpperCase() + longDate.slice(1)),
             el("span", { class: "chip" }, G.FORMATS[post.format] || post.format),
+            post.editoria ? el("span", { class: "chip ed" }, edName(post.editoria)) : null,
             post.theme ? el("span", {}, post.theme) : null,
             post.scheduled ? el("span", { class: "chip lock" }, "Agendado") : null),
           post.objective ? el("p", { class: "objective" }, `Objetivo: ${post.objective}`) : null,
@@ -301,6 +337,7 @@
   function render() {
     app.replaceChildren(
       hero(),
+      mixChart() || "",
       calendar() || "",
       el("section", { class: "block wrap" },
         el("div", { class: "eyebrow reveal" }, "Post a post"),

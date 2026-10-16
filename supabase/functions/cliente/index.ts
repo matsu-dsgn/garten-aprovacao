@@ -57,10 +57,10 @@ async function authMonth(slug: string | null, token: string | null) {
 
 async function loadState(month: { id: string }) {
   const { data: posts } = await db.from("posts")
-    .select("id, post_date, format, theme, title, objective, direction, checklist, scheduled, sort")
+    .select("id, post_date, format, theme, editoria, title, objective, direction, checklist, scheduled, sort")
     .eq("month_id", month.id).order("post_date").order("sort");
   const ids = (posts ?? []).map((p) => p.id);
-  const [{ data: versions }, { data: decisions }, { data: approvers }] = await Promise.all([
+  const [{ data: versions }, { data: decisions }, { data: approvers }, { data: editorias }] = await Promise.all([
     ids.length
       ? db.from("versions").select("id, post_id, stage, number, copy_text, asset_paths, created_at")
         .in("post_id", ids).order("number")
@@ -70,6 +70,7 @@ async function loadState(month: { id: string }) {
         .in("post_id", ids).order("created_at")
       : Promise.resolve({ data: [] }),
     db.from("approvers").select("slug, name, is_final").eq("active", true).order("is_final", { ascending: false }),
+    db.from("editorias").select("slug, name, description, shape, sort").eq("active", true).order("sort"),
   ]);
 
   // URLs assinadas (1h) só para arquivos deste mês
@@ -79,7 +80,7 @@ async function loadState(month: { id: string }) {
     const { data: signed } = await db.storage.from("artes").createSignedUrls(paths, 3600);
     for (const s of signed ?? []) if (s.path && s.signedUrl) urls[s.path] = s.signedUrl;
   }
-  return { posts, versions, decisions, approvers, urls };
+  return { posts, versions, decisions, approvers, editorias, urls };
 }
 
 async function decide(req: Request, month: { id: string }) {

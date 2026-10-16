@@ -273,3 +273,29 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .dock.hide { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
 @media (max-width: 720px) { .dock.hide { transform: translateY(20px); } }
 .btn.dark:hover:not(:disabled) { background: var(--neon); color: var(--carbon); }
+.iso .block.filler polygon { opacity: .5; }
+.iso .block.zero:not(.on) polygon { opacity: .45; }
+.iso .block { cursor: pointer; }
+
+/* Mix do mês */
+.mix { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); display: grid; gap: 16px; }
+.mix-why { color: var(--ink-2); max-width: 70ch; border-left: 2px solid var(--accent-ink); padding-left: 14px; }
+.mix-row { display: grid; grid-template-columns: 200px 1fr 170px; gap: 16px; align-items: center; transition: opacity .3s; }
+.mix-name b { display: block; color: var(--ink); font-weight: 600; }
+.mix-name span, .mix-val span { font-size: 13px; color: var(--ink-soft); }
+.mix-track { position: relative; height: 14px; background: var(--surface-2); border-radius: 99px; }
+.mix-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-ink); border-radius: 99px; transition: width 1s cubic-bezier(.2,.8,.2,1); }
+.mix-ideal { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1.5px; background: var(--ink); border-radius: 2px; }
+.mix-val { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.mix-val b { font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--ink); }
+.mix-val em { font-style: normal; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--bad-bg); color: var(--bad); }
+.mix-val em.down { background: var(--pend-bg); color: var(--pend); }
+.legend i.mix-key-fill { width: 16px; height: 8px; border-radius: 99px; background: var(--accent-ink); }
+.legend i.mix-key-ideal { width: 3px; height: 14px; border-radius: 2px; background: var(--ink); }
+.chip.ed { background: transparent; border-color: var(--accent-ink); color: var(--accent-ink); }
+@media (max-width: 720px) {
+  .mix-row { grid-template-columns: 1fr auto; gap: 6px 12px; }
+  .mix-track { grid-column: 1 / -1; grid-row: 2; }
+  .mix-val { justify-content: end; }
+}
+@media (prefers-reduced-motion: reduce) { .mix-fill { transition: none; } }

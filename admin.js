@@ -12,6 +12,7 @@
   const TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4" };
 
   let months = [];
+  let editorias = [];
   let current = null; // mês aberto
   let data = null;    // posts/versions/decisions/approvers do mês
 
@@ -50,6 +51,8 @@
         el("button", { class: "btn ghost", onclick: async () => { await sb.auth.signOut(); loginView(); } }, "Sair")));
       return;
     }
+    const { data: eds } = await sb.from("editorias").select("*").eq("active", true).order("sort");
+    editorias = eds || [];
     await loadMonths();
   }
 
@@ -62,24 +65,40 @@
     current ? openMonth(current) : monthsView();
   }
 
-  function parsePilares(text) {
-    return text.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 8).map((l) => {
-      const [nome, ...rest] = l.split(/\s+[—-]\s+/);
-      return { nome: nome.slice(0, 60), desc: rest.join(" — ").slice(0, 200) };
-    });
-  }
-
   function monthForm(m) {
     const slug = el("input", { type: "text", value: m?.slug || "", placeholder: "2026-11", disabled: !!m });
-    const title = el("input", { type: "text", value: m?.title || "", maxlength: "120", placeholder: "Novembro 2026" });
+    const title = el("input", { type: "text", value: m?.title || "", maxlength: "40", placeholder: "Novembro" });
     const intro = el("textarea", { maxlength: "400", placeholder: "Frase de abertura do mês" });
     intro.value = m?.overview?.intro || "";
-    const pil = el("textarea", { placeholder: "Um pilar por linha: Nome — descrição" });
-    pil.value = (m?.overview?.pilares || []).map((p) => `${p.nome} — ${p.desc}`).join("\n");
+    // Mix ideal do mês, em % por editoria (soma deve dar 100)
+    const mixIn = {};
+    const sum = el("span", { class: "msg" });
+    const updSum = () => {
+      const t = Object.values(mixIn).reduce((a, i) => a + (parseInt(i.value, 10) || 0), 0);
+      sum.textContent = `Soma: ${t}%`; sum.className = t === 100 || t === 0 ? "msg" : "msg err";
+      return t;
+    };
+    const mixFields = editorias.map((e) => {
+      const i = el("input", { type: "number", min: "0", max: "100", step: "5", inputmode: "numeric", placeholder: "0" });
+      const v = m?.overview?.mix?.[e.slug]; if (v != null) i.value = String(v);
+      i.addEventListener("input", updSum);
+      mixIn[e.slug] = i;
+      return field(`${e.name} (%)`, i);
+    });
+    const why = el("textarea", { maxlength: "400", placeholder: "Por que esse mix neste mês? (aparece para o cliente)" });
+    why.value = m?.overview?.mix_motivo || "";
+    updSum();
     const out = msg("");
     const save = el("button", { class: "btn dark" }, m ? "Salvar mês" : "Criar mês");
     save.addEventListener("click", async () => {
-      const row = { title: title.value.trim(), overview: { intro: intro.value.trim().slice(0, 400), pilares: parsePilares(pil.value) } };
+      const mix = {};
+      for (const [k, i] of Object.entries(mixIn)) {
+        const n = parseInt(i.value, 10);
+        if (Number.isFinite(n)) mix[k] = Math.max(0, Math.min(100, n));
+      }
+      const t = updSum();
+      if (t !== 0 && t !== 100) { out.className = "msg err"; out.textContent = "O mix ideal precisa somar 100% (ou ficar vazio)."; return; }
+      const row = { title: title.value.trim(), overview: { intro: intro.value.trim().slice(0, 400), mix, mix_motivo: why.value.trim().slice(0, 400) } };
       if (!row.title) { out.className = "msg err"; out.textContent = "Dê um título ao mês."; return; }
       let res;
       if (m) res = await sb.from("months").update(row).eq("id", m.id).select().single();
@@ -94,7 +113,10 @@
     return el("section", { class: "panel" },
       el("h2", {}, m ? "Dados do mês" : "Novo mês"),
       el("div", { class: "grid2" }, field("Slug do link", slug), field("Título", title)),
-      field("Intro", intro), field("Pilares", pil), el("div", { class: "row" }, save), out);
+      field("Intro", intro),
+      el("div", { class: "eyebrow" }, "Mix ideal por editoria"),
+      el("div", { class: "grid2" }, mixFields), sum, field("Motivo do mix", why),
+      el("div", { class: "row" }, save), out);
   }
 
   function monthsView() {
@@ -164,10 +186,12 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || "")) errs.push("date (AAAA-MM-DD)");
     if (!FORMATS.includes(p.format)) errs.push(`format (${FORMATS.join("/")})`);
     if (!p.title || String(p.title).length > 160) errs.push("title (até 160)");
+    if (p.editoria && !editorias.some((e) => e.slug === p.editoria)) errs.push(`editoria (${editorias.map((e) => e.slug).join("/")})`);
     if (errs.length) throw new Error(`Post ${i + 1}: ${errs.join(", ")}`);
     return {
       post_date: p.date, format: p.format, title: String(p.title).trim(),
       theme: p.theme ? String(p.theme).slice(0, 60) : null,
+      editoria: p.editoria || null,
       objective: p.objective ? String(p.objective).slice(0, 400) : null,
       direction: p.direction ? String(p.direction).slice(0, 4000) : null,
       checklist: Array.isArray(p.checklist) ? p.checklist.slice(0, 15).map((c) => String(c).trim().slice(0, 300)).filter(Boolean) : [],
@@ -248,6 +272,14 @@
       try { await uploadArte(m, p, fileIn.files, out); openMonth(m); } catch (e) { fail(e); arteBtn.disabled = false; }
     });
 
+    const edSel = el("select", { "aria-label": "Editoria" },
+      el("option", { value: "" }, "Sem editoria"),
+      editorias.map((e) => el("option", { value: e.slug }, e.name)));
+    edSel.value = p.editoria || "";
+    edSel.addEventListener("change", async () => {
+      const { error } = await sb.from("posts").update({ editoria: edSel.value || null }).eq("id", p.id);
+      error ? fail(error) : (out.className = "msg okk", out.textContent = "Editoria salva.");
+    });
     const sched = el("button", { class: "btn ghost" }, p.scheduled ? "Desmarcar agendado" : "Marcar como agendado");
     sched.addEventListener("click", async () => {
       const { error } = await sb.from("posts").update({ scheduled: !p.scheduled }).eq("id", p.id);
@@ -286,7 +318,7 @@
           fileIn, el("div", { class: "row" }, arteBtn))),
       contests,
       G.STAGES.map((s) => G.historyList(data, states[s.key].decisions)),
-      el("div", { class: "row" }, sched, del), out);
+      el("div", { class: "row" }, edSel, sched, del), out);
   }
 
   async function exportJson(m) {
