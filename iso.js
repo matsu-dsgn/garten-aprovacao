@@ -113,9 +113,13 @@ window.GartenIso = (() => {
   function sprout(g, cx, cy, top) {
     const [sx, sy] = P(cx, cy, top);
     const hgt = 30, sc = hgt / 538, wid = 478.4 * sc;
+    const stem = 22;
     const s = node("g", { class: "sprout" }, g);
+    node("path", { class: "stem", d: `M${sx},${sy} C${sx - 4},${sy - stem * 0.4} ${sx + 4},${sy - stem * 0.7} ${sx},${sy - stem}` }, s);
+    node("path", { class: "leaflet", d: `M${sx + 1},${sy - stem * 0.45} q9,-3 12,-11 q-9,0 -12,11 z` }, s);
     const inner = node("g", { class: "sprout-float" }, s);
-    node("path", { d: SYMBOL, transform: `translate(${(sx - wid / 2).toFixed(1)},${(sy - hgt - 12).toFixed(1)}) scale(${sc.toFixed(4)})` }, inner);
+    const spin = node("g", { class: "sprout-spin" }, inner);
+    node("path", { class: "symbol", d: SYMBOL, transform: `translate(${(sx - wid / 2).toFixed(1)},${(sy - stem - hgt).toFixed(1)}) scale(${sc.toFixed(4)})` }, spin);
   }
 
   // Pulso no chão do lote ativo

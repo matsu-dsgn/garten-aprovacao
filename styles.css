@@ -376,3 +376,13 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .iso .sprout path { vector-effect: none; }
 .iso .sprout-float { transform-box: fill-box; transform-origin: center; }
 @keyframes iso-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* Exceção ao DS só na ilustração: símbolo com contorno, caule e giro */
+.iso .sprout .symbol { fill: var(--neon); stroke: var(--carbon); stroke-width: 1.4; vector-effect: non-scaling-stroke; paint-order: stroke; }
+.iso .sprout .stem { fill: none; stroke: var(--neon); stroke-width: 2.2; vector-effect: non-scaling-stroke; }
+.iso .sprout .leaflet { fill: var(--neon); stroke: var(--carbon); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.iso .sprout-spin { transform-box: fill-box; transform-origin: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .iso .block.on .sprout-spin { animation: iso-spin 3.6s ease-in-out infinite; }
+}
+@keyframes iso-spin { 0%, 35% { transform: scaleX(1); } 50% { transform: scaleX(-1); } 65%, 100% { transform: scaleX(1); } }
