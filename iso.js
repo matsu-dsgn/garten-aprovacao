@@ -33,7 +33,7 @@ window.GartenIso = (() => {
   const ORDER = [4, 1, 3, 5, 7, 0, 2, 6, 8]; // centro primeiro, depois em volta
 
   function build(pilares, counts) {
-    const svg = node("svg", { class: "iso", viewBox: "-250 -235 500 445", role: "img", "aria-label": "Ilustração: um bloco por pilar do mês" });
+    const svg = node("svg", { class: "iso", viewBox: "-250 -215 500 470", role: "img", "aria-label": "Ilustração: um bloco por pilar do mês" });
     const n = Math.min(pilares.length, 9);
     const max = Math.max(1, ...counts);
 
