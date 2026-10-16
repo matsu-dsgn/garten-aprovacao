@@ -35,3 +35,12 @@ Formato do JSON de pauta:
 
 `editoria`: prazo-certo, imposto-em-mapa, proximo-passo, do-zero-ao-cnpj ou com-o-gabriel.
 O mix ideal do mês (em %) e o motivo são definidos em "Dados do mês" no painel.
+
+## Oportunidades
+Posts fora do calendário. Criados em "⚡ Nova oportunidade" no painel: pulam a pauta, o cliente aprova o post pronto (copy + arte).
+Origem "Pedido do cliente" + prazo de resposta mostra contagem regressiva no card. Não entram no ideal × planejado.
+No JSON: `"kind":"oportunidade","origin":"cliente"`.
+"Copiar link do post" gera um link que abre a página direto no card (usa o link do mês salvo neste navegador).
+
+## Editorias sazonais
+`13-e-fim-de-ano` (prédio em portal) só aparece no mês em que tiver % no mix ideal ou algum post.

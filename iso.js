@@ -57,6 +57,13 @@ window.GartenIso = (() => {
       box(g, x + 0.45, y + 0.45, 0.9, 0.9, 1.1 * k, c + 0.3);
       return [x + 0.9, y + 0.9, c + 0.3 + 1.1 * k];
     },
+    portal(g, x, y, k) {
+      const h = 1.2 + 1.4 * k;
+      box(g, x + 0.2, y + 0.5, 0.38, 0.8, h);
+      box(g, x + 1.22, y + 0.5, 0.38, 0.8, h);
+      box(g, x + 0.1, y + 0.42, 1.6, 0.96, 0.42, h);
+      return [x + 0.9, y + 0.9, h + 0.42];
+    },
     pavilhao(g, x, y, k) {
       const h = 0.45 + 0.6 * k;
       box(g, x + 0.15, y + 0.3, 1.5, 1.2, h);

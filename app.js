@@ -37,12 +37,38 @@
   // Linhas editoriais fixas (banco). Cada mês define o mix ideal em overview.mix.
   function pillars() {
     const mix = (data.month.overview || {}).mix || {};
-    return (data.editorias || []).slice(0, 9).map((e) => ({
-      slug: e.slug, nome: e.name, desc: e.description || "", shape: e.shape,
-      count: data.posts.filter((p) => p.editoria === e.slug).length,
-      ideal: Number.isFinite(+mix[e.slug]) ? +mix[e.slug] : null,
-    }));
+    const planned = data.posts.filter((p) => p.kind !== "oportunidade");
+    return (data.editorias || [])
+      .filter((e) => !e.seasonal || +mix[e.slug] > 0 || data.posts.some((p) => p.editoria === e.slug))
+      .slice(0, 9).map((e) => ({
+        slug: e.slug, nome: e.name, desc: e.description || "", shape: e.shape,
+        count: planned.filter((p) => p.editoria === e.slug).length,
+        ideal: mix[e.slug] != null && Number.isFinite(+mix[e.slug]) ? +mix[e.slug] : null,
+      }));
   }
+  const isOpp = (p) => p.kind === "oportunidade";
+  const plannedTotal = () => data.posts.filter((p) => !isOpp(p)).length;
+
+  // Prazo de resposta das oportunidades
+  function deadlineText(iso) {
+    const t = new Date(iso), now = Date.now(), diff = t - now;
+    const when = t.toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    if (diff <= 0) return { text: `Prazo vencido (${when})`, level: "over" };
+    const h = Math.floor(diff / 3600e3), m = Math.floor((diff % 3600e3) / 60e3);
+    const left = h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : h ? `${h}h ${m}min` : `${m}min`;
+    return { text: `Responder até ${when} · faltam ${left}`, level: diff < 2 * 3600e3 ? "soon" : "ok" };
+  }
+  function deadlineChip(post) {
+    if (!isOpp(post) || !post.respond_by || post.scheduled) return null;
+    if (G.postSummary(data, post) === "aprovado") return null;
+    const n = el("span", { class: "chip deadline", "data-deadline": post.respond_by });
+    const d = deadlineText(post.respond_by); n.textContent = d.text; n.dataset.level = d.level;
+    return n;
+  }
+  setInterval(() => document.querySelectorAll("[data-deadline]").forEach((n) => {
+    const d = deadlineText(n.dataset.deadline); n.textContent = d.text; n.dataset.level = d.level;
+  }), 30000);
+  const oppBadge = (p) => isOpp(p) ? el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido de vocês" : "Oportunidade") : null;
   const edName = (slug) => ((data.editorias || []).find((e) => e.slug === slug) || {}).name || "";
 
   function counts() {
@@ -83,7 +109,8 @@
 
     function select(i, user) {
       const p = pils[i];
-      const pct = total ? Math.round((p.count / total) * 100) : 0;
+      const pt = plannedTotal();
+      const pct = pt ? Math.round((p.count / pt) * 100) : 0;
       headName.textContent = `${p.nome} · ${pct}% do mês`;
       headCount.textContent = p.desc;
       groups.forEach((g, j) => g?.classList.toggle("on", j === i));
@@ -115,7 +142,8 @@
   // ---------- Mix do mês: ideal x planejado ----------
   function mixChart() {
     const pils = pillars();
-    const total = data.posts.length;
+    const total = plannedTotal();
+    const opps = data.posts.filter(isOpp).length;
     if (!pils.length || !total) return null;
     const ov = data.month.overview || {};
     const hasIdeal = pils.some((p) => p.ideal != null);
@@ -143,7 +171,8 @@
           el("span", {}, el("i", { class: "mix-key-ideal" }), "Ideal do mês")) : null),
       el("div", { class: "mix" },
         ov.mix_motivo ? el("p", { class: "mix-why" }, ov.mix_motivo) : null,
-        rows));
+        rows,
+        opps ? el("p", { class: "mix-opps" }, `+ ${opps} ${opps === 1 ? "oportunidade" : "oportunidades"} no mês, fora da conta do planejado`) : null));
   }
 
   // ---------- Calendário ----------
@@ -152,7 +181,7 @@
     return el("button", {
       class: "cal-post", type: "button", "data-ed": p.editoria || "",
       onclick: () => goTo(p.id),
-    }, el("b", {}, el("i", { class: `dot ${s}` }), p.title),
+    }, el("b", {}, el("i", { class: `dot ${s}` }), isOpp(p) ? el("em", { class: "opp-mark", title: "Oportunidade" }, "⚡") : null, p.title),
       el("span", {}, [G.FORMATS[p.format], edName(p.editoria)].filter(Boolean).join(" · ")));
   }
 
@@ -202,8 +231,10 @@
     if (!st.version) return null;
     if (stage === "copy") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Copy · versão ${st.version.number}`), st.version.copy_text || "");
     const paths = st.version.asset_paths || [];
-    return el("div", {},
-      el("div", { class: "eyebrow" }, `Arte · versão ${st.version.number}`),
+    const oppCopy = isOpp(post) ? G.latestVersion(data.versions, post.id, "copy") : null;
+    return el("div", { class: "stack-0" },
+      oppCopy ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Legenda"), oppCopy.copy_text || "") : null,
+      el("div", { class: "eyebrow" }, isOpp(post) ? `Post pronto · versão ${st.version.number}` : `Arte · versão ${st.version.number}`),
       el("div", { class: "slides" }, paths.map((p, i) => {
         const url = data.urls[p];
         const media = /\.mp4$/i.test(p)
@@ -258,11 +289,14 @@
   function card(post) {
     const d = G.fmtDate(post.post_date);
     const states = Object.fromEntries(G.STAGES.map((s) => [s.key, G.stageState(data, post, s.key)]));
-    const current = openTab[post.id] || ["arte", "copy"].find((k) => states[k].version) || "pauta";
+    const opp = isOpp(post);
+    const current = opp ? "arte" : (openTab[post.id] || ["arte", "copy"].find((k) => states[k].version) || "pauta");
     const st = states[current];
     const longDate = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
-    const tabs = G.STAGES.map((s) => el("button", {
+    const tabs = opp
+      ? [el("div", { class: "stage-tab", "aria-selected": "true" }, "Post pronto", el("span", { class: `pill ${states.arte.status}` }, G.STATUS_LABEL[states.arte.status]))]
+      : G.STAGES.map((s) => el("button", {
       class: "stage-tab", type: "button", role: "tab", "aria-selected": String(s.key === current),
       disabled: s.key !== "pauta" && !states[s.key].version,
       onclick: () => { openTab[post.id] = s.key; refresh(post.id); },
@@ -271,16 +305,17 @@
     const side = el("div", { class: "card-side" },
       el("div", { class: "stages", role: "tablist" }, tabs),
       el("div", { class: "stage-body" },
-        stageContent(post, current, st),
+        opp && !st.version ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Em produção"), "Estamos finalizando este post. Ele aparece aqui pronto para aprovação.") : stageContent(post, current, st),
         st.last?.status === "contestado" ? el("p", { class: "msg" }, "A agência contestou o ajuste. Veja o argumento no histórico e decida de novo.") : null,
         decideForm(post, current, st),
         G.historyList(data, st.decisions)));
 
     const checklist = post.checklist || [];
-    return el("article", { class: "card reveal", id: `post-${post.id}`, "data-status": G.postSummary(data, post) },
+    return el("article", { class: `card reveal${opp ? " is-opp" : ""}`, id: `post-${post.id}`, "data-status": G.postSummary(data, post), "data-opp": opp ? "1" : null },
       el("div", { class: "date-col" }, el("b", {}, d.getDate()), el("span", {}, `${G.DOW[d.getDay()]} · ${G.MONTHS[d.getMonth()]}`)),
       el("div", { class: "card-body" },
         el("div", { class: "card-main" },
+          opp ? el("div", { class: "meta" }, oppBadge(post), deadlineChip(post)) : null,
           el("h3", {}, post.title),
           el("div", { class: "meta" },
             el("span", { class: "mono" }, longDate[0].toUpperCase() + longDate.slice(1)),
@@ -304,7 +339,10 @@
     const next = el("button", { class: "btn dark", type: "button", disabled: c.pendente === 0 }, c.pendente ? "Próximo sem resposta" : "Tudo respondido ✓");
     next.addEventListener("click", () => {
       const pend = [...document.querySelectorAll('.card[data-status="pendente"]')];
-      const after = pend.find((n) => n.getBoundingClientRect().top > 80) || pend[0];
+      // oportunidades pendentes têm prioridade; depois, o próximo pendente abaixo da tela
+      const notHere = (n) => Math.abs(n.getBoundingClientRect().top) > 80;
+      const after = pend.find((n) => n.dataset.opp && notHere(n))
+        || pend.find((n) => n.getBoundingClientRect().top > 80) || pend[0];
       after?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     });
     const up = el("button", { class: "btn ghost", type: "button", onclick: () => document.getElementById("calendario")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" }) }, "↑ Calendário");
@@ -356,6 +394,8 @@
       data = await api("GET");
       document.title = `Garten — ${data.month.title}`;
       render();
+      const target = params.get("p");
+      if (target && /^[0-9a-f-]{36}$/.test(target)) setTimeout(() => goTo(target), 350);
     } catch (e) { gate("Não foi possível abrir", e.message); }
   }
   init();

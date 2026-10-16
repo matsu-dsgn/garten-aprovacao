@@ -151,6 +151,7 @@
         el("button", { class: "btn ghost", onclick: () => { current = null; monthsView(); } }, "← Meses"),
         el("button", { class: "btn ghost", onclick: () => exportJson(m) }, "Exportar JSON")),
       linkPanel(m),
+      oppPanel(m),
       monthForm(m),
       importPanel(m),
       el("section", { class: "panel" }, el("h2", {}, `Posts (${data.posts.length})`),
@@ -166,6 +167,7 @@
       if (error) { out.replaceChildren(msg(error.message, "err")); return; }
       const base = location.href.replace(/admin\.html.*$/, "");
       const url = `${base}index.html?m=${encodeURIComponent(m.slug)}#k=${token}`;
+      try { localStorage.setItem(`garten-link-${m.slug}`, url); } catch { /* ok */ }
       const copy = el("button", { class: "btn ok", onclick: () => navigator.clipboard?.writeText(url) }, "Copiar link");
       out.replaceChildren(el("code", { class: "link" }, url), el("div", { class: "row" }, copy),
         msg("Guarde agora: por segurança, o link não fica salvo em texto e não pode ser recuperado depois."));
@@ -174,11 +176,69 @@
     revoke.addEventListener("click", async () => {
       if (!confirm("Encerrar o link? O cliente perde o acesso até você gerar um novo.")) return;
       const { error } = await sb.rpc("revoke_month_token", { p_month: m.id });
+      try { localStorage.removeItem(`garten-link-${m.slug}`); } catch { /* ok */ }
       out.replaceChildren(error ? msg(error.message, "err") : msg("Link encerrado. O histórico continua salvo.", "okk"));
     });
     return el("section", { class: "panel" }, el("h2", {}, "Link do cliente"),
       el("p", {}, "O link dá acesso só a este mês. Mande pelo WhatsApp para o Wilker e a Letícia."),
       el("div", { class: "row" }, gen, revoke), out);
+  }
+
+  // Prazos rápidos para oportunidade
+  function deadlineFrom(preset) {
+    const d = new Date();
+    if (preset === "2h") d.setHours(d.getHours() + 2);
+    else if (preset === "hoje18") d.setHours(18, 0, 0, 0);
+    else if (preset === "amanha10") { d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); }
+    else return null;
+    return d.toISOString();
+  }
+  const deadlineSelect = () => el("select", { "aria-label": "Prazo de resposta" },
+    el("option", { value: "" }, "Sem prazo"),
+    el("option", { value: "2h" }, "Em 2 horas"),
+    el("option", { value: "hoje18" }, "Hoje às 18h"),
+    el("option", { value: "amanha10" }, "Amanhã às 10h"));
+
+  function postLink(m, p) {
+    let base = null;
+    try { base = localStorage.getItem(`garten-link-${m.slug}`); } catch { /* ok */ }
+    if (!base) {
+      base = prompt("Cole o link do cliente deste mês (o que você mandou no WhatsApp):") || "";
+      if (!/index\.html\?m=.+#k=[0-9a-f]{48}$/.test(base)) { alert("Link inválido. Gere um novo link do mês se não tiver mais o anterior."); return null; }
+      try { localStorage.setItem(`garten-link-${m.slug}`, base); } catch { /* ok */ }
+    }
+    return base.replace("#k=", `&p=${p.id}#k=`);
+  }
+
+  function oppPanel(m) {
+    const title = el("input", { type: "text", maxlength: "160", placeholder: "Título do post" });
+    const date = el("input", { type: "date", value: new Date().toISOString().slice(0, 10) });
+    const format = el("select", {}, FORMATS.map((f) => el("option", { value: f }, G.FORMATS[f])));
+    const ed = el("select", {}, el("option", { value: "" }, "Editoria"), editorias.map((e) => el("option", { value: e.slug }, e.name)));
+    const origin = el("select", {}, el("option", { value: "agencia" }, "Partiu da agência"), el("option", { value: "cliente" }, "Pedido do cliente"));
+    const dl = deadlineSelect(); dl.value = "hoje18";
+    const obj = el("textarea", { maxlength: "400", placeholder: "Por que agora? (contexto da oportunidade)" });
+    const out = msg("");
+    const go = el("button", { class: "btn dark" }, "Criar oportunidade");
+    go.addEventListener("click", async () => {
+      if (!title.value.trim()) { out.className = "msg err"; out.textContent = "Dê um título."; return; }
+      if (!ed.value) { out.className = "msg err"; out.textContent = "Escolha a editoria."; return; }
+      const { error } = await sb.from("posts").insert({
+        month_id: m.id, post_date: date.value, format: format.value, editoria: ed.value,
+        title: title.value.trim(), objective: obj.value.trim().slice(0, 400) || null,
+        kind: "oportunidade", origin: origin.value, respond_by: deadlineFrom(dl.value), sort: 99,
+      });
+      if (error) { out.className = "msg err"; out.textContent = error.message; return; }
+      openMonth(m);
+    });
+    return el("section", { class: "panel" },
+      el("details", {}, el("summary", {}, "⚡ Nova oportunidade"),
+        el("div", { class: "stack" },
+          msg("Post fora do calendário. Pula a pauta: suba copy e arte e o cliente aprova o post pronto."),
+          field("Título", title),
+          el("div", { class: "grid2" }, field("Data", date), field("Formato", format), field("Editoria", ed), field("Origem", origin)),
+          field("Prazo de resposta", dl), field("Contexto", obj),
+          el("div", { class: "row" }, go), out)));
   }
 
   function validPost(p, i) {
@@ -192,6 +252,8 @@
       post_date: p.date, format: p.format, title: String(p.title).trim(),
       theme: p.theme ? String(p.theme).slice(0, 60) : null,
       editoria: p.editoria || null,
+      kind: p.kind === "oportunidade" ? "oportunidade" : "planejado",
+      origin: ["agencia", "cliente"].includes(p.origin) ? p.origin : null,
       objective: p.objective ? String(p.objective).slice(0, 400) : null,
       direction: p.direction ? String(p.direction).slice(0, 4000) : null,
       checklist: Array.isArray(p.checklist) ? p.checklist.slice(0, 15).map((c) => String(c).trim().slice(0, 300)).filter(Boolean) : [],
@@ -280,6 +342,20 @@
       const { error } = await sb.from("posts").update({ editoria: edSel.value || null }).eq("id", p.id);
       error ? fail(error) : (out.className = "msg okk", out.textContent = "Editoria salva.");
     });
+    const linkBtn = el("button", { class: "btn ghost" }, "Copiar link do post");
+    linkBtn.addEventListener("click", async () => {
+      const url = postLink(m, p); if (!url) return;
+      try { await navigator.clipboard.writeText(url); out.className = "msg okk"; out.textContent = "Link do post copiado."; }
+      catch { prompt("Copie o link:", url); }
+    });
+    let dlSel = null;
+    if (p.kind === "oportunidade") {
+      dlSel = deadlineSelect();
+      dlSel.addEventListener("change", async () => {
+        const { error } = await sb.from("posts").update({ respond_by: deadlineFrom(dlSel.value) }).eq("id", p.id);
+        error ? fail(error) : (out.className = "msg okk", out.textContent = "Prazo atualizado.");
+      });
+    }
     const sched = el("button", { class: "btn ghost" }, p.scheduled ? "Desmarcar agendado" : "Marcar como agendado");
     sched.addEventListener("click", async () => {
       const { error } = await sb.from("posts").update({ scheduled: !p.scheduled }).eq("id", p.id);
@@ -318,7 +394,11 @@
           fileIn, el("div", { class: "row" }, arteBtn))),
       contests,
       G.STAGES.map((s) => G.historyList(data, states[s.key].decisions)),
-      el("div", { class: "row" }, edSel, sched, del), out);
+      p.kind === "oportunidade" ? el("div", { class: "row" },
+        el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido do cliente" : "Oportunidade"),
+        p.respond_by ? el("span", { class: "msg" }, `Prazo: ${new Date(p.respond_by).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`) : null,
+        dlSel) : null,
+      el("div", { class: "row" }, edSel, linkBtn, sched, del), out);
   }
 
   async function exportJson(m) {
