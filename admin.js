@@ -147,9 +147,15 @@
       out.replaceChildren(el("code", { class: "link" }, url), el("div", { class: "row" }, copy),
         msg("Guarde agora: por segurança, o link não fica salvo em texto e não pode ser recuperado depois."));
     });
+    const revoke = el("button", { class: "btn bad" }, "Encerrar link");
+    revoke.addEventListener("click", async () => {
+      if (!confirm("Encerrar o link? O cliente perde o acesso até você gerar um novo.")) return;
+      const { error } = await sb.rpc("revoke_month_token", { p_month: m.id });
+      out.replaceChildren(error ? msg(error.message, "err") : msg("Link encerrado. O histórico continua salvo.", "okk"));
+    });
     return el("section", { class: "panel" }, el("h2", {}, "Link do cliente"),
       el("p", {}, "O link dá acesso só a este mês. Mande pelo WhatsApp para o Wilker e a Letícia."),
-      el("div", { class: "row" }, gen), out);
+      el("div", { class: "row" }, gen, revoke), out);
   }
 
   function validPost(p, i) {
