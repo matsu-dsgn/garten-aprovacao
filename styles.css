@@ -356,3 +356,19 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 @keyframes iso-win { 0%, 100% { fill-opacity: 1; } 45% { fill: var(--alabaster); } 55% { fill: var(--neon); } }
 @keyframes iso-sway { 0%, 100% { transform: scale(1) rotate(-4deg); } 50% { transform: scale(1.06) rotate(4deg); } }
 @keyframes iso-pulse { 0% { opacity: .9; transform: scale(.92); } 100% { opacity: 0; transform: scale(1.35); } }
+/* Brutalismo: caixotões, fôrma de tábua, sombras */
+.iso .sill { fill: var(--f-l); stroke: none; }
+.iso .sill.r { fill: #46566d; }
+.iso .board { stroke: var(--line); stroke-width: .5; opacity: .28; }
+.iso .shade { fill: rgba(21,20,25,.45); stroke: none; }
+.iso .drum-side { fill: var(--f-l); }
+.iso .drum-top { fill: var(--f-top); }
+.iso .drum-side.ring { fill: var(--f-r); }
+.iso .block.on .drum-top { fill: var(--neon); }
+.iso .block.on .drum-side { fill: #c6ff9e; }
+.iso .block.on .drum-side.ring { fill: var(--mint); }
+.iso .block.on .sill { fill: #c6ff9e; }
+.iso .block.on .sill.r { fill: #00904f; }
+.iso .block.zero:not(.on) .drum-top { fill: #8fa3b8; }
+.iso .block.zero:not(.on) .drum-side { fill: #6f839c; }
+.iso .block.zero:not(.on) .sill { fill: #6f839c; }
