@@ -120,7 +120,7 @@ h2 { font-size: clamp(26px, 3.4vw, 38px); color: var(--ink); line-height: 1.1; }
 .iso .block.on { transform: translateY(-10px); }
 .iso .sprout { opacity: 0; transform: scale(.4); transform-origin: center bottom; transform-box: fill-box; transition: opacity .4s, transform .5s cubic-bezier(.2,1.4,.4,1); }
 .iso .block.on .sprout { opacity: 1; transform: scale(1); }
-.iso .sprout path { fill: var(--neon); stroke: var(--deep); stroke-width: 1; }
+.iso .sprout path { fill: var(--neon); stroke: none; stroke-width: 1; }
 .iso .base-top { fill: var(--iso-base); stroke: var(--iso-stroke); }
 .iso .base-side { fill: var(--iso-base-side); stroke: var(--iso-stroke); }
 .iso .grid-line { stroke: var(--iso-stroke); stroke-width: .6; opacity: .45; }
@@ -349,7 +349,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 @media (prefers-reduced-motion: no-preference) {
   .iso .block.on { animation: iso-bob 3.2s ease-in-out infinite; }
   .iso .block.on .win { animation: iso-win 2.2s ease-in-out infinite; }
-  .iso .block.on .sprout { animation: iso-sway 2.8s ease-in-out infinite; }
+  .iso .block.on .sprout-float { animation: iso-float 2.8s ease-in-out infinite; }
   .iso .block.on .pulse { animation: iso-pulse 2.4s ease-out infinite; }
 }
 @keyframes iso-bob { 0%, 100% { transform: translateY(-10px); } 50% { transform: translateY(-15px); } }
@@ -372,3 +372,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .iso .block.zero:not(.on) .drum-top { fill: #8fa3b8; }
 .iso .block.zero:not(.on) .drum-side { fill: #6f839c; }
 .iso .block.zero:not(.on) .sill { fill: #6f839c; }
+
+.iso .sprout path { vector-effect: none; }
+.iso .sprout-float { transform-box: fill-box; transform-origin: center; }
+@keyframes iso-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
