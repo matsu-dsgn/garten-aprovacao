@@ -402,3 +402,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .lb-nav.prev { left: 12px; } .lb-nav.next { right: 12px; }
 .lb-count { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: var(--powder); font-size: 14px; }
 @media (max-width: 960px) { .card-body.art-mode { grid-template-columns: 1fr; } }
+/* Arte com metade da altura; o clique continua ampliando em tela cheia */
+.slides:not(.multi) .slide { width: 50%; }
+.slides.multi .slide { flex: 0 0 41%; }
+@media (max-width: 720px) { .slides:not(.multi) .slide { width: 60%; } .slides.multi .slide { flex-basis: 55%; } }
