@@ -472,7 +472,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .login-title .ln { display: block; }
 .login-title .ln.off { padding-left: .6em; }
 .login-title .hl { font-family: var(--highlight); color: var(--neon); }
-.login-sub { color: var(--powder); font-size: 17px; margin-top: 18px; max-width: 34ch; letter-spacing: -0.01em; }
+.login-sub { color: var(--powder); font-size: 17px; margin-top: 18px; max-width: none; letter-spacing: -0.01em; }
 .login-box .panel { margin: 0; width: 100%; max-width: 420px; justify-self: center; background: var(--surface); }
 .login-box { display: grid; justify-items: center; }
 .login-box .panel h2 { font-size: 26px; }
