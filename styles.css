@@ -741,3 +741,4 @@ body.locked #top-actions { display: none; }
   .login-privacy { margin-top: auto; align-self: center; }
 }
 @media (min-width: 821px) { .login-box .panel { max-width: 340px; justify-self: end; } .login-box { justify-items: end; } }
+@media (min-width: 821px) { .login-grid { grid-template-columns: 1fr 300px; } .login-box .panel { max-width: none; } }
