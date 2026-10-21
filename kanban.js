@@ -150,8 +150,8 @@
       return el("section", { class: `kcol k-${c.key}`, "data-col": c.key },
         el("header", { class: "khead" },
           el("div", { class: "khead-row" }, el("b", {}, c.label), el("span", { class: "kcount" }, `${n}/${list.length}`)),
-          el("div", { class: "kbar-track" }, el("i", { style: `--w:${Math.round((n / total) * 100)}%` }))),
-        c.hint ? el("p", { class: "khint" }, c.hint) : null,
+          (() => { const i = el("i"); i.style.setProperty("--w", `${list.length ? Math.round((n / total) * 100) : 0}%`); return el("div", { class: "kbar-track" }, i); })()),
+        el("p", { class: "khint", "aria-hidden": c.hint ? null : "true" }, c.hint || ""),
         el("div", { class: "kcards" }, n ? groups[c.key].map((p) => { const k = cardEl(p); k.style.setProperty("--i", i++); return k; })
           : el("div", { class: "kempty" }, "Nada aqui")));
     }));

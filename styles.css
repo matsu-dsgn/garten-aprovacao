@@ -508,8 +508,8 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .khead b { font-family: var(--display); font-weight: 400; font-size: 18px; color: var(--c); letter-spacing: -.005em; }
 .kcount { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
 .kbar-track { height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--c) 18%, transparent); overflow: hidden; }
-.kbar-track i { display: block; height: 100%; width: var(--w); background: var(--c); border-radius: inherit; transition: width .5s cubic-bezier(.2,.8,.2,1); }
-.khint { font-size: 12px; color: var(--ink-soft); margin: -2px 0 0; }
+.kbar-track i { display: block; height: 100%; width: var(--w, 0%); background: var(--c); border-radius: inherit; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+.khint { font-size: 12px; line-height: 18px; min-height: 36px; color: var(--ink-soft); margin: -2px 0 0; }
 .kcards { display: grid; gap: 10px; align-content: start; flex: 1; border-radius: 14px; }
 .kempty { font-size: 12px; color: var(--ink-soft); opacity: .7; text-align: center; padding: 28px 8px; border: 1px dashed color-mix(in srgb, var(--c) 30%, transparent); border-radius: 14px; }
 
