@@ -412,3 +412,6 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .month-pill:hover .month-del, .month-del:focus-visible { opacity: 1; transform: scale(1); }
 .month-del:hover { background: var(--bad); color: var(--alabaster); border-color: var(--bad); }
 @media (hover: none) { .month-del { opacity: 1; transform: scale(1); } }
+.link-row { display: flex; gap: 8px; align-items: center; }
+.link-row code.link { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) { .link-row { flex-direction: column; align-items: stretch; } }

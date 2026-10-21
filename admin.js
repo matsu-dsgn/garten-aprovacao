@@ -187,29 +187,53 @@
   }
 
   function linkPanel(m) {
-    const out = el("div", {});
+    const base = location.href.replace(/admin\.html.*$/, "");
+    const urlFor = (token) => `${base}index.html?m=${encodeURIComponent(m.slug)}#k=${token}`;
+    const box = el("div", { class: "stack" });
+    const out = msg("");
+
+    function showLink(url) {
+      try { localStorage.setItem(`garten-link-${m.slug}`, url); } catch { /* ok */ }
+      const copy = el("button", { class: "btn ok", type: "button" }, "Copiar link");
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(url); copy.textContent = "Copiado ✓"; setTimeout(() => { copy.textContent = "Copiar link"; }, 1800); }
+        catch { prompt("Copie o link:", url); }
+      });
+      box.replaceChildren(el("div", { class: "link-row" }, el("code", { class: "link" }, url), copy));
+    }
+    const noLink = () => box.replaceChildren(msg("Nenhum link ativo. Gere um para mandar ao cliente."));
+
+    // Carrega o link salvo deste mês
+    (async () => {
+      const { data } = await sb.from("month_links").select("token").eq("month_id", m.id).maybeSingle();
+      if (data?.token) return showLink(urlFor(data.token));
+      let local = null; try { local = localStorage.getItem(`garten-link-${m.slug}`); } catch { /* ok */ }
+      local ? showLink(local) : noLink();
+    })();
+
     const gen = el("button", { class: "btn dark" }, "Gerar novo link");
     gen.addEventListener("click", async () => {
       if (!confirm("Gerar um novo link invalida o anterior. Continuar?")) return;
       const { data: token, error } = await sb.rpc("rotate_month_token", { p_month: m.id });
-      if (error) { out.replaceChildren(msg(error.message, "err")); return; }
-      const base = location.href.replace(/admin\.html.*$/, "");
-      const url = `${base}index.html?m=${encodeURIComponent(m.slug)}#k=${token}`;
-      try { localStorage.setItem(`garten-link-${m.slug}`, url); } catch { /* ok */ }
-      const copy = el("button", { class: "btn ok", onclick: () => navigator.clipboard?.writeText(url) }, "Copiar link");
-      out.replaceChildren(el("code", { class: "link" }, url), el("div", { class: "row" }, copy),
-        msg("Guarde agora: por segurança, o link não fica salvo em texto e não pode ser recuperado depois."));
+      if (error) { out.className = "msg err"; out.textContent = error.message; return; }
+      const { error: e2 } = await sb.from("month_links").upsert({ month_id: m.id, token, created_at: new Date().toISOString() });
+      out.className = e2 ? "msg err" : "msg okk";
+      out.textContent = e2 ? `Link gerado, mas não consegui salvar para copiar depois: ${e2.message}` : "Link novo gerado. O anterior parou de funcionar.";
+      showLink(urlFor(token));
     });
     const revoke = el("button", { class: "btn bad" }, "Encerrar link");
     revoke.addEventListener("click", async () => {
       if (!confirm("Encerrar o link? O cliente perde o acesso até você gerar um novo.")) return;
       const { error } = await sb.rpc("revoke_month_token", { p_month: m.id });
+      if (error) { out.className = "msg err"; out.textContent = error.message; return; }
+      await sb.from("month_links").delete().eq("month_id", m.id);
       try { localStorage.removeItem(`garten-link-${m.slug}`); } catch { /* ok */ }
-      out.replaceChildren(error ? msg(error.message, "err") : msg("Link encerrado. O histórico continua salvo.", "okk"));
+      out.className = "msg okk"; out.textContent = "Link encerrado. O histórico continua salvo.";
+      noLink();
     });
     return el("section", { class: "panel" }, el("h2", {}, "Link do cliente"),
       el("p", {}, "O link dá acesso só a este mês. Mande pelo WhatsApp para o Wilker e a Letícia."),
-      el("div", { class: "row" }, gen, revoke), out);
+      box, el("div", { class: "row" }, gen, revoke), out);
   }
 
   // Prazos rápidos para oportunidade
