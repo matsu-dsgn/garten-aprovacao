@@ -417,7 +417,11 @@
   }
 
   async function init() {
-    if (!slug || !token) return gate("Link incompleto", "Peça para a agência reenviar o link do mês.");
+    if (!slug || !token) {
+      gate("Link incompleto", "Peça para a agência reenviar o link do mês.");
+      app.querySelector(".gate")?.append(el("p", {}, el("a", { href: "entrar.html", class: "team-link" }, "Sou da equipe · entrar")));
+      return;
+    }
     try {
       data = await api("GET");
       document.title = `Garten — ${data.month.title}`;
