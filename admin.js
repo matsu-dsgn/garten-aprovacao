@@ -119,6 +119,32 @@
       el("div", { class: "row" }, save), out);
   }
 
+  // Exclui o mês com tudo dentro (posts, versões, decisões) e as artes do storage
+  async function deleteMonth(m) {
+    const typed = prompt(`Excluir "${m.title}" apaga todos os posts, aprovações e artes desse mês, sem volta.\n\nPara confirmar, digite o slug: ${m.slug}`);
+    if (typed == null) return;
+    if (typed.trim() !== m.slug) { alert("O slug não confere. Nada foi excluído."); return; }
+    // artes no storage: {slug}/{post}/{versao}/arquivo
+    const paths = [];
+    const { data: posts } = await sb.storage.from("artes").list(m.slug, { limit: 1000 });
+    for (const p of posts || []) {
+      const { data: vers } = await sb.storage.from("artes").list(`${m.slug}/${p.name}`, { limit: 1000 });
+      for (const v of vers || []) {
+        const { data: files } = await sb.storage.from("artes").list(`${m.slug}/${p.name}/${v.name}`, { limit: 1000 });
+        for (const f of files || []) paths.push(`${m.slug}/${p.name}/${v.name}/${f.name}`);
+      }
+    }
+    if (paths.length) {
+      const { error } = await sb.storage.from("artes").remove(paths);
+      if (error) { alert(`Não consegui apagar as artes: ${error.message}. Nada foi excluído.`); return; }
+    }
+    const { error } = await sb.from("months").delete().eq("id", m.id);
+    if (error) { alert(`Erro ao excluir: ${error.message}`); return; }
+    try { localStorage.removeItem(`garten-link-${m.slug}`); } catch { /* ok */ }
+    if (current?.id === m.id) current = null;
+    await loadMonths();
+  }
+
   function monthsView() {
     app.replaceChildren(
       el("section", { class: "panel" },
@@ -126,7 +152,9 @@
           el("h2", {}, "Meses"),
           el("button", { class: "btn ghost", onclick: async () => { await sb.auth.signOut(); loginView(); } }, "Sair")),
         months.length ? el("div", { class: "row" }, months.map((m) =>
-          el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, m.title))) : msg("Nenhum mês ainda.")),
+          el("div", { class: "month-pill" },
+            el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, m.title),
+            el("button", { class: "month-del", type: "button", "aria-label": `Excluir ${m.title}`, title: "Excluir mês", onclick: () => deleteMonth(m) }, "✕")))) : msg("Nenhum mês ainda.")),
       monthForm(null));
   }
 

@@ -406,3 +406,9 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .slides:not(.multi) .slide { width: 50%; }
 .slides.multi .slide { flex: 0 0 41%; }
 @media (max-width: 720px) { .slides:not(.multi) .slide { width: 60%; } .slides.multi .slide { flex-basis: 55%; } }
+/* Pílula de mês com excluir no hover */
+.month-pill { position: relative; display: inline-flex; }
+.month-del { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--bad); font-size: 11px; line-height: 1; cursor: pointer; opacity: 0; transform: scale(.8); transition: opacity .15s, transform .15s; }
+.month-pill:hover .month-del, .month-del:focus-visible { opacity: 1; transform: scale(1); }
+.month-del:hover { background: var(--bad); color: var(--alabaster); border-color: var(--bad); }
+@media (hover: none) { .month-del { opacity: 1; transform: scale(1); } }
