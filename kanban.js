@@ -217,7 +217,12 @@
   function render() {
     const sel = el("select", { "aria-label": "Mês" }, months.map((m) => el("option", { value: m.id }, m.title)));
     sel.value = monthId;
-    sel.addEventListener("change", async () => { monthId = sel.value; openPost = null; await load(); render(); });
+    sel.addEventListener("change", async () => {
+      monthId = sel.value; openPost = null;
+      const m = months.find((x) => x.id === monthId);
+      if (m) history.replaceState(null, "", `?mes=${encodeURIComponent(m.slug)}`);
+      await load(); render();
+    });
     const p = openPost && d.posts.find((x) => x.id === openPost);
     app.replaceChildren(
       el("div", { class: "wrap kbar" }, el("h2", {}, "Kanban"), sel,
@@ -241,7 +246,8 @@
     const { data: ms } = await sb.from("months").select("id, slug, title, created_at").order("created_at", { ascending: false });
     months = ms || [];
     if (!months.length) { app.replaceChildren(el("div", { class: "wrap" }, msg("Nenhum mês criado ainda."))); return; }
-    monthId = months[0].id;
+    const want = new URLSearchParams(location.search).get("mes");
+    monthId = (months.find((m) => m.slug === want) || months[0]).id;
     await load();
     render();
   }

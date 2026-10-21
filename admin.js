@@ -155,9 +155,12 @@
         el("div", { class: "grid2" }, field("Nome", name), field("E-mail (o mesmo do Google)", email)),
         field("Acesso", role), el("div", { class: "row" }, add), out);
     };
+    const sumLabel = el("span", {}, "Equipe");
+    sb.from("team_members").select("email", { count: "exact", head: true })
+      .then(({ count }) => { if (count != null) sumLabel.textContent = `Equipe · ${count} ${count === 1 ? "pessoa" : "pessoas"} · vale para todos os meses`; });
     load();
-    return el("section", { class: "panel" }, el("h2", {}, "Equipe"),
-      el("p", {}, "Só e-mails desta lista entram no painel ou no Kanban."), box);
+    return el("section", { class: "panel" }, el("details", {}, el("summary", {}, sumLabel),
+      el("p", {}, "Cadastro único: quem está aqui acessa todos os meses. Não precisa mexer ao criar um mês novo."), box));
   }
 
   function monthsView() {
@@ -166,10 +169,13 @@
         el("div", { class: "row between" },
           el("h2", {}, "Meses"),
           el("button", { class: "btn ghost", onclick: async () => { await sb.auth.signOut(); loginView(); } }, "Sair")),
-        months.length ? el("div", { class: "row" }, months.map((m) =>
-          el("div", { class: "month-pill" },
-            el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, m.title),
-            el("button", { class: "month-del", type: "button", "aria-label": `Excluir ${m.title}`, title: "Excluir mês", onclick: () => deleteMonth(m) }, "✕")))) : msg("Nenhum mês ainda.")),
+        months.length ? el("ul", { class: "history" }, months.map((m, i) =>
+          el("li", { class: "team-row" },
+            el("span", {}, el("b", {}, m.title), i === 0 ? " · atual" : " · histórico"),
+            el("div", { class: "row" },
+              el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, "Abrir"),
+              el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban"),
+              el("button", { class: "month-del static", type: "button", "aria-label": `Excluir ${m.title}`, title: "Excluir mês", onclick: () => deleteMonth(m) }, "✕"))))) : msg("Nenhum mês ainda.")),
       monthForm(null),
       teamPanel());
   }
@@ -199,7 +205,8 @@
     app.replaceChildren(
       el("div", { class: "row" },
         el("button", { class: "btn ghost", onclick: () => { current = null; monthsView(); } }, "← Meses"),
-        el("button", { class: "btn ghost", onclick: () => exportJson(m) }, "Exportar JSON")),
+        el("button", { class: "btn ghost", onclick: () => exportJson(m) }, "Exportar JSON"),
+        el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban deste mês")),
       linkPanel(m),
       oppPanel(m),
       monthForm(m),
@@ -221,7 +228,8 @@
         try { await navigator.clipboard.writeText(url); copy.textContent = "Copiado ✓"; setTimeout(() => { copy.textContent = "Copiar link"; }, 1800); }
         catch { prompt("Copie o link:", url); }
       });
-      box.replaceChildren(el("div", { class: "link-row" }, el("code", { class: "link" }, url), copy));
+      const view = el("a", { class: "btn ghost", href: url, target: "_blank", rel: "noopener" }, "Ver como cliente");
+      box.replaceChildren(el("div", { class: "link-row" }, el("code", { class: "link" }, url), copy, view));
     }
     const noLink = () => box.replaceChildren(msg("Nenhum link ativo. Gere um para mandar ao cliente."));
 
