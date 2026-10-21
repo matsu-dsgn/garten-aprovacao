@@ -54,15 +54,22 @@
     const sum = el("span", { class: "msg" });
     const updSum = () => {
       const t = Object.values(mixIn).reduce((a, i) => a + (parseInt(i.value, 10) || 0), 0);
-      sum.textContent = `Soma: ${t}%`; sum.className = t === 100 || t === 0 ? "msg" : "msg err";
+      const left = 100 - t;
+      sum.textContent = t === 0 ? "Sem mix ideal (todos em 0%)" : t === 100 ? "Soma: 100% ✓" : left > 0 ? `Soma: ${t}% · faltam ${left}%` : `Soma: ${t}% · passou ${-left}%`;
+      sum.className = t === 100 || t === 0 ? "msg okk" : "msg err";
       return t;
     };
     const mixFields = editorias.map((e) => {
-      const i = el("input", { type: "number", min: "0", max: "100", step: "5", inputmode: "numeric", placeholder: "0" });
-      const v = m?.overview?.mix?.[e.slug]; if (v != null) i.value = String(v);
-      i.addEventListener("input", updSum);
+      // Slider de 0 a 100, de 5 em 5, com o valor ao lado
+      const i = el("input", { type: "range", min: "0", max: "100", step: "5", "aria-label": `${e.name} (%)` });
+      const v = m?.overview?.mix?.[e.slug];
+      i.value = String(v != null ? v : 0);
+      const val = el("b", { class: "mix-num" });
+      const paint = () => { val.textContent = `${i.value}%`; i.style.setProperty("--p", `${i.value}%`); };
+      i.addEventListener("input", () => { paint(); updSum(); });
+      paint();
       mixIn[e.slug] = i;
-      return field(`${e.name} (%)`, i);
+      return el("div", { class: "mix-slider" }, el("span", { class: "mix-label" }, e.name), i, val);
     });
     const why = el("textarea", { maxlength: "400", placeholder: "Por que esse mix neste mês? (aparece para o cliente)" });
     why.value = m?.overview?.mix_motivo || "";
@@ -76,6 +83,7 @@
         if (Number.isFinite(n)) mix[k] = Math.max(0, Math.min(100, n));
       }
       const t = updSum();
+      if (t === 0) for (const k of Object.keys(mix)) delete mix[k];
       if (t !== 0 && t !== 100) { out.className = "msg err"; out.textContent = "O mix ideal precisa somar 100% (ou ficar vazio)."; return; }
       const row = { title: title.value.trim(), overview: { intro: intro.value.trim().slice(0, 400), mix, mix_motivo: why.value.trim().slice(0, 400) } };
       if (!row.title) { out.className = "msg err"; out.textContent = "Dê um título ao mês."; return; }
@@ -94,7 +102,7 @@
       el("div", { class: "grid2" }, field("Slug do link", slug), field("Título", title)),
       field("Intro", intro),
       el("div", { class: "eyebrow" }, "Mix ideal por editoria"),
-      el("div", { class: "grid2" }, mixFields), sum, field("Motivo do mix", why),
+      el("div", { class: "mix-sliders" }, mixFields), sum, field("Motivo do mix", why),
       el("div", { class: "row" }, save), out);
   }
 
@@ -144,7 +152,7 @@
       });
       box.replaceChildren(
         el("ul", { class: "history" }, (team || []).map((t) => {
-          const rm = el("button", { class: "month-del static", type: "button", "aria-label": `Remover ${t.name}` }, "✕");
+          const rm = el("button", { class: "btn-del", type: "button", "aria-label": `Remover ${t.name}` }, "Remover");
           rm.addEventListener("click", async () => {
             if (!confirm(`Remover ${t.name} da equipe? A pessoa perde o acesso na hora.`)) return;
             const { error } = await sb.from("team_members").delete().eq("email", t.email);
@@ -175,7 +183,7 @@
             el("div", { class: "row" },
               el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, "Abrir"),
               el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban"),
-              el("button", { class: "month-del static", type: "button", "aria-label": `Excluir ${m.title}`, title: "Excluir mês", onclick: () => deleteMonth(m) }, "✕"))))) : msg("Nenhum mês ainda.")),
+              el("button", { class: "btn-del", type: "button", "aria-label": `Excluir ${m.title}`, onclick: () => deleteMonth(m) }, "Excluir"))))) : msg("Nenhum mês ainda.")),
       monthForm(null),
       teamPanel());
   }
