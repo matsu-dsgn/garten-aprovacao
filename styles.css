@@ -694,37 +694,20 @@ body.locked #top-actions { display: none; }
 .locked-box h2 { margin: .4em 0; }
 
 /* Página perdido (404 + conta fora da equipe) */
-.lost-page { align-items: flex-start; }
-.lost { position: relative; z-index: 1; max-width: 880px; width: 100%; display: grid; gap: 20px; color: var(--alabaster); }
+.lost-page { justify-content: center; align-items: center; padding: 72px 32px; }
+.lost { position: relative; z-index: 1; max-width: 880px; width: 100%; margin: 0 auto; display: grid; gap: 20px; color: var(--alabaster); }
 .lost .login-sub { margin: 0; }
+.lost .eyebrow { color: var(--neon); }
 .lost-lead { font-size: 1.15rem; max-width: 60ch; opacity: .9; margin: 0; }
 .lost-cards { list-style: none; padding: 0; margin: 8px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .lost-cards li { padding: 20px; border-radius: 18px; background: rgba(232,237,243,.07); border: 1px solid rgba(232,237,243,.14); }
 .lost-cards p { margin: 8px 0 0; line-height: 1.5; opacity: .88; }
 .lost-cta-text { margin: 0; font-weight: 500; }
-.lost-cta { justify-self: start; background: var(--powder); color: var(--carbon); }
+.lost-cta { justify-self: start; background: var(--powder); color: var(--carbon); text-decoration: none; }
 .lost-cta:hover { background: var(--neon); color: var(--carbon); }
-.lost .eyebrow { color: var(--neon); }
-.lost-page { align-items: center; justify-content: center; padding: 72px 24px 46vh; }
-.lost { margin: 0 auto; text-align: center; justify-items: center; }
-.lost .login-title { align-items: center; }
-.lost .login-title .ln.off { padding-left: 0; margin-left: 0; }
-.lost-lead { margin: 0 auto; }
-.lost-cards { width: 100%; text-align: left; }
-.lost-cta { justify-self: center; }
-.lost-page .outline-mark.login-mark.a { display: none; }
-.lost-page .outline-mark.login-mark.b { display: block; width: 1400px; left: 50%; right: auto; top: auto; bottom: -900px; transform: translateX(-50%); }
+.lost-page .outline-mark.login-mark.b { display: none; }
+.lost-page .outline-mark.login-mark.a { width: 1900px; right: -1580px; top: -420px; }
 @media (max-width: 700px) {
-  .lost-page { padding: 56px 16px 52vh; }
-  .lost-page .outline-mark.login-mark.b { width: 760px; bottom: -470px; }
+  .lost-page { padding: 48px 20px; align-items: flex-start; }
+  .lost-page .outline-mark.login-mark { display: none; }
 }
-.lost-page { display: block; min-height: 0; padding: 88px 24px 0; }
-.lost-page::after { content: ""; display: block; height: 560px; }
-.lost-page .outline-mark.login-mark.b { top: auto; bottom: -760px; }
-.lost-cta { text-decoration: none; }
-@media (max-width: 700px) {
-  .lost-page { padding: 48px 16px 0; }
-  .lost-page::after { height: 320px; }
-  .lost-page .outline-mark.login-mark.b { bottom: -420px; }
-}
-@media (min-width: 701px) { .lost-page .outline-mark.login-mark.b { bottom: -900px; } }
