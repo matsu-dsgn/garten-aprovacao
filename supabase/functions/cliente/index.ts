@@ -63,7 +63,7 @@ async function loadState(month: { id: string }) {
   const [{ data: versions }, { data: decisions }, { data: approvers }, { data: editorias }] = await Promise.all([
     ids.length
       ? db.from("versions").select("id, post_id, stage, number, copy_text, asset_paths, created_at")
-        .in("post_id", ids).order("number")
+        .in("post_id", ids).eq("sent", true).order("number")
       : Promise.resolve({ data: [] }),
     ids.length
       ? db.from("decisions").select("id, post_id, stage, version_id, actor, status, note, slide_notes, created_at")
@@ -122,21 +122,20 @@ async function decide(req: Request, month: { id: string }) {
   let versionId: string | null = null;
   if (stage === "pauta") {
     const { count } = await db.from("versions").select("id", { count: "exact", head: true })
-      .eq("post_id", postId).eq("stage", "arte");
+      .eq("post_id", postId).eq("stage", "arte").eq("sent", true);
     if ((count ?? 0) > 0) return json(req, { error: "A arte já subiu — a pauta está travada" }, 409);
   } else {
     const { data: v } = await db.from("versions").select("id").eq("post_id", postId).eq("stage", stage)
-      .order("number", { ascending: false }).limit(1).maybeSingle();
+      .eq("sent", true).order("number", { ascending: false }).limit(1).maybeSingle();
     if (!v) return json(req, { error: "Ainda não há versão para aprovar" }, 409);
     versionId = v.id;
   }
 
-  // Hierarquia (Wilker > Letícia) é garantida de forma atômica pelo trigger decisions_hierarchy
+  // Wilker e Letícia têm o mesmo peso: vale a última resposta
   const { error } = await db.from("decisions").insert({
     post_id: postId, stage, version_id: versionId, actor, status,
     note: note || null, slide_notes,
   });
-  if (error?.message?.includes("final_decided")) return json(req, { error: "O Wilker já decidiu esta etapa" }, 403);
   if (error) return json(req, { error: "Não foi possível salvar" }, 500);
   return json(req, await loadState(month));
 }

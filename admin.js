@@ -19,38 +19,17 @@
   const msg = (text, kind = "") => el("p", { class: `msg ${kind}`, role: "status" }, text);
   const field = (label, input) => el("label", { class: "f" }, label, input);
 
-  // ---------- Login ----------
-  function loginView(error) {
-    const email = el("input", { type: "email", autocomplete: "email", required: true });
-    const pass = el("input", { type: "password", autocomplete: "current-password", minlength: "10", required: true });
-    const out = msg(error || "", error ? "err" : "");
-    const go = async (fn) => {
-      out.className = "msg"; out.textContent = "…";
-      const { error } = await fn({ email: email.value.trim(), password: pass.value });
-      if (error) { out.className = "msg err"; out.textContent = error.message; return; }
-      boot();
-    };
-    app.replaceChildren(el("section", { class: "panel narrow" },
-      el("h2", {}, "Entrar"),
-      field("E-mail", email), field("Senha (mín. 10 caracteres)", pass),
-      el("div", { class: "row" },
-        el("button", { class: "btn dark", onclick: () => go((c) => sb.auth.signInWithPassword(c)) }, "Entrar"),
-        el("button", { class: "btn ghost", onclick: () => go((c) => sb.auth.signUp(c)) }, "Criar acesso")),
-      out));
-  }
+  // ---------- Login e papel ----------
+  const loginView = (error) => GAuth.loginView(app, sb, boot, error);
 
   async function boot() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return loginView();
-    const { data: me } = await sb.from("admins").select("user_id").eq("user_id", user.id).maybeSingle();
-    if (!me) {
-      app.replaceChildren(el("section", { class: "panel" },
-        el("h2", {}, "Acesso ainda não liberado"),
-        el("p", {}, "Esta conta existe, mas não é admin. Passe este ID para liberar:"),
-        el("code", { class: "link" }, user.id),
-        el("button", { class: "btn ghost", onclick: async () => { await sb.auth.signOut(); loginView(); } }, "Sair")));
-      return;
-    }
+    const role = await GAuth.role(sb);
+    if (role === "equipe") { location.href = "kanban.html"; return; }
+    if (role !== "admin") return GAuth.noAccess(app, sb, user, () => loginView());
+    const nav = GAuth.nav("admin.html", true);
+    if (nav && !document.querySelector(".topnav")) document.getElementById("top-actions").prepend(nav);
     const { data: eds } = await sb.from("editorias").select("*").eq("active", true).order("sort");
     editorias = eds || [];
     await loadMonths();
@@ -145,6 +124,42 @@
     await loadMonths();
   }
 
+  function teamPanel() {
+    const box = el("div", { class: "stack" }, msg("Carregando…"));
+    const load = async () => {
+      const { data: team, error } = await sb.from("team_members").select("*").order("role").order("name");
+      if (error) return box.replaceChildren(msg(error.message, "err"));
+      const name = el("input", { type: "text", maxlength: "60", placeholder: "Nome" });
+      const email = el("input", { type: "email", placeholder: "email@exemplo.com" });
+      const role = el("select", {}, el("option", { value: "equipe" }, "Equipe (Kanban)"), el("option", { value: "admin" }, "Admin (tudo)"));
+      const out = msg("");
+      const add = el("button", { class: "btn dark", type: "button" }, "Adicionar");
+      add.addEventListener("click", async () => {
+        const e = email.value.trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { out.className = "msg err"; out.textContent = "E-mail inválido."; return; }
+        if (name.value.trim().length < 2) { out.className = "msg err"; out.textContent = "Coloque o nome."; return; }
+        const { error } = await sb.from("team_members").insert({ email: e, name: name.value.trim(), role: role.value });
+        if (error) { out.className = "msg err"; out.textContent = error.message; return; }
+        load();
+      });
+      box.replaceChildren(
+        el("ul", { class: "history" }, (team || []).map((t) => {
+          const rm = el("button", { class: "month-del static", type: "button", "aria-label": `Remover ${t.name}` }, "✕");
+          rm.addEventListener("click", async () => {
+            if (!confirm(`Remover ${t.name} da equipe? A pessoa perde o acesso na hora.`)) return;
+            const { error } = await sb.from("team_members").delete().eq("email", t.email);
+            error ? alert(error.message) : load();
+          });
+          return el("li", { class: "team-row" }, el("span", {}, el("b", {}, t.name), ` · ${t.email} · ${t.role === "admin" ? "Admin" : "Equipe"}`), rm);
+        })),
+        el("div", { class: "grid2" }, field("Nome", name), field("E-mail (o mesmo do Google)", email)),
+        field("Acesso", role), el("div", { class: "row" }, add), out);
+    };
+    load();
+    return el("section", { class: "panel" }, el("h2", {}, "Equipe"),
+      el("p", {}, "Só e-mails desta lista entram no painel ou no Kanban."), box);
+  }
+
   function monthsView() {
     app.replaceChildren(
       el("section", { class: "panel" },
@@ -155,7 +170,8 @@
           el("div", { class: "month-pill" },
             el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, m.title),
             el("button", { class: "month-del", type: "button", "aria-label": `Excluir ${m.title}`, title: "Excluir mês", onclick: () => deleteMonth(m) }, "✕")))) : msg("Nenhum mês ainda.")),
-      monthForm(null));
+      monthForm(null),
+      teamPanel());
   }
 
   // ---------- Mês aberto ----------
@@ -163,12 +179,18 @@
     const { data: posts, error } = await sb.from("posts").select("*").eq("month_id", m.id).order("post_date").order("sort");
     if (error) throw error;
     const ids = posts.map((p) => p.id);
-    const [v, d, a] = await Promise.all([
+    const [v, d, a, c, t] = await Promise.all([
       ids.length ? sb.from("versions").select("*").in("post_id", ids).order("number") : { data: [] },
       ids.length ? sb.from("decisions").select("*").in("post_id", ids).order("created_at") : { data: [] },
       sb.from("approvers").select("*").order("is_final", { ascending: false }),
+      ids.length ? sb.from("post_comments").select("*").in("post_id", ids).order("created_at") : { data: [] },
+      sb.from("team_members").select("*").order("name"),
     ]);
-    return { posts, versions: v.data || [], decisions: d.data || [], approvers: a.data || [] };
+    const all = v.data || [];
+    // versions = o que o cliente vê (enviadas); drafts = aguardando revisão interna
+    const drafts = all.filter((x) => !x.sent);
+    const draftUrls = await GWork.signed(sb, drafts.flatMap((x) => x.asset_paths || []));
+    return { posts, allVersions: all, versions: all.filter((x) => x.sent), drafts, draftUrls, decisions: d.data || [], approvers: a.data || [], comments: c.data || [], team: t.data || [] };
   }
 
   async function openMonth(m) {
@@ -351,7 +373,7 @@
       const real = await sniff(f);
       if (!real || !TYPES[real] || real !== f.type) throw new Error(`${f.name}: tipo não permitido (PNG, JPG, WEBP ou MP4).`);
     }
-    const n = (G.latestVersion(data.versions, p.id, "arte")?.number || 0) + 1;
+    const n = (G.latestVersion(data.allVersions, p.id, "arte")?.number || 0) + 1;
     const paths = [];
     for (const [i, f] of list.entries()) {
       out.textContent = `Enviando ${i + 1}/${list.length}…`;
@@ -374,7 +396,7 @@
     copyBtn.addEventListener("click", async () => {
       const text = copyTa.value.trim();
       if (!text) return fail(new Error("Copy vazia."));
-      const n = (G.latestVersion(data.versions, p.id, "copy")?.number || 0) + 1;
+      const n = (G.latestVersion(data.allVersions, p.id, "copy")?.number || 0) + 1;
       const { error } = await sb.from("versions").insert({ post_id: p.id, stage: "copy", number: n, copy_text: text });
       error ? fail(error) : openMonth(m);
     });
@@ -435,6 +457,22 @@
       return el("div", { class: "decide" }, note, el("div", { class: "row" }, b));
     });
 
+    // Revisão interna: rascunhos da equipe esperando o seu ok
+    const drafts = data.drafts.filter((v) => v.post_id === p.id);
+    const review = drafts.length ? el("div", { class: "review" },
+      el("div", { class: "eyebrow" }, `Revisão interna (${drafts.length})`),
+      drafts.map((v) => {
+        const sendBtn = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente");
+        sendBtn.addEventListener("click", async () => {
+          const { error } = await sb.rpc("send_version", { p_version: v.id });
+          error ? fail(error) : openMonth(m);
+        });
+        return el("div", { class: "draft" },
+          el("div", { class: "msg" }, `${v.stage === "arte" ? "Arte" : "Copy"} v${v.number} · por ${GWork.nameOf(data.team, v.author_email)} · ${GWork.when(v.created_at)}`),
+          GWork.preview(v, data.draftUrls), el("div", { class: "row" }, sendBtn),
+          el("p", { class: "msg" }, "Para pedir ajuste interno, comente abaixo."));
+      })) : null;
+
     return el("div", { class: "post-row" },
       el("div", { class: "row between" },
         el("h4", {}, `${p.post_date.split("-").reverse().join("/")} · ${p.title}`),
@@ -444,8 +482,11 @@
         el("div", { class: "stack" },
           copyTa, el("div", { class: "row" }, copyBtn),
           fileIn, el("div", { class: "row" }, arteBtn))),
+      review,
       contests,
       G.STAGES.map((s) => G.historyList(data, states[s.key].decisions)),
+      el("details", {}, el("summary", {}, `Comentários internos (${data.comments.filter((c) => c.post_id === p.id).length})${p.assignee ? ` · com ${GWork.nameOf(data.team, p.assignee)}` : ""}`),
+        GWork.comments(sb, data.comments, data.team, p.id, () => openMonth(m))),
       p.kind === "oportunidade" ? el("div", { class: "row" },
         el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido do cliente" : "Oportunidade"),
         p.respond_by ? el("span", { class: "msg" }, `Prazo: ${new Date(p.respond_by).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`) : null,
