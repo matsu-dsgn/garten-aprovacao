@@ -569,6 +569,19 @@ body.kdragging .kcol.kover .kcards { background: color-mix(in srgb, var(--c) 8%,
   .kcard, .kbar-track i, .ktoast, .kcol { transition: none !important; }
 }
 @media (max-width: 640px) {
+  .kmark { height: 90vh; right: -40vw; top: auto; bottom: -10vh; }
   .kboard { grid-auto-columns: 86vw; }
   .kdetail { padding: 20px; }
 }
+
+/* Símbolo outline estourado ao fundo do Kanban */
+.kanban-page { --k-mark: color-mix(in srgb, var(--deep) 16%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .kanban-page { --k-mark: color-mix(in srgb, var(--neon) 14%, transparent); } }
+:root[data-theme="dark"] .kanban-page { --k-mark: color-mix(in srgb, var(--neon) 14%, transparent); }
+.kmark { position: fixed; z-index: 0; pointer-events: none; color: var(--k-mark);
+  height: 135vh; width: auto; right: -14vw; top: -16vh; overflow: visible; }
+.kanban-page main, .kanban-page .topbar { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .kmark { animation: k-mark 1.2s cubic-bezier(.2,.8,.2,1) both; }
+}
+@keyframes k-mark { from { opacity: 0; transform: scale(1.04) rotate(-1deg); } }
