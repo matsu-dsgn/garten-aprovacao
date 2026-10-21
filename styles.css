@@ -618,3 +618,6 @@ body.kdragging .kcol.kover .kcards { background: color-mix(in srgb, var(--c) 8%,
 :root[data-theme="light"] .kcard::after { background: radial-gradient(220px circle at var(--mx) var(--my), color-mix(in srgb, #fff 55%, transparent), transparent 60%); }
 .kplaceholder::before, .kplaceholder::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .kcard::after { display: none; } }
+
+.content-box.sched { display: grid; gap: 10px; }
+.content-box.sched input[type="datetime-local"] { max-width: 260px; }

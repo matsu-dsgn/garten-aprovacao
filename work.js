@@ -87,5 +87,41 @@ window.GWork = (() => {
     if (error) throw error;
   }
 
-  return { signed, preview, comments, uploadArte, uploadCopy, nameOf, when };
+  // ---------- Agendamento (regra validada no banco: só arte aprovada, só admin) ----------
+  const pad = (n) => String(n).padStart(2, "0");
+  const localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  function schedLabel(p) {
+    if (!p.scheduled_at) return "Agendado";
+    const d = new Date(p.scheduled_at);
+    return `Agendado · ${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}h${d.getMinutes() ? pad(d.getMinutes()) : ""}`;
+  }
+  function schedulePanel(sb, p, onDone) {
+    const out = el("p", { class: "msg", role: "status" });
+    const base = p.scheduled_at ? new Date(p.scheduled_at) : (() => { const [y, mo, da] = String(p.post_date).split("-").map(Number); return new Date(y, mo - 1, da, 11, 0); })();
+    const at = el("input", { type: "datetime-local", value: localInput(base), step: "300", "aria-label": "Data e hora da publicação" });
+    const fail = (e) => {
+      const m = e?.message || String(e);
+      out.className = "msg err";
+      out.textContent = /schedule_post|function .* does not exist|PGRST202/.test(m) ? "O agendamento ainda não foi ativado no banco." : m;
+    };
+    const save = el("button", { class: "btn ok", type: "button" }, p.scheduled ? "Reagendar" : "Agendar");
+    save.addEventListener("click", async () => {
+      const d = new Date(at.value);
+      if (!at.value || Number.isNaN(d.getTime())) { out.className = "msg err"; out.textContent = "Escolha data e hora."; return; }
+      save.disabled = true;
+      const { error } = await sb.rpc("schedule_post", { p_post: p.id, p_at: d.toISOString() });
+      save.disabled = false;
+      error ? fail(error) : onDone(true);
+    });
+    const undo = p.scheduled ? el("button", { class: "btn ghost", type: "button" }, "Desagendar") : null;
+    undo?.addEventListener("click", async () => {
+      const { error } = await sb.rpc("schedule_post", { p_post: p.id, p_at: null });
+      error ? fail(error) : onDone(false);
+    });
+    return el("div", { class: "content-box sched" },
+      el("span", { class: "eyebrow" }, p.scheduled ? schedLabel(p) : "Agendar publicação"),
+      at, el("div", { class: "row" }, save, undo), out);
+  }
+
+  return { signed, preview, comments, uploadArte, uploadCopy, nameOf, when, schedulePanel, schedLabel };
 })();

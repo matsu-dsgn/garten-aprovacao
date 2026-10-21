@@ -125,7 +125,7 @@
         who ? avatar(p.assignee, who) : null),
       el("div", { class: "ktitle" }, p.title),
       el("div", { class: "kfoot" },
-        el("span", { class: `kpill p-${sk}` }, SUB[sk].label + (st.stage && ["revisao", "cliente", "ajuste", "producao"].includes(sk) ? ` · ${st.stage === "copy" ? "copy" : "arte"}` : "")),
+        el("span", { class: `kpill p-${sk}` }, (sk === "agendado" ? GWork.schedLabel(p) : SUB[sk].label) + (st.stage && ["revisao", "cliente", "ajuste", "producao"].includes(sk) ? ` · ${st.stage === "copy" ? "copy" : "arte"}` : "")),
         p.editoria ? el("span", { class: "ktag" }, edName(p.editoria)) : null,
         p.kind === "oportunidade" ? el("span", { class: "ktag opp" }, "Oportunidade") : null,
         dueTag(p),
@@ -338,6 +338,9 @@
       adjDec
         ? el("div", { class: "content-box alert" }, el("span", { class: "eyebrow" }, `Ajuste pedido pelo cliente · ${st.stage === "copy" ? "copy" : "arte"}`),
           adjDec.note || "", ...(st.stage === "arte" ? slideNotes : []).map(([k, v]) => el("div", {}, `Lâmina ${Number(k) + 1}: ${v}`))) : null,
+
+      me.role === "admin" && ["aprovado", "agendado"].includes(col)
+        ? GWork.schedulePanel(sb, p, async (on) => { await load(); render(); toast(on ? "Post agendado" : "Agendamento removido"); }) : null,
 
       p.objective ? el("p", { class: "objective" }, `Objetivo: ${p.objective}`) : null,
       p.direction ? el("p", { class: "direction" }, p.direction) : null,

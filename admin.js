@@ -438,10 +438,9 @@
         error ? fail(error) : (out.className = "msg okk", out.textContent = "Prazo atualizado.");
       });
     }
-    const sched = el("button", { class: "btn ghost" }, p.scheduled ? "Desmarcar agendado" : "Marcar como agendado");
-    sched.addEventListener("click", async () => {
-      const { error } = await sb.from("posts").update({ scheduled: !p.scheduled }).eq("id", p.id);
-      error ? fail(error) : openMonth(m);
+    const sched = el("button", { class: "btn ghost" }, p.scheduled ? GWork.schedLabel(p) : "Agendar…");
+    sched.addEventListener("click", () => {
+      sched.replaceWith(GWork.schedulePanel(sb, p, () => openMonth(m)));
     });
     const del = el("button", { class: "btn bad" }, "Excluir post");
     del.addEventListener("click", async () => {
