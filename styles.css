@@ -692,3 +692,19 @@ body.locked { user-select: none; -webkit-user-select: none; }
 body.locked #top-actions { display: none; }
 .locked-box { text-align: center; }
 .locked-box h2 { margin: .4em 0; }
+
+/* Página perdido (404 + conta fora da equipe) */
+.lost-page { align-items: flex-start; }
+.lost { position: relative; z-index: 1; max-width: 880px; width: 100%; display: grid; gap: 20px; color: var(--alabaster); }
+.lost .login-sub { margin: 0; }
+.lost-lead { font-size: 1.15rem; max-width: 60ch; opacity: .9; margin: 0; }
+.lost-cards { list-style: none; padding: 0; margin: 8px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.lost-cards li { padding: 20px; border-radius: 18px; background: rgba(232,237,243,.07); border: 1px solid rgba(232,237,243,.14); }
+.lost-cards p { margin: 8px 0 0; line-height: 1.5; opacity: .88; }
+.lost-cta-text { margin: 0; font-weight: 500; }
+.lost-cta { justify-self: start; background: var(--powder); color: var(--carbon); }
+.lost-cta:hover { background: var(--neon); color: var(--carbon); }
+.lost .eyebrow { color: var(--neon); }
+.lost-page .outline-mark.login-mark.b { display: none; }
+.lost-page .outline-mark.login-mark.a { right: -820px; top: -700px; }
+@media (max-width: 700px) { .lost-page .outline-mark.login-mark { display: none; } }

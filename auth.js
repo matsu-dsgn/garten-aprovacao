@@ -15,16 +15,9 @@ window.GAuth = (() => {
     app.replaceChildren(el("section", { class: "panel narrow" }, el("h2", {}, "Entrar"), google, out));
   }
 
-  // Conta Google fora da equipe: fica presa aqui, sem botão de saída.
-  // O bloqueio real é o banco (RLS); o clique direito travado é só charme.
-  function noAccess(app) {
-    document.addEventListener("contextmenu", (e) => e.preventDefault());
-    document.body.classList.add("locked");
-    app.replaceChildren(el("section", { class: "panel narrow locked-box" },
-      el("span", { class: "eyebrow" }, "Área restrita"),
-      el("h2", {}, "Aqui não, parceiro."),
-      el("p", {}, "Este espaço é só da equipe Garten. Se você caiu aqui por engano, pode fechar a aba.")));
-  }
+  // Conta Google fora da equipe: vai para a página "perdido" (a mesma do 404).
+  // O bloqueio real é o banco (RLS); a página é só charme.
+  function noAccess() { location.replace("404.html"); }
 
   async function role(sb) {
     const { data } = await sb.rpc("my_role");
