@@ -600,3 +600,21 @@ body.kdragging .kcol.kover .kcards { background: color-mix(in srgb, var(--c) 8%,
   .kcard.mine { box-shadow: inset 3px 0 0 var(--neon), inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent); }
   .kghost { background: color-mix(in srgb, var(--k-card) 82%, transparent); }
 }
+
+/* "Liquid glass" leve: borda especular + reflexo que segue o mouse (sem refração) */
+.kcard { position: relative; isolation: isolate; --mx: 30%; --my: 0%; }
+.kcard::before, .kcard::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1; }
+/* aro de luz: mais forte no alto à esquerda, quase some embaixo */
+.kcard::before { padding: 1px;
+  background: linear-gradient(150deg, color-mix(in srgb, #fff 38%, transparent), color-mix(in srgb, #fff 4%, transparent) 45%, color-mix(in srgb, #fff 14%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+/* reflexo difuso que acompanha o cursor */
+.kcard::after { background: radial-gradient(220px circle at var(--mx) var(--my), color-mix(in srgb, #fff 12%, transparent), transparent 60%);
+  opacity: 0; transition: opacity .35s; }
+.kcard:hover::after { opacity: 1; }
+:root[data-theme="light"] .kcard::before { opacity: .9; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .kcard::after { background: radial-gradient(220px circle at var(--mx) var(--my), color-mix(in srgb, #fff 55%, transparent), transparent 60%); } }
+:root[data-theme="light"] .kcard::after { background: radial-gradient(220px circle at var(--mx) var(--my), color-mix(in srgb, #fff 55%, transparent), transparent 60%); }
+.kplaceholder::before, .kplaceholder::after { display: none; }
+@media (prefers-reduced-motion: reduce) { .kcard::after { display: none; } }

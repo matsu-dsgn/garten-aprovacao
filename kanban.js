@@ -131,6 +131,11 @@
         dueTag(p),
         ncom ? el("span", { class: "kcom", "aria-label": `${ncom} comentários` }, `${ncom} coment.`) : null));
     card.addEventListener("pointerdown", (e) => startDrag(e, card, p));
+    card.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse" || drag) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", `${e.clientX - r.left}px`); card.style.setProperty("--my", `${e.clientY - r.top}px`);
+    });
     return card;
   }
 
