@@ -705,6 +705,26 @@ body.locked #top-actions { display: none; }
 .lost-cta { justify-self: start; background: var(--powder); color: var(--carbon); }
 .lost-cta:hover { background: var(--neon); color: var(--carbon); }
 .lost .eyebrow { color: var(--neon); }
-.lost-page .outline-mark.login-mark.b { display: none; }
-.lost-page .outline-mark.login-mark.a { right: -820px; top: -700px; }
-@media (max-width: 700px) { .lost-page .outline-mark.login-mark { display: none; } }
+.lost-page { align-items: center; justify-content: center; padding: 72px 24px 46vh; }
+.lost { margin: 0 auto; text-align: center; justify-items: center; }
+.lost .login-title { align-items: center; }
+.lost .login-title .ln.off { padding-left: 0; margin-left: 0; }
+.lost-lead { margin: 0 auto; }
+.lost-cards { width: 100%; text-align: left; }
+.lost-cta { justify-self: center; }
+.lost-page .outline-mark.login-mark.a { display: none; }
+.lost-page .outline-mark.login-mark.b { display: block; width: 1400px; left: 50%; right: auto; top: auto; bottom: -900px; transform: translateX(-50%); }
+@media (max-width: 700px) {
+  .lost-page { padding: 56px 16px 52vh; }
+  .lost-page .outline-mark.login-mark.b { width: 760px; bottom: -470px; }
+}
+.lost-page { display: block; min-height: 0; padding: 88px 24px 0; }
+.lost-page::after { content: ""; display: block; height: 560px; }
+.lost-page .outline-mark.login-mark.b { top: auto; bottom: -760px; }
+.lost-cta { text-decoration: none; }
+@media (max-width: 700px) {
+  .lost-page { padding: 48px 16px 0; }
+  .lost-page::after { height: 320px; }
+  .lost-page .outline-mark.login-mark.b { bottom: -420px; }
+}
+@media (min-width: 701px) { .lost-page .outline-mark.login-mark.b { bottom: -900px; } }
