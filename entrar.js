@@ -4,7 +4,9 @@
   const cfg = window.GARTEN_CONFIG;
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.publishableKey);
   const app = document.getElementById("app");
-  document.getElementById("brand").replaceChildren(el("img", { src: "assets/logo.svg", alt: "garten" }));
+  // Símbolo em outline estourado, como na capa do DS (composição A)
+  const page = document.getElementById("page");
+  page.prepend(GartenIso.outline("login-mark a"), GartenIso.outline("login-mark b"));
   document.getElementById("top-actions").append(GartenTheme.button());
 
   async function boot() {

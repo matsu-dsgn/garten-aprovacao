@@ -462,3 +462,30 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .legal ul { padding-left: 20px; display: grid; gap: 6px; }
 .legal a { color: var(--accent-ink); }
 .team-link { color: var(--ink-soft); font-size: 14px; }
+
+/* ===== Entrar: capa do DS ===== */
+.login-body { background: var(--deep); }
+.login-page { position: relative; min-height: 100vh; min-height: 100dvh; overflow: hidden; background: var(--deep); display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
+.login-grid { position: relative; z-index: 1; width: min(1040px, 100%); display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: center; }
+.login-logo { height: 44px; width: auto; }
+.login-title { font-family: var(--display); text-transform: uppercase; font-weight: 400; color: var(--alabaster); font-size: clamp(34px, 4.6vw, 62px); line-height: 1.08; margin-top: 36px; white-space: nowrap; }
+.login-title .ln { display: block; }
+.login-title .ln.off { padding-left: .6em; }
+.login-title .hl { font-family: var(--highlight); color: var(--neon); }
+.login-sub { color: var(--powder); font-size: 17px; margin-top: 18px; max-width: 34ch; letter-spacing: -0.01em; }
+.login-box .panel { margin: 0; width: 100%; max-width: 420px; justify-self: center; background: var(--surface); }
+.login-box { display: grid; justify-items: center; }
+.login-box .panel h2 { font-size: 26px; }
+.login-box .btn.dark { width: 100%; padding: 13px 18px; }
+.login-theme { position: absolute; top: 16px; right: 16px; z-index: 2; }
+.outline-mark.login-mark { opacity: .8; }
+.outline-mark.login-mark.a { width: 1250px; height: auto; right: -640px; top: -640px; }
+.outline-mark.login-mark.b { width: 1250px; height: auto; left: -380px; bottom: -1110px; }
+@media (max-width: 820px) {
+  .login-grid { grid-template-columns: 1fr; gap: 32px; }
+  .login-title { margin-top: 24px; }
+  .login-brand { text-align: left; }
+  .outline-mark.login-mark.a { width: 700px; right: -560px; top: -600px; }
+  .outline-mark.login-mark.b { width: 800px; left: -260px; bottom: -760px; }
+  .login-page { align-items: flex-start; padding-top: 72px; }
+}

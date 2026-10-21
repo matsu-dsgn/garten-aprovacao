@@ -11,13 +11,23 @@
 <link rel="stylesheet" href="styles.css">
 <script src="theme.js"></script>
 </head>
-<body class="admin">
-<header class="topbar"><div class="wrap"><div class="brand" id="brand">garten</div><div class="row" id="top-actions"></div></div></header>
-<main class="wrap" id="app"><p>Carregando…</p></main>
+<body class="admin login-body">
+<main class="login-page" id="page">
+  <div class="login-grid">
+    <div class="login-brand">
+      <img class="login-logo" src="assets/logo.svg" alt="garten">
+      <h1 class="login-title"><span class="ln">Estrutura</span><span class="ln off">para o <span class="hl">novo</span></span></h1>
+      <p class="login-sub">Pauta, produção e aprovação da Garten num lugar só.</p>
+    </div>
+    <div class="login-box" id="app"><p class="msg">Carregando…</p></div>
+  </div>
+  <div class="login-theme" id="top-actions"></div>
+</main>
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script src="auth.js"></script>
+<script src="iso.js"></script>
 <script src="entrar.js"></script>
 </body>
 </html>
