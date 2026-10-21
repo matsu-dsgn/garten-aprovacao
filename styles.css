@@ -521,6 +521,10 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .kmeta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
 .kmeta b { color: var(--ink); font-weight: 600; text-transform: capitalize; }
 .kav { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--c); color: var(--k-av-ink, var(--alabaster)); flex: none; }
+.kav { position: relative; overflow: hidden; }
+.kav img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
+.kav.has-img img { opacity: 1; }
+.kav.has-img { box-shadow: 0 0 0 2px var(--c); }
 .ktitle { font-family: var(--display); font-weight: 700; color: var(--ink); line-height: 1.25; font-size: 15px; }
 .kfoot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .kpill { font-size: 11px; font-weight: 600; padding: 3px 9px 3px 8px; border-radius: 99px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); display: inline-flex; align-items: center; gap: 6px; }

@@ -99,6 +99,19 @@
     return null;
   }
 
+  function avatar(email, who) {
+    const t = d.team.find((x) => x.email === email);
+    const ini = who.trim().charAt(0).toUpperCase();
+    const box = el("span", { class: "kav", title: who, "aria-label": `Com ${who}` }, ini);
+    if (t?.avatar_url) {
+      const img = el("img", { src: t.avatar_url, alt: "", referrerpolicy: "no-referrer", loading: "lazy", decoding: "async" });
+      img.addEventListener("load", () => box.classList.add("has-img"));
+      img.addEventListener("error", () => img.remove());
+      box.append(img);
+    }
+    return box;
+  }
+
   function cardEl(p) {
     const mine = p.assignee === me.email;
     const ncom = d.comments.filter((c) => c.post_id === p.id).length;
@@ -109,7 +122,7 @@
       onclick: (e) => { if (card.dataset.dragged) { delete card.dataset.dragged; e.preventDefault(); return; } openPost = p.id; render(); } },
       el("div", { class: "kmeta" },
         el("span", {}, el("b", {}, dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")), " · ", G.FORMATS[p.format] || p.format),
-        who ? el("span", { class: "kav", title: who, "aria-label": `Com ${who}` }, who.trim().charAt(0).toUpperCase()) : null),
+        who ? avatar(p.assignee, who) : null),
       el("div", { class: "ktitle" }, p.title),
       el("div", { class: "kfoot" },
         el("span", { class: `kpill p-${sk}` }, SUB[sk].label + (st.stage && ["revisao", "cliente", "ajuste", "producao"].includes(sk) ? ` · ${st.stage === "copy" ? "copy" : "arte"}` : "")),
@@ -379,6 +392,7 @@
     if (!me.role) return GAuth.noAccess(app, sb, user, boot);
     const { data: email } = await sb.rpc("auth_email");
     me.email = email || user.email;
+    try { await sb.rpc("sync_my_avatar"); } catch { /* foto é opcional */ }
     const nav = GAuth.nav("kanban.html", me.role === "admin");
     if (nav && !document.querySelector(".topnav")) document.getElementById("top-actions").prepend(nav);
     if (me.role !== "admin" && !document.querySelector(".logout")) {
