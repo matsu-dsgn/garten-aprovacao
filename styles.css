@@ -686,3 +686,9 @@ code.link { max-width: 100%; }
   }
   .dock .btn.ghost { background: rgba(255, 255, 255, .06); }
 }
+
+/* Conta fora da equipe: página travada */
+body.locked { user-select: none; -webkit-user-select: none; }
+body.locked #top-actions { display: none; }
+.locked-box { text-align: center; }
+.locked-box h2 { margin: .4em 0; }
