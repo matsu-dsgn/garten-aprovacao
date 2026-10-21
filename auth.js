@@ -12,7 +12,8 @@ window.GAuth = (() => {
       const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.href.split("#")[0] } });
       if (error) { out.className = "msg err"; out.textContent = error.message; }
     });
-    app.replaceChildren(el("section", { class: "panel narrow" }, el("h2", {}, "Entrar"), google, out));
+    app.replaceChildren(el("section", { class: "panel narrow" }, el("h2", {}, "Entrar"), google, out,
+      el("a", { class: "login-privacy", href: "privacidade.html" }, "Política de privacidade")));
   }
 
   // Conta Google fora da equipe: vai para a página "perdido" (a mesma do 404).
