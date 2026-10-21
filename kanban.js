@@ -7,8 +7,9 @@
   document.getElementById("top-actions").append(GartenTheme.button());
 
   const COLS = [
-    { key: "espera", label: "Aguardando copy", hint: "Pauta ou copy ainda com o cliente" },
-    { key: "fazer", label: "A fazer", hint: "Copy aprovada, livre para pegar" },
+    { key: "espera", label: "Aguardando pauta", hint: "Pauta ainda com o cliente" },
+    { key: "copy", label: "Copy a fazer", hint: "Pauta aprovada, falta a copy" },
+    { key: "fazer", label: "Arte a fazer", hint: "Copy aprovada, livre para pegar" },
     { key: "producao", label: "Em produção" },
     { key: "revisao", label: "Revisão interna", hint: "Esperando o Rapha" },
     { key: "cliente", label: "Com o cliente" },
@@ -32,22 +33,33 @@
   }
 
   // Coluna do card = estado real do post (ninguém precisa arrastar)
-  function column(p) {
-    if (p.scheduled) return "agendado";
+  function state(p) {
+    if (p.scheduled) return { col: "agendado" };
+    const opp = p.kind === "oportunidade";
     const sentArte = G.latestVersion(d.sent, p.id, "arte");
     const draftArte = G.latestVersion(d.drafts, p.id, "arte");
-    if (draftArte && draftArte.number > (sentArte?.number || 0)) return "revisao";
+    if (draftArte && draftArte.number > (sentArte?.number || 0)) return { col: "revisao", stage: "arte" };
     if (sentArte) {
       const s = lastDecision(p.id, "arte", sentArte.id)?.status;
-      if (s === "aprovado") return "aprovado";
-      if (s === "reprovado" || s === "contestado") return "ajuste";
-      return "cliente";
+      if (s === "aprovado") return { col: "aprovado" };
+      if (s === "reprovado" || s === "contestado") return { col: "ajuste", stage: "arte" };
+      return { col: "cliente", stage: "arte" };
     }
-    const copy = G.latestVersion(d.sent, p.id, "copy");
-    const copyOk = copy && lastDecision(p.id, "copy", copy.id)?.status === "aprovado";
-    if (p.kind === "oportunidade" || copyOk) return p.assignee ? "producao" : "fazer";
-    return "espera";
+    const sentCopy = G.latestVersion(d.sent, p.id, "copy");
+    const draftCopy = G.latestVersion(d.drafts, p.id, "copy");
+    if (draftCopy && draftCopy.number > (sentCopy?.number || 0)) return { col: "revisao", stage: "copy" };
+    if (sentCopy) {
+      // na oportunidade o cliente aprova copy e arte juntas, no post pronto
+      const s = opp ? "aprovado" : lastDecision(p.id, "copy", sentCopy.id)?.status;
+      if (s === "aprovado") return { col: p.assignee ? "producao" : "fazer", stage: "arte" };
+      if (s === "reprovado" || s === "contestado") return { col: "ajuste", stage: "copy" };
+      return { col: "cliente", stage: "copy" };
+    }
+    const pautaOk = opp || G.stageState({ versions: d.sent, decisions: d.decisions }, p, "pauta").status === "aprovado";
+    if (pautaOk) return { col: p.assignee ? "producao" : "copy", stage: "copy" };
+    return { col: "espera" };
   }
+  const column = (p) => state(p).col;
 
   async function load() {
     const { data: posts } = await sb.from("posts").select("*").eq("month_id", monthId).order("post_date").order("sort");
@@ -74,6 +86,8 @@
       el("div", { class: "kmeta" }, el("b", {}, `${dt.getDate()}/${dt.getMonth() + 1}`), G.FORMATS[p.format] || p.format,
         p.kind === "oportunidade" ? el("span", { class: "chip opp" }, "⚡") : null),
       el("div", { class: "ktitle" }, p.title),
+      ["revisao", "cliente", "ajuste", "producao"].includes(column(p)) && state(p).stage
+        ? el("span", { class: "kstage" }, state(p).stage === "copy" ? "Copy" : "Arte") : null,
       el("div", { class: "kfoot" },
         p.editoria ? el("span", { class: "chip ed" }, edName(p.editoria)) : null,
         p.assignee ? el("span", { class: "kwho" }, GWork.nameOf(d.team, p.assignee)) : null,
@@ -91,7 +105,8 @@
 
   // ---------- Detalhe do card ----------
   function detail(p) {
-    const col = column(p);
+    const st = state(p);
+    const col = st.col;
     const out = msg("");
     const fail = (e) => { out.className = "msg err"; out.textContent = e.message || String(e); };
     const reload = async () => { await load(); render(); };
@@ -105,6 +120,24 @@
     const copy = G.latestVersion(d.sent, p.id, "copy");
     const sentArte = G.latestVersion(d.sent, p.id, "arte");
     const lastArteDec = sentArte ? lastDecision(p.id, "arte", sentArte.id) : null;
+    const lastCopyDec = copy ? lastDecision(p.id, "copy", copy.id) : null;
+    const adjDec = st.col === "ajuste" ? (st.stage === "copy" ? lastCopyDec : lastArteDec) : null;
+    const copyVersions = d.all.filter((v) => v.post_id === p.id && v.stage === "copy").sort((a, b) => b.number - a.number);
+
+    // Copy: a equipe sobe como rascunho; admin pode mandar direto ao cliente
+    const copyTa = el("textarea", { maxlength: "5000", placeholder: "Escreva a copy (legenda) do post" });
+    const lastAny = copyVersions[0];
+    if (lastAny) copyTa.value = lastAny.copy_text || "";
+    const directCopy = me.role === "admin" ? el("label", { class: "row" }, el("input", { type: "checkbox" }), "Enviar direto ao cliente (pular revisão)") : null;
+    const upCopy = el("button", { class: "btn dark", type: "button" }, copyVersions.length ? "Subir nova versão da copy" : "Subir copy");
+    upCopy.addEventListener("click", async () => {
+      upCopy.disabled = true;
+      try {
+        await GWork.uploadCopy(sb, { post: p, allVersions: d.all, text: copyTa.value, sent: !!directCopy?.querySelector("input").checked });
+        await reload();
+      } catch (e) { fail(e); upCopy.disabled = false; }
+    });
+    const canCopy = ["copy", "producao", "ajuste", "revisao"].includes(col) && (st.stage === "copy" || col === "copy");
     const arteVersions = d.all.filter((v) => v.post_id === p.id && v.stage === "arte").sort((a, b) => b.number - a.number);
 
     // Upload: equipe manda para revisão; admin escolhe
@@ -149,17 +182,30 @@
         el("span", {}, G.fmtDate(p.post_date).toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }))),
       el("div", { class: "row" }, take, p.assignee ? el("span", { class: "msg" }, `Com ${GWork.nameOf(d.team, p.assignee)}`) : null),
 
-      lastArteDec && (lastArteDec.status === "reprovado" || lastArteDec.status === "contestado")
-        ? el("div", { class: "content-box alert" }, el("span", { class: "eyebrow" }, "Ajuste pedido pelo cliente"),
-          lastArteDec.note || "", ...slideNotes.map(([k, v]) => el("div", {}, `Lâmina ${Number(k) + 1}: ${v}`))) : null,
+      adjDec
+        ? el("div", { class: "content-box alert" }, el("span", { class: "eyebrow" }, `Ajuste pedido pelo cliente · ${st.stage === "copy" ? "copy" : "arte"}`),
+          adjDec.note || "", ...(st.stage === "arte" ? slideNotes : []).map(([k, v]) => el("div", {}, `Lâmina ${Number(k) + 1}: ${v}`))) : null,
 
       p.objective ? el("p", { class: "objective" }, `Objetivo: ${p.objective}`) : null,
       p.direction ? el("p", { class: "direction" }, p.direction) : null,
       (p.checklist || []).length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
         el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null,
-      copy ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Copy v${copy.number}`), copy.copy_text || "") : null,
+      copy && !canCopy ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Copy aprovada · v${copy.number}`), copy.copy_text || "") : null,
 
-      col !== "espera" && col !== "agendado" ? el("div", { class: "stack" },
+      canCopy ? el("div", { class: "stack" },
+        el("div", { class: "eyebrow" }, "Copy"), copyTa, directCopy, el("div", { class: "row" }, upCopy)) : null,
+      copyVersions.length && canCopy ? el("div", { class: "stack" }, el("div", { class: "eyebrow" }, "Versões da copy"), copyVersions.map((v) => {
+        const dec = v.sent ? lastDecision(p.id, "copy", v.id) : null;
+        const tag = !v.sent ? "Em revisão interna" : dec ? G.STATUS_LABEL[dec.status] : "Com o cliente";
+        let sb2 = null;
+        if (!v.sent && me.role === "admin") {
+          sb2 = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente");
+          sb2.addEventListener("click", async () => { const { error } = await sb.rpc("send_version", { p_version: v.id }); error ? fail(error) : reload(); });
+        }
+        return el("div", { class: "draft" }, el("div", { class: "msg" }, `Copy v${v.number} · ${tag} · ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`), GWork.preview(v, d.urls), sb2);
+      })) : null,
+
+      col !== "espera" && col !== "agendado" && !(st.stage === "copy" && p.kind !== "oportunidade") ? el("div", { class: "stack" },
         el("div", { class: "eyebrow" }, "Subir arte"), fileIn, direct, el("div", { class: "row" }, up)) : null,
       arteVersions.length ? el("div", { class: "stack" }, el("div", { class: "eyebrow" }, "Versões da arte"), arteVersions.map(versionRow)) : null,
 

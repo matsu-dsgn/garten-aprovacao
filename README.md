@@ -48,7 +48,8 @@ No JSON: `"kind":"oportunidade","origin":"cliente"`.
 ## Equipe e Kanban
 - Acesso por e-mail na lista "Equipe" do painel. `admin` = tudo (painel, Kanban, ver como cliente); `equipe` = Kanban.
 - Login: Google (configurar o provedor no Supabase) ou e-mail e senha. E-mail fora da lista não vê nada.
-- `kanban.html`: colunas calculadas pelo status real do post (A fazer → Em produção → Revisão interna → Com o cliente → Ajuste → Aprovado → Agendado).
+- `kanban.html`: colunas calculadas pelo status real do post (Aguardando pauta → Copy a fazer → Arte a fazer → Em produção → Revisão interna → Com o cliente → Ajuste → Aprovado → Agendado).
+- Copy: o admin sobe pelo painel (vai direto ao cliente); se não subir, a equipe escreve pelo Kanban e passa pela revisão interna.
 - Arte/copy da equipe nasce **rascunho**: o cliente só vê depois que o admin clica em "Enviar ao cliente".
 - Comentários internos por post (o cliente nunca vê).
 - Wilker e Letícia têm o mesmo peso: vale a última resposta.
