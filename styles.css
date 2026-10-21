@@ -198,7 +198,7 @@ section.block { padding-top: 56px; }
 .who { display: flex; gap: 6px; flex-wrap: wrap; }
 .who button { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
 .who button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
-select, textarea, input[type=text], input[type=email], input[type=password], input[type=date], input[type=file] { width: 100%; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--surface); color: var(--ink-2); }
+select, textarea, input[type=text], input[type=email], input[type=password], input[type=date], input[type=datetime-local], input[type=number], input[type=file] { width: 100%; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--surface); color: var(--ink-2); }
 textarea { min-height: 76px; resize: vertical; }
 .decide-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn { border: 1px solid transparent; border-radius: 99px; padding: 10px 20px; font-weight: 600; cursor: pointer; transition: transform .12s, opacity .12s, background .2s; font-size: 15px; }
@@ -621,3 +621,21 @@ body.kdragging .kcol.kover .kcards { background: color-mix(in srgb, var(--c) 8%,
 
 .content-box.sched { display: grid; gap: 10px; }
 .content-box.sched input[type="datetime-local"] { max-width: 260px; }
+
+/* ===== Celular: nada pode ser mais largo que a tela ===== */
+/* Itens de grid/flex não encolhem abaixo do conteúdo por padrão; o link longo esticava a página inteira */
+.admin main { grid-template-columns: minmax(0, 1fr); }
+.admin main > *, .panel > *, .stack > *, .post-row > *, .link-row > * { min-width: 0; }
+code.link { max-width: 100%; }
+@media (max-width: 640px) {
+  .link-row code.link { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* iPhone dá zoom sozinho em campos com letra menor que 16px */
+  select, textarea, input[type=text], input[type=email], input[type=password], input[type=date], input[type=datetime-local], input[type=number], input[type=file] { font-size: 16px; }
+  /* Topo: logo, navegação e tema numa linha que quebra sem estourar */
+  .topbar .wrap { height: auto; min-height: 56px; flex-wrap: wrap; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+  #top-actions { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+  #top-actions small { display: none; }
+  .topnav a { padding: 6px 10px; }
+  .admin main { padding: 20px 16px 80px; }
+  .panel { padding: 16px; }
+}
