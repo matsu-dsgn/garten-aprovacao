@@ -711,3 +711,16 @@ body.locked #top-actions { display: none; }
   .lost-page { padding: 48px 20px; align-items: flex-start; }
   .lost-page .outline-mark.login-mark { display: none; }
 }
+
+/* Login na mesma base da 404: bloco no meio, símbolo grande à direita */
+.login-page { padding: 72px 32px; }
+.login-grid { width: 100%; max-width: 880px; margin: 0 auto; }
+.login-page:not(.lost-page) .outline-mark.login-mark.b { display: none; }
+.login-page:not(.lost-page) .outline-mark.login-mark.a { width: 1900px; right: -1580px; top: -420px; }
+@media (max-width: 700px) {
+  .login-page { padding: 48px 20px; }
+  .login-page:not(.lost-page) .outline-mark.login-mark { display: none; }
+}
+/* Símbolo ancorado ao bloco central, não à borda da tela (mantém o mesmo desenho em telas largas) */
+.login-page .outline-mark.login-mark.a { right: auto; left: calc(50% + 320px); top: -420px; width: 1900px; }
+.login-page:not(.lost-page) .outline-mark.login-mark.a { left: calc(50% + 400px); }
