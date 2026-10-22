@@ -58,6 +58,39 @@
     return msg(`Última varredura: ${t} · ${lastRun.itens} ${lastRun.itens === 1 ? "item novo" : "itens novos"}`, "okk");
   }
 
+  function promptFor(a, url) {
+    const linhas = [
+      "Vamos pensar num post para a Garten a partir deste alerta do radar legislativo.",
+      "",
+      `Título: ${a.titulo}`,
+      `Órgão: ${a.orgao}${a.ato ? ` · ${a.ato}` : ""}`,
+      a.data_publicacao ? `Publicado em: ${G.fmtDate(a.data_publicacao).toLocaleDateString("pt-BR")}` : null,
+      `Esfera: ${ESFERA[a.esfera] || a.esfera} · ${REL[a.relevancia] || a.relevancia}`,
+      a.tipo === "atualizacao" ? "Tipo: atualiza um post já publicado (vamos deixar claro que é uma atualização)" : "Tipo: novidade",
+      `Resumo do radar: ${a.resumo}`,
+      a.vigencia ? `Vigência: ${a.vigencia}` : null,
+      a.publico ? `Para quem vale: ${a.publico}` : null,
+      a.angulo_pauta ? `Ângulo sugerido: ${a.angulo_pauta}` : null,
+      url ? `Fonte oficial: ${url}` : null,
+      "",
+      "Antes de propor qualquer coisa, confira a fonte oficial e me diga se o resumo do radar está correto ou se falta algo. Depois vamos fazer um brainstorm de formato, gancho e copy no tom da Garten.",
+    ];
+    return linhas.filter((l) => l !== null).join("\n");
+  }
+
+  async function copyPrompt(btn, a, url) {
+    const text = promptFor(a, url);
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const t = el("textarea", { readonly: true, style: "position:absolute;left:-9999px" });
+      t.value = text; document.body.append(t); t.select();
+      try { document.execCommand("copy"); } finally { t.remove(); }
+    }
+    const old = btn.textContent;
+    btn.textContent = "Copiado ✓";
+    setTimeout(() => { btn.textContent = old; }, 1800);
+  }
+
   function card(a) {
     const url = safeUrl(a.url);
     const chips = el("div", { class: "row" },
@@ -68,7 +101,10 @@
     );
     const meta = [a.orgao, a.ato, a.data_publicacao ? `publicado em ${G.fmtDate(a.data_publicacao).toLocaleDateString("pt-BR")}` : null].filter(Boolean).join(" · ");
     const dl = (k, v) => v ? el("div", { class: "radar-field" }, el("b", {}, k), el("span", {}, v)) : null;
+    const copyBtn = el("button", { class: "btn dark", type: "button" }, "Copiar como prompt");
+    copyBtn.addEventListener("click", () => copyPrompt(copyBtn, a, url));
     const actions = el("div", { class: "row" },
+      copyBtn,
       a.status === "novo" ? el("button", { class: "btn ghost", onclick: () => setStatus(a.id, "lido") }, "Marcar como lido") : null,
       a.status !== "virou_pauta" ? el("button", { class: "btn ok", onclick: () => setStatus(a.id, "virou_pauta") }, "Virou pauta") : null,
       a.status !== "descartado" ? el("button", { class: "btn bad", onclick: () => setStatus(a.id, "descartado") }, "Descartar") : null,
