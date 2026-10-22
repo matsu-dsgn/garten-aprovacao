@@ -751,3 +751,4 @@ body.locked #top-actions { display: none; }
 .radar-card a { color: var(--accent-ink); font-weight: 600; }
 .radar-field { display: grid; gap: 2px; font-size: 14px; }
 .radar-field b { color: var(--ink-soft); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.radar-discard select { border: 1px solid var(--bad); color: var(--bad); background: transparent; border-radius: 99px; padding: 9px 14px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }

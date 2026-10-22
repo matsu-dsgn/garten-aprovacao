@@ -37,3 +37,8 @@ revoke all on public.radar_runs, public.radar_alerts from anon;
 revoke insert, update, delete on public.radar_runs from authenticated;
 revoke insert, update, delete on public.radar_alerts from authenticated;
 grant update (status) on public.radar_alerts to authenticated;
+
+-- Motivo do descarte (calibra o filtro da tarefa diária)
+alter table public.radar_alerts add column descarte_motivo text check (descarte_motivo in ('irrelevante','repetido','muito_tecnico','fora_do_publico','resumo_errado'));
+revoke update on public.radar_alerts from authenticated;
+grant update (status, descarte_motivo) on public.radar_alerts to authenticated;

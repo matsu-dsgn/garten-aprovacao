@@ -13,6 +13,8 @@
   const ESFERA = { federal: "Federal", sp: "Estado de SP" };
   const TIPO = { novidade: "Novidade", atualizacao: "Atualiza post publicado" };
 
+  const MOTIVOS = { irrelevante: "Irrelevante", repetido: "Repetido", muito_tecnico: "Técnico demais para post", fora_do_publico: "Fora do público da Garten", resumo_errado: "Resumo errado" };
+
   let alerts = [];
   let lastRun = null;
   let filter = "ativos"; // ativos | todos | virou_pauta | descartado
@@ -42,18 +44,40 @@
     render();
   }
 
-  async function setStatus(id, status) {
+  async function setStatus(id, status, motivo = null) {
     if (!STATUS[status]) return;
-    const { error } = await sb.from("radar_alerts").update({ status }).eq("id", id);
+    if (motivo && !MOTIVOS[motivo]) return;
+    const patch = { status, descarte_motivo: status === "descartado" ? motivo : null };
+    const { error } = await sb.from("radar_alerts").update(patch).eq("id", id);
     if (error) return alert(error.message);
     const it = alerts.find((x) => x.id === id);
-    if (it) it.status = status;
+    if (it) Object.assign(it, patch);
     render();
+  }
+
+  // Descartar pede um motivo: a tarefa diária lê esses motivos para calibrar o filtro
+  function discardControl(a) {
+    const sel = el("select", { "aria-label": "Motivo do descarte" },
+      el("option", { value: "" }, "Descartar por…"),
+      Object.entries(MOTIVOS).map(([k, v]) => el("option", { value: k }, v)));
+    sel.addEventListener("change", () => { if (sel.value) setStatus(a.id, "descartado", sel.value); });
+    return el("label", { class: "radar-discard" }, sel);
+  }
+
+  // Atrasado = mais de um dia útil sem varredura, contando que ela roda às 8h40
+  function stale(iso) {
+    const now = new Date();
+    let d = new Date(now);
+    if (now.getHours() * 60 + now.getMinutes() < 9 * 60 + 30) d.setDate(d.getDate() - 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+    d.setHours(8, 0, 0, 0); // último dia útil em que já deveria ter rodado
+    return new Date(iso) < d;
   }
 
   function runLine() {
     if (!lastRun) return msg("Nenhuma varredura registrada ainda. A primeira roda no próximo dia útil às 8h40.");
     const t = G.when(lastRun.run_at);
+    if (stale(lastRun.run_at)) return msg(`Atenção: o radar não roda desde ${t}. A tarefa agendada pode ter parado.`, "err");
     if (!lastRun.ok) return msg(`Última varredura (${t}) falhou: ${lastRun.notas || "sem detalhe"}`, "err");
     return msg(`Última varredura: ${t} · ${lastRun.itens} ${lastRun.itens === 1 ? "item novo" : "itens novos"}`, "okk");
   }
@@ -107,7 +131,7 @@
       copyBtn,
       a.status === "novo" ? el("button", { class: "btn ghost", onclick: () => setStatus(a.id, "lido") }, "Marcar como lido") : null,
       a.status !== "virou_pauta" ? el("button", { class: "btn ok", onclick: () => setStatus(a.id, "virou_pauta") }, "Virou pauta") : null,
-      a.status !== "descartado" ? el("button", { class: "btn bad", onclick: () => setStatus(a.id, "descartado") }, "Descartar") : null,
+      a.status !== "descartado" ? discardControl(a) : el("span", { class: "chip" }, `Descartado: ${MOTIVOS[a.descarte_motivo] || "sem motivo"}`),
       a.status !== "novo" ? el("button", { class: "btn ghost", onclick: () => setStatus(a.id, "novo") }, "Reabrir") : null,
     );
     return el("article", { class: "panel radar-card" },
