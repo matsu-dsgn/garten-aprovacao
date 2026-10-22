@@ -97,6 +97,8 @@ window.G = (() => {
     painel: ["M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1", "M5 16h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1", "M15 12h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1", "M15 4h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1"],
     kanban: ["M4 4h6", "M14 4h6", "M4 10a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z", "M14 10a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"],
     radar: ["M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0", "M15.51 15.56a5 5 0 1 0 -3.51 1.44", "M18.832 17.86a9 9 0 1 0 -6.832 3.14", "M12 12v9"],
+    relogio: ["M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0", "M12 7v5l3 3"],
+    historico: ["M12 8v4l2 2", "M3.05 11a9 9 0 1 1 .5 4", "M3 20v-5h5"],
     pauta: ["M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z", "M16 3v4", "M8 3v4", "M4 11h16"],
   };
   function icon(name) {
@@ -120,7 +122,8 @@ window.G = (() => {
     const last = runs[0];
     if (last && !last.finished_at && now - new Date(last.run_at) < 2 * 3600e3) {
       const eta = new Date(new Date(last.run_at).getTime() + mins * 6e4);
-      return { running: true, text: eta > now ? `Varredura em andamento · novidades por volta de ${fmt(eta)}` : "Varredura em andamento · terminando" };
+      return { running: true, day: null, hour: eta > now ? `Por volta de ${fmt(eta)}` : "Terminando agora",
+        text: eta > now ? `Varredura em andamento · novidades por volta de ${fmt(eta)}` : "Varredura em andamento · terminando" };
     }
     const d = new Date(now);
     if (now.getHours() * 60 + now.getMinutes() >= 8 * 60 + 40) d.setDate(d.getDate() + 1);
@@ -130,7 +133,8 @@ window.G = (() => {
     const t1 = new Date(d); t1.setHours(0, 0, 0, 0);
     const diff = Math.round((t1 - t0) / 864e5);
     const day = diff === 0 ? "hoje" : diff === 1 ? "amanhã" : d.toLocaleDateString("pt-BR", { weekday: "long" });
-    return { running: false, text: `Próximas novidades: ${day}, por volta de ${fmt(d)}` };
+    return { running: false, day: day[0].toUpperCase() + day.slice(1), hour: `Por volta de ${fmt(d)}`,
+      text: `Próximas novidades: ${day}, por volta de ${fmt(d)}` };
   }
 
   // Estado vazio do radar: varredura animada (só decorativa) + texto honesto
@@ -153,12 +157,18 @@ window.G = (() => {
   // Bloco de status no topo do radar. alert = texto de problema (varredura falhou ou parada)
   function radarStatus(timing, lastText, alert) {
     const title = alert ? "Atenção" : timing.running ? "Varrendo agora" : "Radar ligado";
+    const line = (ico, text, cls = "") => el("li", { class: cls }, icon(ico), el("span", {}, text));
+    const body = alert
+      ? el("p", { class: "radar-alert" }, alert)
+      : el("div", { class: "radar-status-body" },
+          el("span", { class: "radar-status-label" }, timing.running ? "Novidades" : "Próximas novidades"),
+          el("ul", { class: "radar-status-lines" },
+            timing.day ? line("pauta", timing.day, "hl") : null,
+            line("relogio", timing.hour, "hl"),
+            lastText ? line("historico", lastText) : null));
     return el("aside", { class: `radar-status${alert ? " is-alert" : ""}${timing.running ? " is-running" : ""}`, role: "status" },
-      radarScope(),
-      el("div", { class: "radar-status-txt" },
-        el("b", {}, title),
-        el("span", { class: "radar-next" }, alert || timing.text),
-        lastText && !alert ? el("span", { class: "radar-last" }, lastText) : null));
+      el("div", { class: "radar-status-top" }, radarScope(), el("b", {}, title)),
+      body);
   }
 
   // Lista vazia: o status já está no topo, aqui só o texto

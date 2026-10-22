@@ -748,17 +748,27 @@ body.locked #top-actions { display: none; }
 @media (min-width: 821px) { .login-grid { grid-template-columns: 1fr 300px; } .login-box .panel { max-width: none; } }
 
 /* ---------- Radar legislativo (admin) ---------- */
-.radar-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; margin: 28px 0 16px; }
-.radar-intro { display: grid; gap: 10px; align-content: start; }
+.radar-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: stretch; margin: 28px 0 16px; }
+.radar-intro { display: grid; gap: 10px; align-content: space-between; padding: 4px 0 2px; }
+.radar-intro .msg { max-width: 640px; }
+.radar-head .radar-intro h1 { font-size: clamp(36px, 5.2vw, 64px); line-height: .98; max-width: 9.5em; }
+.radar-intro h1 span { display: block; }
 .radar-filters { display: grid; gap: 10px; margin-bottom: 22px; }
-.radar-status { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px 14px 14px; min-width: 300px; }
-.radar-status .radar-scope { width: 72px; height: 72px; flex: none; }
-.radar-status-txt { display: grid; gap: 3px; }
-.radar-status-txt b { font-family: var(--display); color: var(--ink); font-size: 17px; text-transform: uppercase; letter-spacing: .02em; }
-.radar-last { font-size: 12px; color: var(--ink-soft); }
+.radar-status { align-self: stretch; display: grid; align-content: start; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px 18px; min-width: 300px; }
+.radar-status-top { display: flex; align-items: center; gap: 12px; }
+.radar-status .radar-scope { width: 52px; height: 52px; flex: none; }
+.radar-status-top b { font-family: var(--display); color: var(--ink); font-size: 17px; text-transform: uppercase; letter-spacing: .02em; }
+.radar-status-body { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.radar-status-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+.radar-status-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.radar-status-lines li { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-soft); }
+.radar-status-lines li.hl { font-size: 15px; font-weight: 600; color: var(--accent-ink); }
+.radar-status-lines .nav-ico { width: 17px; height: 17px; flex: none; }
+.radar-status-lines li:not(.hl) { margin-top: 2px; }
+.radar-alert { font-size: 14px; border-top: 1px solid currentColor; padding-top: 12px; }
 .radar-status.is-running { border-color: var(--accent-ink); }
 .radar-status.is-alert { border-color: var(--bad); background: var(--bad-bg); }
-.radar-status.is-alert b, .radar-status.is-alert .radar-next { color: var(--bad); }
+.radar-status.is-alert b, .radar-status.is-alert .radar-alert { color: var(--bad); }
 .radar-status.is-alert .sweep, .radar-status.is-alert .blip { animation: none; }
 .radar-empty-txt { padding: 48px 16px 96px; }
 @media (max-width: 720px) {
