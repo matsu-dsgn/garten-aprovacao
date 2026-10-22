@@ -76,15 +76,15 @@
     return new Date(iso) < d;
   }
 
-  function runLine() {
-    const timing = G.radarTiming(runs);
-    if (timing.running) return msg(timing.text, "okk");
-    if (!lastRun) return null;
-    const t = G.when(lastRun.run_at);
-    if (stale(lastRun.run_at)) return msg(`Atenção: o radar não roda desde ${t}. A tarefa agendada pode ter parado.`, "err");
-    if (!lastRun.ok) return msg(`Última varredura (${t}) falhou: ${lastRun.notas || "sem detalhe"}`, "err");
-    return msg(`Última varredura: ${t} · ${lastRun.itens} ${lastRun.itens === 1 ? "item novo" : "itens novos"}`, "okk");
+  // Status: { last: texto da última varredura, alert: problema a destacar }
+  function runInfo() {
+    if (!lastRun) return { last: null, alert: null };
+    const t = G.when(lastRun.finished_at || lastRun.run_at);
+    if (stale(lastRun.run_at)) return { last: null, alert: `O radar não roda desde ${t}. A tarefa agendada pode ter parado.` };
+    if (!lastRun.ok) return { last: null, alert: `A varredura de ${t} falhou: ${lastRun.notas || "sem detalhe"}` };
+    return { last: `Última varredura: ${t} · ${lastRun.itens} ${lastRun.itens === 1 ? "item novo" : "itens novos"}`, alert: null };
   }
+
 
   function promptFor(a, url) {
     const linhas = [
@@ -159,15 +159,17 @@
       filter === "ativos" ? a.status === "novo" || a.status === "lido" :
       a.status === filter);
     const novos = alerts.filter((a) => a.status === "novo").length;
-    const tabs = el("div", { class: "row" }, [["ativos", `Em aberto${novos ? ` (${novos} novos)` : ""}`], ["virou_pauta", "Viraram pauta"], ["descartado", "Descartados"], ["todos", "Todos"]]
+    const tabs = el("div", { class: "row" }, [["ativos", `Em aberto${novos ? ` (${novos} ${novos === 1 ? "novo" : "novos"})` : ""}`], ["virou_pauta", "Viraram pauta"], ["descartado", "Descartados"], ["todos", "Todos"]]
       .map(([k, label]) => el("button", { class: `btn ${filter === k ? "dark" : "ghost"}`, onclick: () => { filter = k; render(); } }, label)));
     app.replaceChildren(
       el("section", { class: "radar-head" },
-        el("h1", {}, "Radar legislativo"),
-        el("p", { class: "msg" }, "Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP. Varredura de segunda a sexta, 8h40. Confira sempre a fonte oficial antes de virar post."),
-        runLine(), tabs),
+        el("div", { class: "radar-intro" },
+          el("h1", {}, "Radar legislativo"),
+          el("p", { class: "msg" }, "Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP. Varredura de segunda a sexta, 8h40. Confira sempre a fonte oficial antes de virar post.")),
+        (() => { const i = runInfo(); return G.radarStatus(G.radarTiming(runs), i.last, i.alert); })()),
+      el("div", { class: "radar-filters" }, tabs),
       sel.length ? G.groupedList(sel, card)
-        : filter === "ativos" ? G.radarEmpty(G.radarTiming(runs).running ? "Varrendo agora" : "Radar ligado", "Nada em aberto por enquanto. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece aqui.", G.radarTiming(runs))
+        : filter === "ativos" ? G.radarEmpty("Nada em aberto por enquanto. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece aqui.")
         : el("div", { class: "empty-state" }, "Nada nesta lista."),
     );
   }

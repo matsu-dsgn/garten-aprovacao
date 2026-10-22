@@ -95,14 +95,16 @@
     const runs = data.runs || [];
     const timing = G.radarTiming(runs);
     const done = runs.find((x) => x.finished_at || !x.ok);
-    const run = timing.running ? timing.text : done ? `Última varredura: ${G.when(done.finished_at || done.run_at)}` : null;
+    const last = done ? `Última varredura: ${G.when(done.finished_at || done.run_at)}` : null;
     app.replaceChildren(el("main", { class: "wrap" },
       el("section", { class: "radar-head" },
-        el("h1", {}, "Radar legislativo"),
-        el("p", { class: "msg" }, "Novidades da Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP, levantadas todo dia útil de manhã. Diga o que faz sentido para os clientes de vocês: isso ajuda o radar a trazer o que importa."),
-        run ? el("p", { class: "msg okk" }, run) : null, who, tabs),
+        el("div", { class: "radar-intro" },
+          el("h1", {}, "Radar legislativo"),
+          el("p", { class: "msg" }, "Novidades da Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP, levantadas todo dia útil de manhã. Diga o que faz sentido para os clientes de vocês: isso ajuda o radar a trazer o que importa.")),
+        G.radarStatus(timing, last, null)),
+      el("div", { class: "radar-filters" }, who, tabs),
       list.length ? G.groupedList(list, card)
-        : filter === "todos" ? G.radarEmpty(timing.running ? "Varrendo agora" : "Radar ligado", "Ainda sem novidades por aqui. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece nesta página.", timing)
+        : filter === "todos" ? G.radarEmpty("Ainda sem novidades por aqui. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece nesta página.")
         : el("div", { class: "empty-state" }, "Nada nesta lista.")));
   }
 

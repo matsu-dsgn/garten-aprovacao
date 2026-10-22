@@ -748,7 +748,23 @@ body.locked #top-actions { display: none; }
 @media (min-width: 821px) { .login-grid { grid-template-columns: 1fr 300px; } .login-box .panel { max-width: none; } }
 
 /* ---------- Radar legislativo (admin) ---------- */
-.radar-head { display: grid; gap: 10px; margin: 28px 0 18px; }
+.radar-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; margin: 28px 0 16px; }
+.radar-intro { display: grid; gap: 10px; align-content: start; }
+.radar-filters { display: grid; gap: 10px; margin-bottom: 22px; }
+.radar-status { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px 14px 14px; min-width: 300px; }
+.radar-status .radar-scope { width: 72px; height: 72px; flex: none; }
+.radar-status-txt { display: grid; gap: 3px; }
+.radar-status-txt b { font-family: var(--display); color: var(--ink); font-size: 17px; text-transform: uppercase; letter-spacing: .02em; }
+.radar-last { font-size: 12px; color: var(--ink-soft); }
+.radar-status.is-running { border-color: var(--accent-ink); }
+.radar-status.is-alert { border-color: var(--bad); background: var(--bad-bg); }
+.radar-status.is-alert b, .radar-status.is-alert .radar-next { color: var(--bad); }
+.radar-status.is-alert .sweep, .radar-status.is-alert .blip { animation: none; }
+.radar-empty-txt { padding: 48px 16px 96px; }
+@media (max-width: 720px) {
+  .radar-head { grid-template-columns: 1fr; gap: 14px; }
+  .radar-status { min-width: 0; }
+}
 .radar-head h1 { font-family: var(--display); color: var(--ink); font-size: clamp(26px, 3vw, 36px); }
 .radar-list { display: grid; gap: 16px; margin-bottom: 120px; }
 .radar-card h2 { color: var(--ink); line-height: 1.2; }
@@ -807,3 +823,5 @@ a.ov-tile:active { transform: scale(.98); }
 .radar-group + .radar-group { margin-top: 18px; }
 .radar-group-h { display: flex; align-items: baseline; gap: 10px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 .radar-group-h small { font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .radar-status.is-alert { background: color-mix(in srgb, var(--bad) 18%, transparent); } }
+:root[data-theme="dark"] .radar-status.is-alert { background: color-mix(in srgb, var(--bad) 18%, transparent); }

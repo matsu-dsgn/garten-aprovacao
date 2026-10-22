@@ -115,7 +115,7 @@ window.G = (() => {
     const done = runs.filter((r) => r.finished_at).slice(0, 10)
       .map((r) => (new Date(r.finished_at) - new Date(r.run_at)) / 6e4).filter((m) => m > 0 && m < 180);
     const avg = done.length ? done.reduce((a, b) => a + b, 0) / done.length : 20;
-    const mins = Math.min(90, Math.max(5, Math.ceil(avg / 5) * 5));
+    const mins = Math.min(90, Math.max(15, Math.ceil(avg / 5) * 5)); // piso de 15 min: busca + conferência de fontes
     const fmt = (d) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
     const last = runs[0];
     if (last && !last.finished_at && now - new Date(last.run_at) < 2 * 3600e3) {
@@ -134,23 +134,35 @@ window.G = (() => {
   }
 
   // Estado vazio do radar: varredura animada (só decorativa) + texto honesto
-  function radarEmpty(title, text, timing) {
+  // Radar animado (decorativo): ponteiro girando, rastro e pontos
+  function radarScope() {
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", "0 0 120 120"); svg.setAttribute("class", "radar-scope"); svg.setAttribute("aria-hidden", "true");
-    const add = (tag, attrs) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); svg.append(n); return n; };
+    const add = (tag, attrs, parent = svg) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent.append(n); return n; };
     for (const r of [56, 40, 24]) add("circle", { cx: 60, cy: 60, r, class: "ring" });
     add("path", { d: "M60 4v112M4 60h112", class: "cross" });
-    const g = document.createElementNS(ns, "g"); g.setAttribute("class", "sweep"); svg.append(g);
-    const wedge = document.createElementNS(ns, "path"); wedge.setAttribute("d", "M60 60L60 4A56 56 0 0 0 11.5 32Z"); wedge.setAttribute("class", "wedge"); g.append(wedge);
-    const arm = document.createElementNS(ns, "path"); arm.setAttribute("d", "M60 60L60 4"); arm.setAttribute("class", "arm"); g.append(arm);
+    const g = add("g", { class: "sweep" });
+    add("path", { d: "M60 60L60 4A56 56 0 0 0 11.5 32Z", class: "wedge" }, g);
+    add("path", { d: "M60 60L60 4", class: "arm" }, g);
     for (const [cx, cy, d] of [[84, 38, "0s"], [36, 78, "1.4s"], [80, 86, "2.6s"]]) add("circle", { cx, cy, r: 2.6, class: "blip", style: `animation-delay:${d}` });
     add("circle", { cx: 60, cy: 60, r: 3, class: "core" });
-    return el("div", { class: "radar-empty" }, svg,
-      el("h2", {}, title),
-      el("p", { class: "msg" }, text),
-      el("p", { class: "radar-next" }, timing.text));
+    return svg;
   }
+
+  // Bloco de status no topo do radar. alert = texto de problema (varredura falhou ou parada)
+  function radarStatus(timing, lastText, alert) {
+    const title = alert ? "Atenção" : timing.running ? "Varrendo agora" : "Radar ligado";
+    return el("aside", { class: `radar-status${alert ? " is-alert" : ""}${timing.running ? " is-running" : ""}`, role: "status" },
+      radarScope(),
+      el("div", { class: "radar-status-txt" },
+        el("b", {}, title),
+        el("span", { class: "radar-next" }, alert || timing.text),
+        lastText && !alert ? el("span", { class: "radar-last" }, lastText) : null));
+  }
+
+  // Lista vazia: o status já está no topo, aqui só o texto
+  const radarEmpty = (text) => el("div", { class: "empty-state radar-empty-txt" }, text);
 
   // ---------- Estado do post no Kanban (fonte única: Kanban e painel usam a mesma regra) ----------
   const KANBAN_SUB = {
@@ -222,5 +234,5 @@ window.G = (() => {
       el("h3", { class: "radar-group-h" }, el("span", {}, l), el("small", {}, `${list.length} ${list.length === 1 ? "item" : "itens"}`)),
       list.map(card))));
 
-  return { groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  return { radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();
