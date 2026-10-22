@@ -99,7 +99,7 @@
     app.replaceChildren(el("main", { class: "wrap" },
       el("section", { class: "radar-head" },
         el("div", { class: "radar-intro" },
-          el("h1", {}, el("span", {}, "Radar"), el("span", {}, "legislativo")),
+          el("h1", {}, el("span", {}, "Radar"), el("span", { class: "hl radar-title-offset" }, "legislativo")),
           el("p", { class: "msg" }, "Novidades da Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP, levantadas todo dia útil de manhã. Diga o que faz sentido para os clientes de vocês: isso ajuda o radar a trazer o que importa.")),
         G.radarStatus(timing, last, null)),
       el("div", { class: "radar-filters" }, who, tabs),

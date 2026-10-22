@@ -753,6 +753,7 @@ body.locked #top-actions { display: none; }
 .radar-intro .msg { max-width: 640px; }
 .radar-head .radar-intro h1 { font-size: clamp(36px, 5.2vw, 64px); line-height: .98; max-width: 9.5em; }
 .radar-intro h1 span { display: block; }
+.radar-intro h1 .radar-title-offset { padding-left: 1ch; }
 .radar-filters { display: grid; gap: 10px; margin-bottom: 22px; }
 .radar-status { align-self: stretch; display: grid; align-content: start; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px 18px; min-width: 300px; }
 .radar-status-top { display: flex; align-items: center; gap: 12px; }

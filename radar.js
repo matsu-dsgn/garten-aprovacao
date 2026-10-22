@@ -164,7 +164,7 @@
     app.replaceChildren(
       el("section", { class: "radar-head" },
         el("div", { class: "radar-intro" },
-          el("h1", {}, el("span", {}, "Radar"), el("span", {}, "legislativo")),
+          el("h1", {}, el("span", {}, "Radar"), el("span", { class: "hl radar-title-offset" }, "legislativo")),
           el("p", { class: "msg" }, "Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP. Varredura de segunda a sexta, 8h40. Confira sempre a fonte oficial antes de virar post.")),
         (() => { const i = runInfo(); return G.radarStatus(G.radarTiming(runs), i.last, i.alert); })()),
       el("div", { class: "radar-filters" }, tabs),
