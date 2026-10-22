@@ -75,7 +75,7 @@
   }
 
   function runLine() {
-    if (!lastRun) return msg("Nenhuma varredura registrada ainda. A primeira roda no próximo dia útil às 8h40.");
+    if (!lastRun) return null;
     const t = G.when(lastRun.run_at);
     if (stale(lastRun.run_at)) return msg(`Atenção: o radar não roda desde ${t}. A tarefa agendada pode ter parado.`, "err");
     if (!lastRun.ok) return msg(`Última varredura (${t}) falhou: ${lastRun.notas || "sem detalhe"}`, "err");
@@ -163,7 +163,8 @@
         el("p", { class: "msg" }, "Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP. Varredura de segunda a sexta, 8h40. Confira sempre a fonte oficial antes de virar post."),
         runLine(), tabs),
       sel.length ? el("div", { class: "radar-list" }, sel.map(card))
-        : el("div", { class: "empty-state" }, filter === "ativos" ? "Nada em aberto. Quando sair algo relevante, aparece aqui." : "Nada nesta lista."),
+        : filter === "ativos" ? G.radarEmpty("Radar ligado", "Nada em aberto por enquanto. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece aqui.")
+        : el("div", { class: "empty-state" }, "Nada nesta lista."),
     );
   }
 

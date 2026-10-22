@@ -757,3 +757,23 @@ body.locked #top-actions { display: none; }
 .radar-field b { color: var(--ink-soft); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .radar-discard select { border: 1px solid var(--bad); color: var(--bad); background: transparent; border-radius: 99px; padding: 9px 14px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
 .radar-disclaimer { font-size: 12px; color: var(--ink-soft); font-style: italic; }
+
+/* Estado vazio do radar */
+.radar-empty { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 56px 16px 96px; }
+.radar-empty h2 { font-family: var(--display); color: var(--ink); font-size: 22px; margin-top: 10px; }
+.radar-empty .msg { max-width: 440px; }
+.radar-next { font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+.radar-scope { width: 148px; height: 148px; overflow: visible; }
+.radar-scope .ring, .radar-scope .cross { fill: none; stroke: var(--line); stroke-width: 1; }
+.radar-scope .ring:first-child { stroke: var(--accent-ink); stroke-opacity: .45; }
+.radar-scope .sweep { transform-origin: 60px 60px; animation: radar-spin 3.6s linear infinite; }
+.radar-scope .wedge { fill: var(--accent-ink); fill-opacity: .14; }
+.radar-scope .arm { stroke: var(--accent-ink); stroke-width: 1.5; stroke-linecap: round; }
+.radar-scope .core { fill: var(--accent-ink); }
+.radar-scope .blip { fill: var(--accent-ink); opacity: 0; animation: radar-blip 3.6s ease-out infinite; }
+@keyframes radar-spin { to { transform: rotate(360deg); } }
+@keyframes radar-blip { 0%, 100% { opacity: 0; } 8% { opacity: .9; } 45% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .radar-scope .sweep, .radar-scope .blip { animation: none; }
+  .radar-scope .blip { opacity: .5; }
+}

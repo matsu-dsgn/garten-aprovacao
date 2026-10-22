@@ -109,5 +109,38 @@ window.G = (() => {
   // Link do menu com ícone
   const navLink = (href, label, iconName, on) => el("a", { href, class: on ? "on" : "", "aria-current": on ? "page" : false }, icon(iconName), el("span", {}, label));
 
-  return { icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // Próxima varredura: dias úteis, 8h40 (horário de São Paulo)
+  function nextRun(now = new Date()) {
+    const d = new Date(now);
+    const past = now.getHours() * 60 + now.getMinutes() >= 8 * 60 + 40;
+    if (past || d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + (past ? 1 : 0));
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    d.setHours(8, 40, 0, 0);
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const day = new Date(d); day.setHours(0, 0, 0, 0);
+    const diff = Math.round((day - today) / 864e5);
+    const label = diff === 0 ? "hoje" : diff === 1 ? "amanhã" : d.toLocaleDateString("pt-BR", { weekday: "long" });
+    return `${label}, 8h40`;
+  }
+
+  // Estado vazio do radar: varredura animada (só decorativa) + texto honesto
+  function radarEmpty(title, text) {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 120 120"); svg.setAttribute("class", "radar-scope"); svg.setAttribute("aria-hidden", "true");
+    const add = (tag, attrs) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); svg.append(n); return n; };
+    for (const r of [56, 40, 24]) add("circle", { cx: 60, cy: 60, r, class: "ring" });
+    add("path", { d: "M60 4v112M4 60h112", class: "cross" });
+    const g = document.createElementNS(ns, "g"); g.setAttribute("class", "sweep"); svg.append(g);
+    const wedge = document.createElementNS(ns, "path"); wedge.setAttribute("d", "M60 60L60 4A56 56 0 0 0 11.5 32Z"); wedge.setAttribute("class", "wedge"); g.append(wedge);
+    const arm = document.createElementNS(ns, "path"); arm.setAttribute("d", "M60 60L60 4"); arm.setAttribute("class", "arm"); g.append(arm);
+    for (const [cx, cy, d] of [[84, 38, "0s"], [36, 78, "1.4s"], [80, 86, "2.6s"]]) add("circle", { cx, cy, r: 2.6, class: "blip", style: `animation-delay:${d}` });
+    add("circle", { cx: 60, cy: 60, r: 3, class: "core" });
+    return el("div", { class: "radar-empty" }, svg,
+      el("h2", {}, title),
+      el("p", { class: "msg" }, text),
+      el("p", { class: "radar-next" }, `Próxima varredura: ${nextRun()}`));
+  }
+
+  return { nextRun, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();
