@@ -109,22 +109,32 @@ window.G = (() => {
   // Link do menu com ícone
   const navLink = (href, label, iconName, on) => el("a", { href, class: on ? "on" : "", "aria-current": on ? "page" : false }, icon(iconName), el("span", {}, label));
 
-  // Próxima varredura: dias úteis, 8h40 (horário de São Paulo)
-  function nextRun(now = new Date()) {
+  // Horário estimado das novidades = início da varredura + duração média das últimas
+  // (a varredura começa 8h40, em dia útil). Sem histórico, assume 20 min.
+  function radarTiming(runs = [], now = new Date()) {
+    const done = runs.filter((r) => r.finished_at).slice(0, 10)
+      .map((r) => (new Date(r.finished_at) - new Date(r.run_at)) / 6e4).filter((m) => m > 0 && m < 180);
+    const avg = done.length ? done.reduce((a, b) => a + b, 0) / done.length : 20;
+    const mins = Math.min(90, Math.max(5, Math.ceil(avg / 5) * 5));
+    const fmt = (d) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+    const last = runs[0];
+    if (last && !last.finished_at && now - new Date(last.run_at) < 2 * 3600e3) {
+      const eta = new Date(new Date(last.run_at).getTime() + mins * 6e4);
+      return { running: true, text: eta > now ? `Varredura em andamento · novidades por volta de ${fmt(eta)}` : "Varredura em andamento · terminando" };
+    }
     const d = new Date(now);
-    const past = now.getHours() * 60 + now.getMinutes() >= 8 * 60 + 40;
-    if (past || d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + (past ? 1 : 0));
+    if (now.getHours() * 60 + now.getMinutes() >= 8 * 60 + 40) d.setDate(d.getDate() + 1);
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-    d.setHours(8, 40, 0, 0);
-    const today = new Date(now); today.setHours(0, 0, 0, 0);
-    const day = new Date(d); day.setHours(0, 0, 0, 0);
-    const diff = Math.round((day - today) / 864e5);
-    const label = diff === 0 ? "hoje" : diff === 1 ? "amanhã" : d.toLocaleDateString("pt-BR", { weekday: "long" });
-    return `${label}, 8h40`;
+    d.setHours(8, 40 + mins, 0, 0);
+    const t0 = new Date(now); t0.setHours(0, 0, 0, 0);
+    const t1 = new Date(d); t1.setHours(0, 0, 0, 0);
+    const diff = Math.round((t1 - t0) / 864e5);
+    const day = diff === 0 ? "hoje" : diff === 1 ? "amanhã" : d.toLocaleDateString("pt-BR", { weekday: "long" });
+    return { running: false, text: `Próximas novidades: ${day}, por volta de ${fmt(d)}` };
   }
 
   // Estado vazio do radar: varredura animada (só decorativa) + texto honesto
-  function radarEmpty(title, text) {
+  function radarEmpty(title, text, timing) {
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", "0 0 120 120"); svg.setAttribute("class", "radar-scope"); svg.setAttribute("aria-hidden", "true");
@@ -139,8 +149,8 @@ window.G = (() => {
     return el("div", { class: "radar-empty" }, svg,
       el("h2", {}, title),
       el("p", { class: "msg" }, text),
-      el("p", { class: "radar-next" }, `Próxima varredura: ${nextRun()}`));
+      el("p", { class: "radar-next" }, timing.text));
   }
 
-  return { nextRun, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  return { radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

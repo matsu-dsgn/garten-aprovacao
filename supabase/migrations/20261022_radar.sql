@@ -48,3 +48,6 @@ alter table public.radar_alerts
   add column cliente_avaliacao text check (cliente_avaliacao in ('faz_sentido','nao_faz')),
   add column cliente_actor text check (char_length(cliente_actor) <= 40),
   add column cliente_avaliado_em timestamptz;
+
+-- Fim da varredura (permite mostrar 'em andamento' e estimar o horário das novidades)
+alter table public.radar_runs add column finished_at timestamptz;

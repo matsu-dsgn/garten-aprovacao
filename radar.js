@@ -17,6 +17,7 @@
 
   let alerts = [];
   let lastRun = null;
+  let runs = [];
   let filter = "ativos"; // ativos | todos | virou_pauta | descartado
 
   const msg = (text, kind = "") => el("p", { class: `msg ${kind}`, role: "status" }, text);
@@ -36,11 +37,12 @@
   async function load() {
     const [a, r] = await Promise.all([
       sb.from("radar_alerts").select("*").order("created_at", { ascending: false }).limit(300),
-      sb.from("radar_runs").select("run_at, itens, ok, notas").order("run_at", { ascending: false }).limit(1),
+      sb.from("radar_runs").select("run_at, finished_at, itens, ok, notas").order("run_at", { ascending: false }).limit(10),
     ]);
     if (a.error) return app.replaceChildren(msg(a.error.message, "err"));
     alerts = a.data || [];
-    lastRun = (r.data || [])[0] || null;
+    runs = r.data || [];
+    lastRun = runs.find((x) => x.finished_at || !x.ok) || null; // última varredura concluída
     render();
   }
 
@@ -75,6 +77,8 @@
   }
 
   function runLine() {
+    const timing = G.radarTiming(runs);
+    if (timing.running) return msg(timing.text, "okk");
     if (!lastRun) return null;
     const t = G.when(lastRun.run_at);
     if (stale(lastRun.run_at)) return msg(`Atenção: o radar não roda desde ${t}. A tarefa agendada pode ter parado.`, "err");
@@ -163,7 +167,7 @@
         el("p", { class: "msg" }, "Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP. Varredura de segunda a sexta, 8h40. Confira sempre a fonte oficial antes de virar post."),
         runLine(), tabs),
       sel.length ? el("div", { class: "radar-list" }, sel.map(card))
-        : filter === "ativos" ? G.radarEmpty("Radar ligado", "Nada em aberto por enquanto. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece aqui.")
+        : filter === "ativos" ? G.radarEmpty(G.radarTiming(runs).running ? "Varrendo agora" : "Radar ligado", "Nada em aberto por enquanto. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece aqui.", G.radarTiming(runs))
         : el("div", { class: "empty-state" }, "Nada nesta lista."),
     );
   }

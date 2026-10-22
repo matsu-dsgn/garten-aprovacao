@@ -92,14 +92,17 @@
     const tabs = el("div", { class: "row" }, [["todos", "Todos"], ["sem_avaliacao", `Sem avaliação${pend ? ` (${pend})` : ""}`], ["alta", "Relevância alta"]]
       .map(([k, label]) => el("button", { type: "button", class: `btn ${filter === k ? "dark" : "ghost"}`, onclick: () => { filter = k; render(); } }, label)));
     const list = data.alerts.filter((a) => filter === "todos" ? true : filter === "alta" ? a.relevancia === "alta" : !a.cliente_avaliacao);
-    const run = data.lastRun ? `Última varredura: ${G.when(data.lastRun.run_at)}` : null;
+    const runs = data.runs || [];
+    const timing = G.radarTiming(runs);
+    const done = runs.find((x) => x.finished_at || !x.ok);
+    const run = timing.running ? timing.text : done ? `Última varredura: ${G.when(done.finished_at || done.run_at)}` : null;
     app.replaceChildren(el("main", { class: "wrap" },
       el("section", { class: "radar-head" },
         el("h1", {}, "Radar legislativo"),
         el("p", { class: "msg" }, "Novidades da Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP, levantadas todo dia útil de manhã. Diga o que faz sentido para os clientes de vocês: isso ajuda o radar a trazer o que importa."),
         run ? el("p", { class: "msg okk" }, run) : null, who, tabs),
       list.length ? el("div", { class: "radar-list" }, list.map(card))
-        : filter === "todos" ? G.radarEmpty("Radar ligado", "Ainda sem novidades por aqui. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece nesta página.")
+        : filter === "todos" ? G.radarEmpty(timing.running ? "Varrendo agora" : "Radar ligado", "Ainda sem novidades por aqui. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece nesta página.", timing)
         : el("div", { class: "empty-state" }, "Nada nesta lista.")));
   }
 

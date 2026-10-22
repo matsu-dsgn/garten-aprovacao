@@ -147,10 +147,10 @@ const RADAR_FIELDS = "id, created_at, data_publicacao, esfera, orgao, ato, titul
 async function radarState() {
   const [{ data: alerts }, { data: runs }, { data: approvers }] = await Promise.all([
     db.from("radar_alerts").select(RADAR_FIELDS).order("created_at", { ascending: false }).limit(150),
-    db.from("radar_runs").select("run_at, itens, ok").order("run_at", { ascending: false }).limit(1),
+    db.from("radar_runs").select("run_at, finished_at, itens, ok").order("run_at", { ascending: false }).limit(10),
     db.from("approvers").select("slug, name").eq("active", true),
   ]);
-  return { alerts: alerts ?? [], lastRun: (runs ?? [])[0] ?? null, approvers: approvers ?? [] };
+  return { alerts: alerts ?? [], runs: runs ?? [], approvers: approvers ?? [] };
 }
 
 async function radarRate(req: Request) {
