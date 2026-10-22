@@ -8,6 +8,10 @@
   const params = new URLSearchParams(location.search);
   const slug = params.get("m");
   const token = new URLSearchParams(location.hash.slice(1)).get("k");
+  if (slug && token) document.getElementById("top-actions").prepend(
+    el("nav", { class: "topnav" },
+      G.navLink(location.pathname.split("/").pop() + location.search + location.hash, "Pauta do mês", "pauta", true),
+      G.navLink(`radar-cliente.html?m=${encodeURIComponent(slug)}#k=${encodeURIComponent(token)}`, "Radar", "radar", false)));
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const openTab = {};
   let data = null;

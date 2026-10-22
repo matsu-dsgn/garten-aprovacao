@@ -140,11 +140,47 @@ async function decide(req: Request, month: { id: string }) {
   return json(req, await loadState(month));
 }
 
+// ---------- Radar legislativo (visão do cliente) ----------
+// Qualquer link de mês válido dá acesso ao radar inteiro (não é dado por mês).
+const RADAR_FIELDS = "id, created_at, data_publicacao, esfera, orgao, ato, titulo, resumo, vigencia, publico, relevancia, tipo, angulo_pauta, url, status, cliente_avaliacao, cliente_actor";
+
+async function radarState() {
+  const [{ data: alerts }, { data: runs }, { data: approvers }] = await Promise.all([
+    db.from("radar_alerts").select(RADAR_FIELDS).order("created_at", { ascending: false }).limit(150),
+    db.from("radar_runs").select("run_at, itens, ok").order("run_at", { ascending: false }).limit(1),
+    db.from("approvers").select("slug, name").eq("active", true),
+  ]);
+  return { alerts: alerts ?? [], lastRun: (runs ?? [])[0] ?? null, approvers: approvers ?? [] };
+}
+
+async function radarRate(req: Request) {
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return json(req, { error: "JSON inválido" }, 400); }
+  const id = String(body.alert_id ?? "");
+  const actor = String(body.actor ?? "");
+  const rawValue = body.value;
+  if (!UUID_RE.test(id)) return json(req, { error: "Item inválido" }, 400);
+  if (rawValue !== null && !["faz_sentido", "nao_faz"].includes(String(rawValue))) return json(req, { error: "Avaliação inválida" }, 400);
+  const { data: approver } = await db.from("approvers").select("slug").eq("slug", actor).eq("active", true).maybeSingle();
+  if (!approver) return json(req, { error: "Selecione quem está avaliando" }, 400);
+  const value = rawValue === null ? null : String(rawValue);
+  const { data, error } = await db.from("radar_alerts")
+    .update({ cliente_avaliacao: value, cliente_actor: value ? actor : null, cliente_avaliado_em: value ? new Date().toISOString() : null })
+    .eq("id", id).select("id").maybeSingle();
+  if (error) return json(req, { error: "Não foi possível salvar" }, 500);
+  if (!data) return json(req, { error: "Item não encontrado" }, 404);
+  return json(req, await radarState());
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(req) });
   const url = new URL(req.url);
   const month = await authMonth(url.searchParams.get("m"), req.headers.get("x-month-token"));
   if (!month) return json(req, { error: "Link inválido ou expirado" }, 401);
+
+  const isRadar = url.searchParams.get("v") === "radar";
+  if (isRadar && req.method === "GET") return json(req, await radarState());
+  if (isRadar && req.method === "POST") return radarRate(req);
 
   if (req.method === "GET") {
     return json(req, {

@@ -122,6 +122,8 @@
       el("span", { class: "chip ed" }, ESFERA[a.esfera] || a.esfera),
       el("span", { class: "chip deadline", "data-level": a.relevancia === "alta" ? "soon" : "" }, REL[a.relevancia] || a.relevancia),
       a.tipo === "atualizacao" ? el("span", { class: "chip lock" }, TIPO.atualizacao) : null,
+      a.cliente_avaliacao ? el("span", { class: `chip ${a.cliente_avaliacao === "faz_sentido" ? "opp" : "deadline"}`, "data-level": a.cliente_avaliacao === "nao_faz" ? "soon" : "" },
+        `${a.cliente_actor || "Cliente"}: ${a.cliente_avaliacao === "faz_sentido" ? "faz sentido" : "não faz"}`) : null,
     );
     const meta = [a.orgao, a.ato, a.data_publicacao ? `publicado em ${G.fmtDate(a.data_publicacao).toLocaleDateString("pt-BR")}` : null].filter(Boolean).join(" · ");
     const dl = (k, v) => v ? el("div", { class: "radar-field" }, el("b", {}, k), el("span", {}, v)) : null;

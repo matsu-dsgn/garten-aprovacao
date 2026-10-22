@@ -27,10 +27,9 @@ window.GAuth = (() => {
 
   // Navegação do topo conforme o papel
   function nav(current, isAdmin) {
-    const links = [["admin.html", "Painel"], ["kanban.html", "Kanban"], ["radar.html", "Radar"]];
+    const links = [["admin.html", "Painel", "painel"], ["kanban.html", "Kanban", "kanban"], ["radar.html", "Radar", "radar"]];
     if (!isAdmin) return null;
-    return el("nav", { class: "topnav" }, links.map(([href, label]) =>
-      el("a", { href, class: current === href ? "on" : "" }, label)));
+    return el("nav", { class: "topnav" }, links.map(([href, label, ico]) => G.navLink(href, label, ico, current === href)));
   }
 
   return { loginView, noAccess, role, nav };

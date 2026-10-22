@@ -418,7 +418,11 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 
 /* ===== Navegação Megazord ===== */
 .topnav { display: flex; gap: 4px; margin-right: 8px; }
-.topnav a { color: var(--powder); text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: 99px; }
+.topnav a { color: var(--powder); text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: 99px; display: inline-flex; align-items: center; gap: 7px; transition: background .15s, color .15s; }
+.topnav a:hover { color: var(--alabaster); background: rgba(232,237,243,.07); }
+.topnav .nav-ico { width: 18px; height: 18px; flex: none; }
+.topnav a.on .nav-ico { color: var(--neon); }
+@media (max-width: 560px) { .topnav a span { display: none; } .topnav a { padding: 7px 9px; } }
 .topnav a.on { background: rgba(232,237,243,.12); color: var(--alabaster); }
 
 /* ===== Revisão interna e comentários ===== */
@@ -752,3 +756,4 @@ body.locked #top-actions { display: none; }
 .radar-field { display: grid; gap: 2px; font-size: 14px; }
 .radar-field b { color: var(--ink-soft); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .radar-discard select { border: 1px solid var(--bad); color: var(--bad); background: transparent; border-radius: 99px; padding: 9px 14px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.radar-disclaimer { font-size: 12px; color: var(--ink-soft); font-style: italic; }
