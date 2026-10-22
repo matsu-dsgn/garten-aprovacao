@@ -101,7 +101,7 @@
         el("h1", {}, "Radar legislativo"),
         el("p", { class: "msg" }, "Novidades da Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP, levantadas todo dia útil de manhã. Diga o que faz sentido para os clientes de vocês: isso ajuda o radar a trazer o que importa."),
         run ? el("p", { class: "msg okk" }, run) : null, who, tabs),
-      list.length ? el("div", { class: "radar-list" }, list.map(card))
+      list.length ? G.groupedList(list, card)
         : filter === "todos" ? G.radarEmpty(timing.running ? "Varrendo agora" : "Radar ligado", "Ainda sem novidades por aqui. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece nesta página.", timing)
         : el("div", { class: "empty-state" }, "Nada nesta lista.")));
   }

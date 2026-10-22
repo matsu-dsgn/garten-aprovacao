@@ -196,5 +196,31 @@ window.G = (() => {
     return { col: "espera" };
   }
 
-  return { KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // Agrupa itens por quando entraram no radar: Hoje, Ontem, Esta semana, depois por mês
+  const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  function groupByPeriod(items, field = "created_at", now = new Date()) {
+    const day0 = new Date(now); day0.setHours(0, 0, 0, 0);
+    const label = (iso) => {
+      const d = new Date(iso); const dd = new Date(d); dd.setHours(0, 0, 0, 0);
+      const diff = Math.round((day0 - dd) / 864e5);
+      if (diff <= 0) return "Hoje";
+      if (diff === 1) return "Ontem";
+      if (diff < 7) return "Esta semana";
+      return d.getFullYear() === now.getFullYear() ? MESES[d.getMonth()] : `${MESES[d.getMonth()]} de ${d.getFullYear()}`;
+    };
+    const groups = [];
+    for (const it of items) {
+      const l = label(it[field]);
+      const last = groups[groups.length - 1];
+      if (last && last[0] === l) last[1].push(it); else groups.push([l, [it]]);
+    }
+    return groups;
+  }
+  // Lista agrupada com título por período
+  const groupedList = (items, card) => el("div", { class: "radar-list" },
+    groupByPeriod(items).map(([l, list]) => el("section", { class: "radar-group" },
+      el("h3", { class: "radar-group-h" }, el("span", {}, l), el("small", {}, `${list.length} ${list.length === 1 ? "item" : "itens"}`)),
+      list.map(card))));
+
+  return { groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

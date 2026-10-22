@@ -166,7 +166,7 @@
         el("h1", {}, "Radar legislativo"),
         el("p", { class: "msg" }, "Receita Federal, Simples Nacional, PGFN, eSocial e SEFAZ-SP. Varredura de segunda a sexta, 8h40. Confira sempre a fonte oficial antes de virar post."),
         runLine(), tabs),
-      sel.length ? el("div", { class: "radar-list" }, sel.map(card))
+      sel.length ? G.groupedList(sel, card)
         : filter === "ativos" ? G.radarEmpty(G.radarTiming(runs).running ? "Varrendo agora" : "Radar ligado", "Nada em aberto por enquanto. Quando sair algo relevante da Receita, do Simples ou da SEFAZ-SP, aparece aqui.", G.radarTiming(runs))
         : el("div", { class: "empty-state" }, "Nada nesta lista."),
     );
