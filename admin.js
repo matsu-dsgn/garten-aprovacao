@@ -171,8 +171,100 @@
       el("p", {}, "Cadastro único: quem está aqui acessa todos os meses. Não precisa mexer ao criar um mês novo."), box));
   }
 
+  // ---------- Overview (dashboard) ----------
+  // Mesma regra de coluna do Kanban (G.kanbanState), para os números baterem
+  let overviewMonth = null;
+  function overviewPanel() {
+    const box = el("section", { class: "ov", "aria-live": "polite" }, el("p", { class: "msg" }, "Carregando overview…"));
+    if (!months.length) return null;
+    const m = months.find((x) => x.id === overviewMonth) || months[0];
+    overviewMonth = m.id;
+    fillOverview(box, m);
+    return box;
+  }
+
+  async function fillOverview(box, m) {
+    try {
+      const { data: posts, error } = await sb.from("posts").select("id, title, post_date, kind, assignee, scheduled").eq("month_id", m.id).order("post_date");
+      if (error) throw error;
+      const ids = posts.map((p) => p.id);
+      const q = (t, order) => ids.length ? sb.from(t).select("*").in("post_id", ids).order(order) : Promise.resolve({ data: [] });
+      const [v, dc, tm, rd] = await Promise.all([
+        q("versions", "number"), q("decisions", "created_at"),
+        sb.from("team_members").select("email, name"),
+        sb.from("radar_alerts").select("id", { count: "exact", head: true }).eq("status", "novo"),
+      ]);
+      const all = v.data || [];
+      const d = { sent: all.filter((x) => x.sent), drafts: all.filter((x) => !x.sent), decisions: dc.data || [] };
+      const team = tm.data || [];
+      const name = (e) => GWork.nameOf(team, e);
+
+      // Pautas (só as planejadas: oportunidade não passa por aprovação de pauta)
+      const planned = posts.filter((p) => p.kind !== "oportunidade");
+      const pauta = { aprovado: 0, ajuste: 0, pendente: 0 };
+      for (const p of planned) {
+        const st = G.stageState({ versions: d.sent, decisions: d.decisions }, p, "pauta").status;
+        if (st === "aprovado") pauta.aprovado++;
+        else if (st === "reprovado" || st === "contestado") pauta.ajuste++;
+        else pauta.pendente++;
+      }
+
+      // Kanban
+      const cols = { fazer: [], producao: [], revisao: [], cliente: [], ajuste: [], pronto: [] };
+      for (const p of posts) {
+        const st = G.kanbanState(d, p);
+        cols[G.KANBAN_SUB[st.col].col].push({ ...p, stage: st.stage });
+      }
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const late = posts.filter((p) => !cols.pronto.some((x) => x.id === p.id) && G.fmtDate(p.post_date) < today);
+
+      const kanbanHref = `kanban.html?mes=${encodeURIComponent(m.slug)}`;
+      const tile = (label, value, opts = {}) => el(opts.href ? "a" : "div", { class: `ov-tile${opts.tone ? ` ${opts.tone}` : ""}`, href: opts.href || false },
+        el("span", { class: "ov-label" }, label), el("b", { class: "ov-num" }, String(value)), opts.sub ? el("span", { class: "ov-sub" }, opts.sub) : null);
+      const pct = planned.length ? Math.round((pauta.aprovado / planned.length) * 100) : 0;
+
+      // Quem acionar
+      const acts = [];
+      if (cols.revisao.length) acts.push(["Você revisa", cols.revisao.map((p) => `${p.title} (${p.stage === "arte" ? "arte" : "copy"})`)]);
+      const byPerson = {};
+      for (const p of cols.producao) (byPerson[p.assignee || ""] ||= []).push(p.title);
+      for (const [e, list] of Object.entries(byPerson)) acts.push([e ? `${name(e)} produzindo` : "Em produção sem responsável", list]);
+      if (cols.ajuste.length) acts.push(["Ajuste pedido pelo cliente", cols.ajuste.map((p) => `${p.title} (${p.stage === "arte" ? "arte" : "copy"}${p.assignee ? ` · ${name(p.assignee)}` : ""})`)]);
+      if (cols.cliente.length) acts.push(["Esperando Wilker ou Letícia", cols.cliente.map((p) => `${p.title} (${p.stage === "arte" ? "arte" : "copy"})`)]);
+      if (late.length) acts.push(["Atrasados (data de publicação passou)", late.map((p) => p.title)]);
+
+      const picker = months.length > 1 ? el("select", { "aria-label": "Mês do overview", class: "ov-pick" },
+        months.map((x) => el("option", { value: x.id, selected: x.id === m.id }, x.title))) : null;
+      picker?.addEventListener("change", () => { overviewMonth = picker.value; const nb = overviewPanel(); box.replaceWith(nb); });
+
+      box.replaceChildren(
+        el("div", { class: "row between" }, el("h2", {}, `Overview · ${m.title}`), picker || el("span", {})),
+        el("h3", { class: "ov-h" }, "Pautas"),
+        el("div", { class: "ov-grid" },
+          tile("Aprovadas", `${pauta.aprovado}/${planned.length}`, { tone: "ok", sub: `${pct}% do mês` }),
+          tile("Com ajuste", pauta.ajuste, { tone: pauta.ajuste ? "bad" : "" }),
+          tile("Aguardando o cliente", pauta.pendente),
+          tile("Oportunidades", posts.length - planned.length, { sub: "fora do calendário" })),
+        el("h3", { class: "ov-h" }, "Kanban"),
+        el("div", { class: "ov-grid six" },
+          tile("A fazer", cols.fazer.length, { href: kanbanHref }),
+          tile("Em produção", cols.producao.length, { href: kanbanHref }),
+          tile("Revisão interna", cols.revisao.length, { href: kanbanHref, tone: cols.revisao.length ? "you" : "", sub: cols.revisao.length ? "esperando você" : null }),
+          tile("Com o cliente", cols.cliente.length, { href: kanbanHref }),
+          tile("Ajuste pedido", cols.ajuste.length, { href: kanbanHref, tone: cols.ajuste.length ? "bad" : "" }),
+          tile("Pronto", cols.pronto.length, { href: kanbanHref, tone: "ok" })),
+        acts.length ? el("div", { class: "ov-acts" }, el("h3", { class: "ov-h" }, "Quem acionar"),
+          acts.map(([who, list]) => el("details", { open: true }, el("summary", {}, `${who} · ${list.length}`), el("ul", {}, list.map((t) => el("li", {}, t))))))
+          : el("p", { class: "msg okk" }, "Nada travado agora."),
+        (rd.count || 0) ? el("a", { class: "ov-radar", href: "radar.html" }, G.icon("radar"), `${rd.count} ${rd.count === 1 ? "novidade" : "novidades"} no radar legislativo`) : null);
+    } catch (e) {
+      box.replaceChildren(msg(`Não foi possível montar o overview: ${e.message}`, "err"));
+    }
+  }
+
   function monthsView() {
     app.replaceChildren(
+      overviewPanel(),
       el("section", { class: "panel" },
         el("div", { class: "row between" },
           el("h2", {}, "Meses"),

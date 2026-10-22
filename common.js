@@ -152,5 +152,49 @@ window.G = (() => {
       el("p", { class: "radar-next" }, timing.text));
   }
 
-  return { radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // ---------- Estado do post no Kanban (fonte única: Kanban e painel usam a mesma regra) ----------
+  const KANBAN_SUB = {
+    espera: { col: "fazer", label: "Aguardando pauta" },
+    copy: { col: "fazer", label: "Copy a fazer" },
+    fazer: { col: "fazer", label: "Arte a fazer" },
+    producao: { col: "producao", label: "Em produção" },
+    revisao: { col: "revisao", label: "Em revisão" },
+    cliente: { col: "cliente", label: "Com o cliente" },
+    ajuste: { col: "ajuste", label: "Ajuste pedido" },
+    aprovado: { col: "pronto", label: "Aprovado" },
+    agendado: { col: "pronto", label: "Agendado" },
+  };
+  // d = { sent: versões enviadas, drafts: rascunhos, decisions }
+  function kanbanState(d, p) {
+    const lastDecision = (postId, stage, versionId) => {
+      const list = d.decisions.filter((x) => x.post_id === postId && x.stage === stage && x.version_id === versionId);
+      return list[list.length - 1] || null;
+    };
+    if (p.scheduled) return { col: "agendado" };
+    const opp = p.kind === "oportunidade";
+    const sentArte = G.latestVersion(d.sent, p.id, "arte");
+    const draftArte = G.latestVersion(d.drafts, p.id, "arte");
+    if (draftArte && draftArte.number > (sentArte?.number || 0)) return { col: "revisao", stage: "arte" };
+    if (sentArte) {
+      const s = lastDecision(p.id, "arte", sentArte.id)?.status;
+      if (s === "aprovado") return { col: "aprovado" };
+      if (s === "reprovado" || s === "contestado") return { col: "ajuste", stage: "arte" };
+      return { col: "cliente", stage: "arte" };
+    }
+    const sentCopy = G.latestVersion(d.sent, p.id, "copy");
+    const draftCopy = G.latestVersion(d.drafts, p.id, "copy");
+    if (draftCopy && draftCopy.number > (sentCopy?.number || 0)) return { col: "revisao", stage: "copy" };
+    if (sentCopy) {
+      // na oportunidade o cliente aprova copy e arte juntas, no post pronto
+      const s = opp ? "aprovado" : lastDecision(p.id, "copy", sentCopy.id)?.status;
+      if (s === "aprovado") return { col: p.assignee ? "producao" : "fazer", stage: "arte" };
+      if (s === "reprovado" || s === "contestado") return { col: "ajuste", stage: "copy" };
+      return { col: "cliente", stage: "copy" };
+    }
+    const pautaOk = opp || G.stageState({ versions: d.sent, decisions: d.decisions }, p, "pauta").status === "aprovado";
+    if (pautaOk) return { col: p.assignee ? "producao" : "copy", stage: "copy" };
+    return { col: "espera" };
+  }
+
+  return { KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

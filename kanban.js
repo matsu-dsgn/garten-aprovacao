@@ -15,17 +15,7 @@
     { key: "ajuste", label: "Ajuste pedido" },
     { key: "pronto", label: "Pronto" },
   ];
-  const SUB = {
-    espera: { col: "fazer", label: "Aguardando pauta" },
-    copy: { col: "fazer", label: "Copy a fazer" },
-    fazer: { col: "fazer", label: "Arte a fazer" },
-    producao: { col: "producao", label: "Em produção" },
-    revisao: { col: "revisao", label: "Em revisão" },
-    cliente: { col: "cliente", label: "Com o cliente" },
-    ajuste: { col: "ajuste", label: "Ajuste pedido" },
-    aprovado: { col: "pronto", label: "Aprovado" },
-    agendado: { col: "pronto", label: "Agendado" },
-  };
+  const SUB = G.KANBAN_SUB;
   let onlyMine = false;
   try { onlyMine = localStorage.getItem("garten-kanban-mine") === "1"; } catch { /* ok */ }
 
@@ -43,33 +33,8 @@
     return list[list.length - 1] || null;
   }
 
-  // Coluna do card = estado real do post (ninguém precisa arrastar)
-  function state(p) {
-    if (p.scheduled) return { col: "agendado" };
-    const opp = p.kind === "oportunidade";
-    const sentArte = G.latestVersion(d.sent, p.id, "arte");
-    const draftArte = G.latestVersion(d.drafts, p.id, "arte");
-    if (draftArte && draftArte.number > (sentArte?.number || 0)) return { col: "revisao", stage: "arte" };
-    if (sentArte) {
-      const s = lastDecision(p.id, "arte", sentArte.id)?.status;
-      if (s === "aprovado") return { col: "aprovado" };
-      if (s === "reprovado" || s === "contestado") return { col: "ajuste", stage: "arte" };
-      return { col: "cliente", stage: "arte" };
-    }
-    const sentCopy = G.latestVersion(d.sent, p.id, "copy");
-    const draftCopy = G.latestVersion(d.drafts, p.id, "copy");
-    if (draftCopy && draftCopy.number > (sentCopy?.number || 0)) return { col: "revisao", stage: "copy" };
-    if (sentCopy) {
-      // na oportunidade o cliente aprova copy e arte juntas, no post pronto
-      const s = opp ? "aprovado" : lastDecision(p.id, "copy", sentCopy.id)?.status;
-      if (s === "aprovado") return { col: p.assignee ? "producao" : "fazer", stage: "arte" };
-      if (s === "reprovado" || s === "contestado") return { col: "ajuste", stage: "copy" };
-      return { col: "cliente", stage: "copy" };
-    }
-    const pautaOk = opp || G.stageState({ versions: d.sent, decisions: d.decisions }, p, "pauta").status === "aprovado";
-    if (pautaOk) return { col: p.assignee ? "producao" : "copy", stage: "copy" };
-    return { col: "espera" };
-  }
+  // Coluna do card = estado real do post (regra compartilhada com o painel, em common.js)
+  const state = (p) => G.kanbanState(d, p);
   const sub = (p) => state(p).col;
   const column = (p) => SUB[sub(p)].col;
 

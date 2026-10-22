@@ -777,3 +777,29 @@ body.locked #top-actions { display: none; }
   .radar-scope .sweep, .radar-scope .blip { animation: none; }
   .radar-scope .blip { opacity: .5; }
 }
+
+/* ---------- Overview do painel ---------- */
+.ov { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: grid; gap: 12px; margin: 22px 0 16px; }
+.ov h2 { font-size: 20px; color: var(--ink); }
+.ov-h { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); margin-top: 6px; }
+.ov-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.ov-grid.six { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.ov-tile { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; display: grid; gap: 2px; color: var(--ink-2); text-decoration: none; transition: border-color .15s, transform .12s; }
+a.ov-tile:hover { border-color: var(--accent-ink); }
+a.ov-tile:active { transform: scale(.98); }
+.ov-label { font-size: 13px; color: var(--ink-soft); }
+.ov-num { font-family: var(--display); font-size: 30px; line-height: 1.1; color: var(--ink); font-weight: 800; }
+.ov-sub { font-size: 12px; color: var(--ink-soft); }
+.ov-tile.ok .ov-num { color: var(--ok); }
+.ov-tile.bad { border-color: var(--bad); background: var(--bad-bg); }
+.ov-tile.bad .ov-num, .ov-tile.bad .ov-label { color: var(--bad); }
+.ov-tile.you { border-color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent-ink); }
+.ov-acts { display: grid; gap: 6px; }
+.ov-acts details { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px; }
+.ov-acts summary { cursor: pointer; font-weight: 600; color: var(--ink); font-size: 14px; }
+.ov-acts ul { margin: 8px 0 2px 18px; display: grid; gap: 3px; font-size: 14px; color: var(--ink-2); }
+.ov-radar { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-ink); font-weight: 600; font-size: 14px; }
+.ov-radar .nav-ico { width: 18px; height: 18px; }
+.ov-pick { width: auto; max-width: 220px; flex: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 99px; padding: 6px 12px; font: inherit; font-size: 14px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ov-tile.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); } }
+:root[data-theme="dark"] .ov-tile.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); }
