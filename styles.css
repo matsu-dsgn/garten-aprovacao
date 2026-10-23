@@ -563,11 +563,15 @@ body.kdragging .kcol.kover .kcards { background: color-mix(in srgb, var(--c) 8%,
 .ktoast.bad { background: var(--k-ajuste); color: var(--carbon); }
 
 /* Painel lateral do card */
-.kshade { position: fixed; inset: 0; z-index: 40; background: rgba(0,20,40,.5); display: flex; justify-content: flex-end; animation: k-fade .25s ease both; }
-.kdetail { width: min(560px, 100%); height: 100%; overflow-y: auto; background: var(--bg); padding: 28px; display: grid; gap: 16px; align-content: start; box-shadow: -20px 0 60px rgba(0,0,0,.3); animation: k-slide .32s cubic-bezier(.2,.8,.2,1) both; }
+/* Card aberto no centro, estilo Trello: a página rola por trás do card, não dentro dele */
+.kmodal-open { overflow: hidden; }
+.kshade { position: fixed; inset: 0; z-index: 40; background: rgba(0,20,40,.55); display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; padding: clamp(16px, 6vh, 64px) 16px; animation: k-fade .2s ease both; }
+.kdetail { width: min(780px, 100%); background: var(--bg); border-radius: var(--radius); padding: 32px; display: grid; gap: 16px; align-content: start; box-shadow: 0 30px 80px rgba(0,0,0,.35); animation: k-pop .24s cubic-bezier(.2,.8,.2,1) both; }
 .kdetail h3 { font-family: var(--display); font-size: 26px; color: var(--ink); line-height: 1.15; }
 @keyframes k-fade { from { opacity: 0; } }
 @keyframes k-slide { from { transform: translateX(24px); opacity: .4; } }
+.kshade.still, .kshade.still .kdetail { animation: none; }
+@keyframes k-pop { from { transform: translateY(10px) scale(.985); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .kshade, .kdetail, .kcard { animation: none !important; }
   .kcard, .kbar-track i, .ktoast, .kcol { transition: none !important; }
@@ -576,6 +580,9 @@ body.kdragging .kcol.kover .kcards { background: color-mix(in srgb, var(--c) 8%,
   .kmark { height: 90vh; right: -40vw; top: auto; bottom: -10vh; }
   .kboard { grid-auto-columns: 86vw; }
   .kdetail { padding: 20px; }
+  /* No celular o card ocupa a tela inteira */
+  .kshade { padding: 0; }
+  .kdetail { width: 100%; min-height: 100%; border-radius: 0; box-shadow: none; }
 }
 
 /* Símbolo outline estourado ao fundo do Kanban */

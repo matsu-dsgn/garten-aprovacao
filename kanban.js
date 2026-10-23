@@ -341,10 +341,14 @@
     sel.addEventListener("change", async () => {
       monthId = sel.value; openPost = null;
       const m = months.find((x) => x.id === monthId);
-      if (m) history.replaceState(null, "", `?mes=${encodeURIComponent(m.slug)}`);
       await load(); render();
     });
     const p = openPost && d.posts.find((x) => x.id === openPost);
+    if (openPost && !p) openPost = null;
+    syncUrl();
+    const wasOpen = document.body.classList.contains("kmodal-open");
+    const keepScroll = wasOpen ? app.querySelector(".kshade")?.scrollTop || 0 : 0;
+    document.body.classList.toggle("kmodal-open", !!p);
     app.replaceChildren(
       el("div", { class: "kbar" },
         el("div", { class: "kbar-l" }, el("h2", {}, "Kanban"), sel),
@@ -355,8 +359,25 @@
             render();
           } }, "Só os meus"))),
       board(),
-      p ? el("div", { class: "kshade", onclick: (e) => { if (e.target.classList.contains("kshade")) { openPost = null; render(); } } }, detail(p)) : "");
+      p ? el("div", { class: `kshade${wasOpen ? " still" : ""}`, onclick: (e) => { if (e.target.classList.contains("kshade")) { openPost = null; render(); } } }, detail(p)) : "");
+    // Foco no card só quando abre (não a cada recarga de dados)
+    // Recarga com o card já aberto: sem animar de novo e sem voltar ao topo
+    if (p && wasOpen) app.querySelector(".kshade").scrollTop = keepScroll;
+    if (p && !wasOpen) app.querySelector(".kdetail .lb-close")?.focus();
   }
+
+  // ?mes=slug&post=id: link direto para um card aberto
+  function syncUrl() {
+    const m = months.find((x) => x.id === monthId);
+    const q = new URLSearchParams();
+    if (m) q.set("mes", m.slug);
+    if (openPost) q.set("post", openPost);
+    history.replaceState(null, "", `?${q}`);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && openPost) { openPost = null; render(); }
+  });
 
   async function boot() {
     const { data: { user } } = await sb.auth.getUser();
@@ -376,6 +397,8 @@
     if (!months.length) { app.replaceChildren(el("div", { class: "wrap" }, msg("Nenhum mês criado ainda."))); return; }
     const want = new URLSearchParams(location.search).get("mes");
     monthId = (months.find((m) => m.slug === want) || months[0]).id;
+    const wantPost = new URLSearchParams(location.search).get("post");
+    if (wantPost && /^[0-9a-f-]{36}$/.test(wantPost)) openPost = wantPost;
     await load();
     render();
   }
