@@ -47,6 +47,9 @@ end $$;
 drop trigger if exists posts_guard_publish on public.posts;
 create trigger posts_guard_publish before update on public.posts
   for each row execute function public.guard_publish_cols();
+-- Funções de trigger não devem ser chamáveis pela API
+revoke all on function public.guard_publish_cols() from public, anon, authenticated;
+revoke all on function public.guard_schedule() from public, anon, authenticated;
 
 -- Substitui a versão de 20261021: agora também controla o status de publicação.
 create or replace function public.schedule_post(p_post uuid, p_at timestamptz)
