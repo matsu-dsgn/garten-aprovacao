@@ -91,12 +91,22 @@ window.GWork = (() => {
   const pad = (n) => String(n).padStart(2, "0");
   const localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   function schedLabel(p) {
+    if (p.publish_status === "publicado") return p.ig_media_id === "simulado" ? "Publicado (simulado)" : "Publicado ✓";
+    if (p.publish_status === "publicando") return "Publicando…";
+    if (p.publish_status === "erro") return "Erro ao publicar";
     if (!p.scheduled_at) return "Agendado";
     const d = new Date(p.scheduled_at);
     return `Agendado · ${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}h${d.getMinutes() ? pad(d.getMinutes()) : ""}`;
   }
   function schedulePanel(sb, p, onDone) {
     const out = el("p", { class: "msg", role: "status" });
+    // Publicado ou em publicação: só mostra o resultado, não deixa mexer
+    if (p.publish_status === "publicado" || p.publish_status === "publicando") {
+      const link = p.ig_permalink && /^https:\/\/(www\.)?instagram\.com\//.test(p.ig_permalink)
+        ? el("a", { href: p.ig_permalink, target: "_blank", rel: "noopener" }, "Ver no Instagram") : null;
+      return el("div", { class: "content-box sched" }, el("span", { class: "eyebrow" }, schedLabel(p)), link);
+    }
+    if (p.publish_status === "erro" && p.publish_error) { out.className = "msg err"; out.textContent = p.publish_error; }
     const base = p.scheduled_at ? new Date(p.scheduled_at) : (() => { const [y, mo, da] = String(p.post_date).split("-").map(Number); return new Date(y, mo - 1, da, 11, 0); })();
     const at = el("input", { type: "datetime-local", value: localInput(base), step: "300", "aria-label": "Data e hora da publicação" });
     const fail = (e) => {
