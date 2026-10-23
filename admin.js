@@ -313,6 +313,8 @@
     return { posts, allVersions: all, versions: all.filter((x) => x.sent), drafts, draftUrls, decisions: d.data || [], approvers: a.data || [], comments: c.data || [], team: t.data || [] };
   }
 
+  const openPosts = new Set(); // posts abertos no mês (sobrevive ao re-render)
+
   async function openMonth(m) {
     app.replaceChildren(msg("Carregando…"));
     try { data = await loadData(m); } catch (e) { return app.replaceChildren(msg(e.message, "err")); }
@@ -322,7 +324,14 @@
         el("button", { class: "btn ghost", onclick: () => exportJson(m) }, "Exportar JSON"),
         el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban deste mês")),
       data.posts.length ? "" : importPanel(m),
-      el("section", { class: "panel" }, el("h2", {}, `Posts (${data.posts.length})`),
+      el("section", { class: "panel" },
+        el("div", { class: "row between" }, el("h2", {}, `Posts (${data.posts.length})`),
+          data.posts.length ? el("button", { class: "btn ghost", type: "button", onclick: (e) => {
+            const rows = [...document.querySelectorAll("details.post-row")];
+            const open = !rows.every((r) => r.open);
+            rows.forEach((r) => { r.open = open; });
+            e.currentTarget.textContent = open ? "Recolher todos" : "Abrir todos";
+          } }, "Abrir todos") : ""),
         data.posts.length ? data.posts.map((p) => postRow(m, p)) : msg("Nenhum post ainda. Importe o JSON da pauta acima.")),
       linkPanel(m),
       oppPanel(m),
@@ -597,11 +606,14 @@
           el("p", { class: "msg" }, "Para pedir ajuste interno, comente abaixo."));
       })) : null;
 
-    return el("div", { class: "post-row" },
-      el("div", { class: "row between" },
+    // Recolhido por padrão: a linha mostra data, título e status; o resto abre no clique.
+    // O que estava aberto continua aberto depois de salvar (a página re-renderiza).
+    const row = el("details", { class: "post-row", id: `row-${p.id}`, open: openPosts.has(p.id) },
+      el("summary", { class: "row between" },
         el("h4", {}, `${p.post_date.split("-").reverse().join("/")} · ${p.title}`),
         el("div", { class: "row" }, G.STAGES.map((s) =>
           el("span", { class: `pill ${states[s.key].status}` }, `${s.label}: ${G.STATUS_LABEL[states[s.key].status]}`)))),
+      el("div", { class: "post-body" },
       el("details", {}, el("summary", {}, "Copy e arte"),
         el("div", { class: "stack" },
           copyTa, capTa, el("div", { class: "row" }, copyBtn),
@@ -615,7 +627,9 @@
         el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido do cliente" : "Oportunidade"),
         p.respond_by ? el("span", { class: "msg" }, `Prazo: ${new Date(p.respond_by).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`) : null,
         dlSel) : null,
-      el("div", { class: "row" }, edSel, linkBtn, sched, del), out);
+      el("div", { class: "row" }, edSel, linkBtn, sched, del), out));
+    row.addEventListener("toggle", () => { row.open ? openPosts.add(p.id) : openPosts.delete(p.id); });
+    return row;
   }
 
   async function exportJson(m) {
