@@ -86,7 +86,7 @@
     const card = el("button", { class: `kcard s-${sk}${mine ? " mine" : ""}`, type: "button", "data-id": p.id,
       onclick: (e) => { if (card.dataset.dragged) { delete card.dataset.dragged; e.preventDefault(); return; } openPost = p.id; render(); } },
       el("div", { class: "kmeta" },
-        el("span", {}, el("b", {}, dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")), " · ", G.FORMATS[p.format] || p.format),
+        el("span", {}, el("b", {}, `${dt.getDate()} ${G.MONTHS[dt.getMonth()]}`), " · ", G.FORMATS[p.format] || p.format),
         who ? avatar(p.assignee, who) : null),
       el("div", { class: "ktitle" }, p.title),
       el("div", { class: "kfoot" },
@@ -461,9 +461,7 @@
     try { await sb.rpc("sync_my_avatar"); } catch { /* foto é opcional */ }
     const nav = GAuth.nav("kanban.html", me.role === "admin");
     if (nav && !document.querySelector(".topnav")) document.getElementById("top-actions").prepend(nav);
-    if (me.role !== "admin" && !document.querySelector(".logout")) {
-      document.getElementById("top-actions").prepend(el("button", { class: "theme-btn logout", type: "button", onclick: async () => { await sb.auth.signOut(); location.reload(); } }, "Sair"));
-    }
+    GAuth.logout(sb);
     const { data: ms } = await sb.from("months").select("id, slug, title, created_at").order("created_at", { ascending: false });
     months = ms || [];
     if (!months.length) { app.replaceChildren(el("div", { class: "wrap" }, msg("Nenhum mês criado ainda."))); return; }

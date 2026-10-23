@@ -1,6 +1,8 @@
 // Radar legislativo — só admin. A trava real está no RLS (radar_alerts / radar_runs: is_admin()).
 // Tudo que vem do banco é renderizado com textContent (via G.el). Links só https.
 (() => {
+  // Vigência pode vir como data (AAAA-MM-DD) ou texto livre ("a partir de 2027")
+  const vig = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v || "") ? G.fmtDate(v).toLocaleDateString("pt-BR") : v);
   const { el } = G;
   const cfg = window.GARTEN_CONFIG;
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.publishableKey);
@@ -31,6 +33,7 @@
     if (role !== "admin") return GAuth.noAccess();
     const nav = GAuth.nav("radar.html", true);
     if (nav && !document.querySelector(".topnav")) document.getElementById("top-actions").prepend(nav);
+    GAuth.logout(sb);
     await load();
   }
 
@@ -96,7 +99,7 @@
       `Esfera: ${ESFERA[a.esfera] || a.esfera} · ${REL[a.relevancia] || a.relevancia}`,
       a.tipo === "atualizacao" ? "Tipo: atualiza um post já publicado (vamos deixar claro que é uma atualização)" : "Tipo: novidade",
       `Resumo do radar: ${a.resumo}`,
-      a.vigencia ? `Vigência: ${a.vigencia}` : null,
+      a.vigencia ? `Vigência: ${vig(a.vigencia)}` : null,
       a.publico ? `Para quem vale: ${a.publico}` : null,
       a.angulo_pauta ? `Ângulo sugerido: ${a.angulo_pauta}` : null,
       url ? `Fonte oficial: ${url}` : null,
@@ -145,7 +148,7 @@
       el("h2", {}, a.titulo),
       meta ? el("p", { class: "msg" }, meta) : null,
       el("p", {}, a.resumo),
-      dl("Vigência", a.vigencia),
+      dl("Vigência", vig(a.vigencia)),
       dl("Para quem vale", a.publico),
       dl("Ângulo de pauta", a.angulo_pauta),
       url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, "Ver fonte oficial ↗") : null,

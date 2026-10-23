@@ -67,10 +67,10 @@ window.G = (() => {
     return (data.approvers.find((a) => a.slug === slug) || {}).name || slug;
   }
 
-  function historyList(data, decisions) {
+  function historyList(data, decisions, label) {
     if (!decisions.length) return null;
     return el("details", {},
-      el("summary", {}, `Histórico (${decisions.length})`),
+      el("summary", {}, `Histórico${label ? ` da ${label}` : ""} (${decisions.length})`),
       el("ul", { class: "history" }, decisions.slice().reverse().map((d) =>
         el("li", { class: d.status },
           el("span", { class: "whoname" }, actorName(data, d.actor)), " — ", STATUS_LABEL[d.status] || d.status,

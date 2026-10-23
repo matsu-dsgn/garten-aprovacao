@@ -32,20 +32,20 @@
   --surface-2: #dfe6ef;
   --ink: var(--deep);
   --ink-2: var(--charcoal);
-  --ink-soft: #4f5f75;
+  --ink-soft: #46566b; /* 4.5:1+ sobre alabaster */
   --line: #c3cfdd;
   --accent: var(--neon);
-  --accent-ink: var(--mint);
+  --accent-ink: #00703d; /* Mint um tom abaixo: 4.5:1 em texto pequeno */
   --on-accent: var(--carbon);
   --hero-bg: var(--deep);
   --hero-ink: var(--alabaster);
   --hero-soft: var(--powder);
   --iso-top: #3c4b61; --iso-left: #26324a; --iso-right: var(--charcoal);
   --iso-stroke: #4d5f7a; --iso-base: #0d3a63; --iso-base-side: #062f57;
-  --cta-bg: var(--powder); --cta-ink: var(--carbon);
+  --cta-bg: var(--deep); --cta-ink: var(--alabaster); --cta-hover: var(--charcoal); /* principal: azul profundo, não parece desativado */
   /* Status (funcionais). Ajuste usa âmbar: exceção fora da paleta, só para alerta de UI */
-  --ok: var(--mint); --ok-bg: #cdeedb;
-  --bad: #b45309; --bad-bg: #fbe8cf;
+  --ok: #00703d; --ok-bg: #cdeedb;
+  --bad: #9a4507; --bad-bg: #fbe8cf;
   --disc: var(--deep); --disc-bg: var(--powder);
   --pend: var(--charcoal); --pend-bg: #d3dce8;
   --shadow: 0 1px 2px rgba(0,42,80,.06), 0 8px 24px rgba(0,42,80,.07);
@@ -59,6 +59,7 @@
     --ink: var(--alabaster); --ink-2: var(--alabaster); --ink-soft: var(--powder); --line: #1d4a73;
     --accent-ink: var(--neon); --hero-bg: #00223f;
     --ok: var(--neon); --ok-bg: rgba(154,255,87,.14); --bad: #f5b14c; --bad-bg: rgba(245,177,76,.14);
+    --cta-bg: var(--neon); --cta-ink: var(--carbon); --cta-hover: #b6ff86;
     --disc: var(--powder); --disc-bg: rgba(162,189,210,.16); --pend: var(--powder); --pend-bg: rgba(162,189,210,.1);
     --shadow: none; color-scheme: dark;
   }
@@ -68,6 +69,7 @@
   --ink: var(--alabaster); --ink-2: var(--alabaster); --ink-soft: var(--powder); --line: #1d4a73;
   --accent-ink: var(--neon); --hero-bg: #00223f;
   --ok: var(--neon); --ok-bg: rgba(154,255,87,.14); --bad: #f5b14c; --bad-bg: rgba(245,177,76,.14);
+  --cta-bg: var(--neon); --cta-ink: var(--carbon); --cta-hover: #b6ff86;
   --disc: var(--powder); --disc-bg: rgba(162,189,210,.16); --pend: var(--powder); --pend-bg: rgba(162,189,210,.1);
   --shadow: none; color-scheme: dark;
 }
@@ -273,7 +275,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .dock { transition: opacity .3s, transform .3s; }
 .dock.hide { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
 @media (max-width: 720px) { .dock.hide { transform: translateY(20px); } }
-.btn.dark:hover:not(:disabled) { background: var(--neon); color: var(--carbon); }
+.btn.dark:hover:not(:disabled) { background: var(--cta-hover); }
 .iso .block.filler polygon { opacity: .5; }
 .iso .block.zero:not(.on) polygon { opacity: .45; }
 .iso .block { cursor: pointer; }
@@ -503,7 +505,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .kfilter:hover { border-color: var(--ink-soft); }
 .kfilter.on { background: var(--neon); color: var(--carbon); border-color: var(--neon); }
 
-.kboard { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(236px, 1fr); gap: 14px; overflow-x: auto; padding: 4px clamp(16px, 3vw, 40px) 24px; scroll-snap-type: x mandatory; scroll-padding: 0 clamp(16px, 3vw, 40px); }
+.kboard { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); gap: 14px; overflow-x: auto; padding: 4px clamp(16px, 3vw, 40px) 24px; scroll-snap-type: x mandatory; scroll-padding: 0 clamp(16px, 3vw, 40px); }
 .kcol { --c: var(--ink-soft); background: color-mix(in srgb, var(--c) var(--k-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 22%, transparent); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 64vh; scroll-snap-align: start; transition: opacity .25s, filter .25s, border-color .2s, box-shadow .2s; }
 .kcol.k-fazer { --c: var(--k-fazer); } .kcol.k-producao { --c: var(--k-producao); } .kcol.k-revisao { --c: var(--k-revisao); }
 .kcol.k-cliente { --c: var(--k-cliente); } .kcol.k-ajuste { --c: var(--k-ajuste); } .kcol.k-pronto { --c: var(--k-pronto); }
@@ -523,7 +525,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .kcard:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 .kcard.mine { box-shadow: inset 3px 0 0 var(--neon); }
 .kmeta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
-.kmeta b { color: var(--ink); font-weight: 600; text-transform: capitalize; }
+.kmeta b { color: var(--ink); font-weight: 600; }
 .kav { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--c); color: var(--k-av-ink, var(--alabaster)); flex: none; }
 .kav { position: relative; overflow: hidden; }
 .kav img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
@@ -917,3 +919,53 @@ a.ov-tile:active { transform: scale(.98); }
   .kd > *, .kd > .kd-block { padding: 16px; }
   .kdetail.kd { padding: 0; }
 }
+
+/* Alvos de toque: área clicável maior sem mudar o desenho */
+details > summary { padding-block: 6px; cursor: pointer; }
+.kc-dot { position: relative; }
+.kc-dot::after { content: ""; position: absolute; inset: -12px -6px; }
+
+/* ---------- Visão do cliente: "sua vez" no topo ---------- */
+.todo { margin-top: 28px; display: grid; gap: 10px; padding: 18px 20px; border-radius: var(--radius); background: rgba(154,255,87,.08); border: 1px solid rgba(154,255,87,.45); color: var(--hero-ink); max-width: 560px; }
+.todo > b { font-size: 17px; color: var(--neon); }
+.todo > span { font-size: 13.5px; color: var(--hero-soft); }
+.todo.done { background: rgba(162,189,210,.08); border-color: rgba(162,189,210,.3); }
+.todo.done > b { color: var(--hero-ink); }
+.todo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.todo li button { width: 100%; min-height: 40px; display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 10px; text-align: left; padding: 6px 10px; border-radius: 10px; border: 0; background: transparent; color: var(--hero-ink); font: inherit; cursor: pointer; }
+.todo li button:hover, .todo li button:focus-visible { background: rgba(154,255,87,.12); }
+.todo-day { font-variant-numeric: tabular-nums; color: var(--hero-soft); font-size: 13px; }
+.todo-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-stage { font-size: 12px; color: var(--neon); white-space: nowrap; }
+
+/* Etapa já decidida: resumo no lugar do formulário */
+.decided { display: grid; gap: 8px; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); }
+.decided.aprovado { border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: var(--ok-bg); }
+.decided.reprovado { border-color: color-mix(in srgb, var(--bad) 45%, transparent); background: var(--bad-bg); }
+.decided b { color: var(--ink); }
+.decided p, .decided ul { margin: 0; }
+.decided ul { padding-left: 18px; }
+.decided .btn { justify-self: start; padding: 6px 14px; font-size: 13.5px; }
+.card-side.is-decided textarea[data-slide] { display: none; }
+
+/* Painel: ações destrutivas num menu "⋯" */
+.more { position: relative; }
+.more > summary { list-style: none; cursor: pointer; width: 40px; height: 40px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); color: var(--ink-2); font-size: 18px; line-height: 1; }
+.more > summary::-webkit-details-marker { display: none; }
+.more[open] > summary { background: var(--surface-2); }
+.more > .btn-del { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; white-space: nowrap; background: var(--surface); box-shadow: var(--shadow), 0 8px 24px rgba(0,0,0,.12); }
+/* Configurações do mês recolhidas */
+.panel.settings > summary { cursor: pointer; list-style: none; }
+.panel.settings > summary::-webkit-details-marker { display: none; }
+.panel.settings > summary h2::after { content: " ▸"; font-size: .6em; color: var(--ink-soft); }
+.panel.settings[open] > summary h2::after { content: " ▾"; }
+.panel.settings > .panel { margin: 0; border: 0; padding: 0; box-shadow: none; background: transparent; }
+.ov-acts li a { color: inherit; text-decoration: none; border-bottom: 1px dashed var(--line); }
+.ov-acts li a:hover { color: var(--accent-ink); border-bottom-color: currentColor; }
+
+/* Marca decorativa do Kanban mais discreta: não concorre com os cards */
+.kmark { opacity: .45; }
+
+.hero .hero-eyebrow { color: var(--hero-soft); }
+
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }

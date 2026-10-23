@@ -1,6 +1,8 @@
 // Radar legislativo — visão do cliente (link do mês + token, sem login).
 // Tudo passa pela Edge Function "cliente", que valida o token no servidor.
 (() => {
+  // Vigência pode vir como data (AAAA-MM-DD) ou texto livre ("a partir de 2027")
+  const vig = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v || "") ? G.fmtDate(v).toLocaleDateString("pt-BR") : v);
   const { el } = G;
   const cfg = window.GARTEN_CONFIG;
   const app = document.getElementById("app");
@@ -69,7 +71,7 @@
       el("h2", {}, a.titulo),
       meta ? el("p", { class: "msg" }, meta) : null,
       el("p", {}, a.resumo),
-      dl("Vigência", a.vigencia),
+      dl("Vigência", vig(a.vigencia)),
       dl("Para quem vale", a.publico),
       dl("Ideia de post", a.angulo_pauta),
       url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, "Ver fonte oficial ↗") : null,

@@ -32,5 +32,12 @@ window.GAuth = (() => {
     return el("nav", { class: "topnav" }, links.map(([href, label, ico]) => G.navLink(href, label, ico, current === href)));
   }
 
-  return { loginView, noAccess, role, nav };
+  // Botão "Sair" no topo, igual em todas as páginas da equipe
+  function logout(sb) {
+    if (document.querySelector(".logout")) return;
+    document.getElementById("top-actions")?.append(el("button", { class: "theme-btn logout", type: "button",
+      onclick: async () => { await sb.auth.signOut(); location.reload(); } }, "Sair"));
+  }
+
+  return { loginView, noAccess, role, nav, logout };
 })();

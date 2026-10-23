@@ -74,6 +74,22 @@
   }), 30000);
   const oppBadge = (p) => isOpp(p) ? el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido de vocês" : "Oportunidade") : null;
   const edName = (slug) => ((data.editorias || []).find((e) => e.slug === slug) || {}).name || "";
+  // Rótulos na voz de quem aprova: deixa claro de quem é a vez
+  const LABEL = { aprovado: "Aprovado", reprovado: "Ajuste pedido", contestado: "Em discussão", pendente: "Sua vez", aguardando: "Garten produzindo" };
+  const STAGE_NAME = { pauta: "pauta", copy: "texto e legenda", arte: "arte" };
+
+  // O que espera resposta deles: a etapa mais avançada do post sem decisão
+  function waiting() {
+    const out = [];
+    for (const p of data.posts) {
+      if (p.scheduled) continue;
+      const stage = ["arte", "copy", "pauta"].find((k) => G.stageState(data, p, k).status !== "aguardando");
+      if (!stage) continue;
+      const stt = G.stageState(data, p, stage);
+      if (stt.status === "pendente" || stt.status === "contestado") out.push({ post: p, stage });
+    }
+    return out;
+  }
 
   function counts() {
     const c = { aprovado: 0, ajuste: 0, pendente: 0 };
@@ -84,6 +100,24 @@
       else c.pendente++;
     }
     return c;
+  }
+
+  // ---------- Sua vez: o primeiro que eles veem ----------
+  function todo() {
+    const list = waiting();
+    if (!list.length) {
+      return el("div", { class: "todo done", id: "todo" },
+        el("b", {}, "Tudo respondido"),
+        el("span", {}, "Quando a Garten subir algo novo, aparece aqui."));
+    }
+    return el("div", { class: "todo", id: "todo" },
+      el("b", {}, `${list.length} ${list.length === 1 ? "item espera" : "itens esperam"} a resposta de vocês`),
+      el("ul", {}, list.slice(0, 6).map(({ post, stage }) => el("li", {},
+        el("button", { type: "button", onclick: () => { openTab[post.id] = stage; refresh(post.id); goTo(post.id); } },
+          el("span", { class: "todo-day" }, `${G.fmtDate(post.post_date).getDate()}/${String(G.fmtDate(post.post_date).getMonth() + 1).padStart(2, "0")}`),
+          el("span", { class: "todo-title" }, post.title),
+          el("span", { class: "todo-stage" }, isOpp(post) ? "post pronto" : STAGE_NAME[stage]))))),
+      list.length > 6 ? el("span", {}, `e mais ${list.length - 6} abaixo`) : null);
   }
 
   // ---------- Hero ----------
@@ -98,7 +132,8 @@
       el("div", { class: "eyebrow neon" }, "Garten · Instagram"),
       el("h1", {}, el("span", { class: "ln off" }, "Pauta de"), el("span", { class: "ln hl" }, data.month.title)),
       el("p", { class: "sub" }, `${total} ${total === 1 ? "conteúdo" : "conteúdos"}${range ? ", " + range : ""}`),
-      ov.intro ? el("p", { class: "intro" }, ov.intro) : null);
+      ov.intro ? el("p", { class: "intro" }, ov.intro) : null,
+      todo());
 
     if (!pils.length) return el("section", { class: "hero" }, GartenIso.outline("hero-mark"), el("div", { class: "wrap" }, left));
 
@@ -131,7 +166,7 @@
     return el("section", { class: "hero" }, GartenIso.outline("hero-mark"), el("div", { class: "wrap hero-grid" },
       left,
       el("div", { class: "iso-wrap" },
-        el("div", { class: "eyebrow" }, "O mês por editoria · toque para filtrar o calendário"),
+        el("div", { class: "eyebrow hero-eyebrow" }, "O mês por editoria · toque para filtrar o calendário"),
         svg, el("div", { class: "pil-head" }, headName, headCount), el("div", { class: "pils" }, chips))));
   }
   function stopCycle() { if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; } }
@@ -205,7 +240,7 @@
       const posts = byDay[key(d)];
       const inRange = d >= first && d <= last;
       cells.push(el("div", { class: `cal-day ${posts ? "has" : ""} ${inRange ? "" : "out"} ${!posts && inRange ? "empty-day" : ""}` },
-        el("div", { class: "cal-num" }, el("b", {}, d.getDate()), el("span", {}, G.DOW[d.getDay()])),
+        el("div", { class: "cal-num" }, el("b", {}, d.getDate())),
         posts ? posts.map(calPost) : null));
     }
     const list = Object.entries(byDay).map(([k, posts]) => {
@@ -223,7 +258,7 @@
           el("span", {}, el("i", { class: "aprovado" }), "Aprovado"),
           el("span", {}, el("i", { class: "reprovado" }), "Ajuste"),
           el("span", {}, el("i", { class: "contestado" }), "Em discussão"),
-          el("span", {}, el("i", {}), "Pendente"))),
+          el("span", {}, el("i", {}), "Sua vez"))),
       el("div", { class: "cal" },
         el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells),
         el("div", { class: "cal-list" }, list)));
@@ -231,7 +266,8 @@
 
   // ---------- Cards ----------
   function stageContent(post, stage, st) {
-    if (stage === "pauta") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Pauta"), "Aprove o tema e o direcional ao lado. Copy e arte vêm nas próximas etapas.");
+    if (stage === "pauta") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Pauta"),
+      st.status === "aprovado" ? "Pauta aprovada. Texto e arte aparecem aqui quando a Garten subir." : "Aprove o tema e o direcional ao lado. Texto e arte vêm nas próximas etapas.");
     if (!st.version) return null;
     // Copy = texto da arte · Legenda = texto do post. Aprovados juntos.
     if (stage === "copy") return el("div", { class: "stack-0" },
@@ -241,7 +277,7 @@
     // A copy mais recente aparece junto da arte, para o cliente avaliar a peça completa
     const cp = G.latestVersion(data.versions, post.id, "copy");
     return el("div", { class: "stack-0" },
-      cp?.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Legenda · copy v${cp.number}`), cp.caption_text) : null,
+      cp?.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Legenda · texto v${cp.number}`), cp.caption_text) : null,
       el("div", { class: "eyebrow" }, isOpp(post) ? `Post pronto · versão ${st.version.number}` : `Arte · versão ${st.version.number}`),
       paths.length > 1 ? el("div", { class: "slides-hint" }, `${paths.length} lâminas · arraste para o lado · toque para ampliar`) : el("div", { class: "slides-hint" }, "Toque para ampliar"),
       el("div", { class: `slides${paths.length > 1 ? " multi" : ""}` }, paths.map((p, i) => {
@@ -318,7 +354,28 @@
     const form = el("div", { class: "decide" },
       el("div", { class: "eyebrow" }, "Resposta da Garten"),
       el("div", { class: "who" }, whoBtns), note, el("div", { class: "decide-row" }, ok, bad), msg);
-    return form;
+    const last = st.last;
+    if (!last || last.status === "contestado" || last.status === "pendente") return form;
+
+    // Já decidido: mostra a decisão e esconde o formulário até pedirem para mudar
+    const who = G.actorName(data, last.actor);
+    const date = new Date(last.created_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
+    const notes = Object.entries(last.slide_notes || {});
+    const change = el("button", { class: "btn ghost", type: "button" }, "Mudar resposta");
+    const summary = el("div", { class: `decided ${last.status}` },
+      last.status === "aprovado"
+        ? el("b", {}, `Aprovado por ${who} · ${date}`)
+        : el("b", {}, `${who} pediu ajuste · ${date}`),
+      last.status === "reprovado" && last.note ? el("p", {}, last.note) : null,
+      last.status === "reprovado" && notes.length ? el("ul", {}, notes.map(([k, v]) => el("li", {}, `Lâmina ${Number(k) + 1}: ${v}`))) : null,
+      last.status === "reprovado" ? el("p", { class: "msg" }, "A Garten está preparando a nova versão. Ela aparece aqui para vocês aprovarem.") : null,
+      change);
+    const wrap = el("div", {}, summary);
+    change.addEventListener("click", () => {
+      wrap.closest(".card-side")?.classList.remove("is-decided");
+      wrap.replaceChildren(form);
+    });
+    return wrap;
   }
 
   function card(post) {
@@ -330,14 +387,15 @@
     const longDate = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
     const tabs = opp
-      ? [el("div", { class: "stage-tab", "aria-selected": "true" }, "Post pronto", el("span", { class: `pill ${states.arte.status}` }, G.STATUS_LABEL[states.arte.status]))]
+      ? [el("div", { class: "stage-tab", "aria-selected": "true" }, "Post pronto", el("span", { class: `pill ${states.arte.status}` }, LABEL[states.arte.status]))]
       : G.STAGES.map((s) => el("button", {
       class: "stage-tab", type: "button", role: "tab", "aria-selected": String(s.key === current),
       disabled: s.key !== "pauta" && !states[s.key].version,
       onclick: () => { openTab[post.id] = s.key; refresh(post.id); },
-    }, s.label, el("span", { class: `pill ${states[s.key].status}` }, G.STATUS_LABEL[states[s.key].status])));
+    }, s.label === "Copy" ? "Texto" : s.label, el("span", { class: `pill ${states[s.key].status}` }, LABEL[states[s.key].status])));
 
-    const side = el("div", { class: "card-side" },
+    const decided = st.last && ["aprovado", "reprovado"].includes(st.last.status) && !post.scheduled;
+    const side = el("div", { class: `card-side${decided ? " is-decided" : ""}` },
       el("div", { class: "stages", role: "tablist" }, tabs),
       el("div", { class: "stage-body" },
         opp && !st.version ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Em produção"), "Estamos finalizando este post. Ele aparece aqui pronto para aprovação.") : stageContent(post, current, st),
@@ -405,6 +463,7 @@
     const cal = document.getElementById("calendario"); const nc = calendar();
     if (cal && nc) { nc.classList.add("in"); cal.replaceWith(nc); applyCalendarFilter(); }
     document.getElementById("dock")?.replaceWith(dock());
+    document.getElementById("todo")?.replaceWith(todo());
   }
 
   function render() {

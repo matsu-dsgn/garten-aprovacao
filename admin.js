@@ -30,6 +30,7 @@
     if (role !== "admin") return GAuth.noAccess(app, sb, user, () => loginView());
     const nav = GAuth.nav("admin.html", true);
     if (nav && !document.querySelector(".topnav")) document.getElementById("top-actions").prepend(nav);
+    GAuth.logout(sb);
     const { data: eds } = await sb.from("editorias").select("*").eq("active", true).order("sort");
     editorias = eds || [];
     await loadMonths();
@@ -225,13 +226,16 @@
 
       // Quem acionar
       const acts = [];
-      if (cols.revisao.length) acts.push(["Você revisa", cols.revisao.map((p) => `${p.title} (${p.stage === "arte" ? "arte" : "copy"})`)]);
+      const stg = (p) => (p.stage === "arte" ? "arte" : "texto");
+      const item = (p, text) => ({ id: p.id, text });
+      if (cols.revisao.length) acts.push(["Você revisa", cols.revisao.map((p) => item(p, `${p.title} (${stg(p)})`))]);
       const byPerson = {};
-      for (const p of cols.producao) (byPerson[p.assignee || ""] ||= []).push(p.title);
+      for (const p of cols.producao) (byPerson[p.assignee || ""] ||= []).push(item(p, p.title));
       for (const [e, list] of Object.entries(byPerson)) acts.push([e ? `${name(e)} produzindo` : "Em produção sem responsável", list]);
-      if (cols.ajuste.length) acts.push(["Ajuste pedido pelo cliente", cols.ajuste.map((p) => `${p.title} (${p.stage === "arte" ? "arte" : "copy"}${p.assignee ? ` · ${name(p.assignee)}` : ""})`)]);
-      if (cols.cliente.length) acts.push(["Esperando Wilker ou Letícia", cols.cliente.map((p) => `${p.title} (${p.stage === "arte" ? "arte" : "copy"})`)]);
-      if (late.length) acts.push(["Atrasados (data de publicação passou)", late.map((p) => p.title)]);
+      if (cols.ajuste.length) acts.push(["Ajuste pedido pelo cliente", cols.ajuste.map((p) => item(p, `${p.title} (${stg(p)}${p.assignee ? ` · ${name(p.assignee)}` : ""})`))]);
+      if (cols.cliente.length) acts.push(["Esperando Wilker ou Letícia", cols.cliente.map((p) => item(p, `${p.title} (${stg(p)})`))]);
+      if (late.length) acts.push(["Atrasados (data de publicação passou)", late.map((p) => item(p, p.title))]);
+      const cardHref = (pid) => `${kanbanHref}&post=${encodeURIComponent(pid)}`;
 
       const picker = months.length > 1 ? el("select", { "aria-label": "Mês do overview", class: "ov-pick" },
         months.map((x) => el("option", { value: x.id, selected: x.id === m.id }, x.title))) : null;
@@ -254,7 +258,7 @@
           tile("Ajuste pedido", cols.ajuste.length, { href: kanbanHref, tone: cols.ajuste.length ? "bad" : "" }),
           tile("Pronto", cols.pronto.length, { href: kanbanHref, tone: "ok" })),
         acts.length ? el("div", { class: "ov-acts" }, el("h3", { class: "ov-h" }, "Quem acionar"),
-          acts.map(([who, list]) => el("details", { open: true }, el("summary", {}, `${who} · ${list.length}`), el("ul", {}, list.map((t) => el("li", {}, t))))))
+          acts.map(([who, list]) => el("details", { open: true }, el("summary", {}, `${who} · ${list.length}`), el("ul", {}, list.map((t) => el("li", {}, el("a", { href: cardHref(t.id) }, t.text)))))))
           : el("p", { class: "msg okk" }, "Nada travado agora."),
         (rd.count || 0) ? el("a", { class: "ov-radar", href: "radar.html" }, G.icon("radar"), `${rd.count} ${rd.count === 1 ? "novidade" : "novidades"} no radar legislativo`) : null);
     } catch (e) {
@@ -262,22 +266,32 @@
     }
   }
 
+  function newMonthBtn() {
+    return el("button", { class: "btn dark", type: "button", onclick: (e) => {
+      const slot = document.getElementById("new-month");
+      if (!slot) return;
+      const f = monthForm(null); slot.replaceWith(f); e.currentTarget.remove();
+      f.scrollIntoView({ behavior: "smooth", block: "start" }); f.querySelector("input:not([disabled])")?.focus();
+    } }, "+ Novo mês");
+  }
+
   function monthsView() {
     app.replaceChildren(
       overviewPanel(),
       el("section", { class: "panel" },
-        el("div", { class: "row between" },
-          el("h2", {}, "Meses"),
-          el("button", { class: "btn ghost", onclick: async () => { await sb.auth.signOut(); loginView(); } }, "Sair")),
+        el("div", { class: "row between" }, el("h2", {}, "Meses"), newMonthBtn()),
         months.length ? el("ul", { class: "history" }, months.map((m, i) =>
           el("li", { class: "team-row" },
             el("span", {}, el("b", {}, m.title), i === 0 ? " · atual" : " · histórico"),
             el("div", { class: "row" },
               el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, "Abrir"),
               el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban"),
-              el("button", { class: "btn-del", type: "button", "aria-label": `Excluir ${m.title}`, onclick: () => deleteMonth(m) }, "Excluir"))))) : msg("Nenhum mês ainda.")),
-      monthForm(null),
+              el("details", { class: "more" },
+                el("summary", { "aria-label": `Mais ações de ${m.title}` }, "⋯"),
+                el("button", { class: "btn-del", type: "button", onclick: () => deleteMonth(m) }, "Excluir mês")))))) : msg("Nenhum mês ainda.")),
+      el("div", { id: "new-month" }),
       teamPanel());
+    if (!months.length) document.getElementById("new-month").replaceWith(monthForm(null));
   }
 
   // ---------- Mês aberto ----------
@@ -307,12 +321,13 @@
         el("button", { class: "btn ghost", onclick: () => { current = null; monthsView(); } }, "← Meses"),
         el("button", { class: "btn ghost", onclick: () => exportJson(m) }, "Exportar JSON"),
         el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban deste mês")),
+      data.posts.length ? "" : importPanel(m),
+      el("section", { class: "panel" }, el("h2", {}, `Posts (${data.posts.length})`),
+        data.posts.length ? data.posts.map((p) => postRow(m, p)) : msg("Nenhum post ainda. Importe o JSON da pauta acima.")),
       linkPanel(m),
       oppPanel(m),
-      monthForm(m),
-      importPanel(m),
-      el("section", { class: "panel" }, el("h2", {}, `Posts (${data.posts.length})`),
-        data.posts.length ? data.posts.map((p) => postRow(m, p)) : msg("Nenhum post. Importe o JSON da pauta acima.")));
+      el("details", { class: "panel settings" }, el("summary", {}, el("h2", {}, "Configurações do mês")),
+        monthForm(m), data.posts.length ? importPanel(m) : ""));
   }
 
   function linkPanel(m) {
@@ -330,8 +345,9 @@
       });
       const view = el("a", { class: "btn ghost", href: url, target: "_blank", rel: "noopener" }, "Ver como cliente");
       box.replaceChildren(el("div", { class: "link-row" }, el("code", { class: "link" }, url), copy, view));
+      revoke.hidden = false;
     }
-    const noLink = () => box.replaceChildren(msg("Nenhum link ativo. Gere um para mandar ao cliente."));
+    const noLink = () => { box.replaceChildren(msg("Nenhum link ativo. Gere um para mandar ao cliente.")); revoke.hidden = true; };
 
     // Carrega o link salvo deste mês
     (async () => {
@@ -351,7 +367,7 @@
       out.textContent = e2 ? `Link gerado, mas não consegui salvar para copiar depois: ${e2.message}` : "Link novo gerado. O anterior parou de funcionar.";
       showLink(urlFor(token));
     });
-    const revoke = el("button", { class: "btn bad" }, "Encerrar link");
+    const revoke = el("button", { class: "btn bad", hidden: true }, "Encerrar link");
     revoke.addEventListener("click", async () => {
       if (!confirm("Encerrar o link? O cliente perde o acesso até você gerar um novo.")) return;
       const { error } = await sb.rpc("revoke_month_token", { p_month: m.id });
@@ -592,7 +608,7 @@
           fileIn, el("div", { class: "row" }, arteBtn))),
       review,
       contests,
-      G.STAGES.map((s) => G.historyList(data, states[s.key].decisions)),
+      G.STAGES.map((s) => G.historyList(data, states[s.key].decisions, s.key === "copy" ? "copy" : s.label.toLowerCase())),
       el("details", {}, el("summary", {}, `Comentários internos (${data.comments.filter((c) => c.post_id === p.id).length})${p.assignee ? ` · com ${GWork.nameOf(data.team, p.assignee)}` : ""}`),
         GWork.comments(sb, data.comments, data.team, p.id, () => openMonth(m))),
       p.kind === "oportunidade" ? el("div", { class: "row" },
