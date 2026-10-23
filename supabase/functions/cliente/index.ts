@@ -62,7 +62,7 @@ async function loadState(month: { id: string }) {
   const ids = (posts ?? []).map((p) => p.id);
   const [{ data: versions }, { data: decisions }, { data: approvers }, { data: editorias }] = await Promise.all([
     ids.length
-      ? db.from("versions").select("id, post_id, stage, number, copy_text, asset_paths, created_at")
+      ? db.from("versions").select("id, post_id, stage, number, copy_text, caption_text, asset_paths, created_at")
         .in("post_id", ids).eq("sent", true).order("number")
       : Promise.resolve({ data: [] }),
     ids.length

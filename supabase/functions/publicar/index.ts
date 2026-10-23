@@ -85,8 +85,10 @@ async function latestApprovedArte(postId: string): Promise<string[]> {
 
 async function publishOne(postId: string) {
   const paths = await latestApprovedArte(postId);
-  const { data: caption } = await db.rpc("approved_copy", { p_post: postId });
+  // Legenda aprovada (copy = texto da arte, não vai na legenda)
+  const { data: caption } = await db.rpc("approved_caption", { p_post: postId });
   const text = String(caption ?? "").slice(0, 2200);
+  if (!text.trim()) throw new Error("Post sem legenda aprovada");
 
   if (DRY) return { media: "simulado", link: null };
 

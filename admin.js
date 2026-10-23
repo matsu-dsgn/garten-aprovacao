@@ -499,14 +499,15 @@
     const fail = (e) => { out.className = "msg err"; out.textContent = e.message || String(e); };
     const states = Object.fromEntries(G.STAGES.map((s) => [s.key, G.stageState(data, p, s.key)]));
 
-    const copyTa = el("textarea", { maxlength: "5000", placeholder: "Nova versão da copy" });
-    const copyBtn = el("button", { class: "btn dark" }, "Subir copy");
+    const copyTa = el("textarea", { maxlength: "5000", placeholder: "Texto da arte (nova versão)" });
+    const capTa = el("textarea", { maxlength: "2200", placeholder: "Legenda do post no Instagram" });
+    const copyBtn = el("button", { class: "btn dark" }, "Subir copy e legenda");
     copyBtn.addEventListener("click", async () => {
-      const text = copyTa.value.trim();
-      if (!text) return fail(new Error("Copy vazia."));
-      const n = (G.latestVersion(data.allVersions, p.id, "copy")?.number || 0) + 1;
-      const { error } = await sb.from("versions").insert({ post_id: p.id, stage: "copy", number: n, copy_text: text });
-      error ? fail(error) : openMonth(m);
+      copyBtn.disabled = true;
+      try {
+        await GWork.uploadCopy(sb, { post: p, allVersions: data.allVersions, text: copyTa.value, caption: capTa.value, sent: true });
+        openMonth(m);
+      } catch (e) { fail(e); copyBtn.disabled = false; }
     });
 
     const fileIn = el("input", { type: "file", multiple: true, accept: "image/png,image/jpeg,image/webp,video/mp4" });
@@ -587,7 +588,7 @@
           el("span", { class: `pill ${states[s.key].status}` }, `${s.label}: ${G.STATUS_LABEL[states[s.key].status]}`)))),
       el("details", {}, el("summary", {}, "Copy e arte"),
         el("div", { class: "stack" },
-          copyTa, el("div", { class: "row" }, copyBtn),
+          copyTa, capTa, el("div", { class: "row" }, copyBtn),
           fileIn, el("div", { class: "row" }, arteBtn))),
       review,
       contests,

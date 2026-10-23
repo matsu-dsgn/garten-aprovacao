@@ -242,26 +242,102 @@
     const adjDec = st.col === "ajuste" ? (st.stage === "copy" ? lastCopyDec : lastArteDec) : null;
     const copyVersions = d.all.filter((v) => v.post_id === p.id && v.stage === "copy").sort((a, b) => b.number - a.number);
 
-    // Copy: a equipe sobe como rascunho; admin pode mandar direto ao cliente
-    const copyTa = el("textarea", { maxlength: "5000", placeholder: "Escreva a copy (legenda) do post" });
-    const lastAny = copyVersions[0];
-    if (lastAny) copyTa.value = lastAny.copy_text || "";
+    const canCopy = ["copy", "producao", "ajuste", "revisao"].includes(col) && (st.stage === "copy" || col === "copy");
+    const canArte = col !== "espera" && col !== "agendado" && !(st.stage === "copy" && p.kind !== "oportunidade");
+    const arteVersions = d.all.filter((v) => v.post_id === p.id && v.stage === "arte").sort((a, b) => b.number - a.number);
+    const curArte = arteVersions[0] || null;
+    const curCopy = copyVersions[0] || null;
+
+    // Etiqueta de uma versão: rascunho interno, com o cliente ou a decisão dele
+    const vTag = (v, stage) => {
+      if (!v.sent) return { text: "Em revisão interna", cls: "rev" };
+      const dec = lastDecision(p.id, stage, v.id);
+      if (!dec) return { text: "Com o cliente", cls: "cli" };
+      return { text: G.STATUS_LABEL[dec.status] || dec.status, cls: dec.status === "aprovado" ? "ok" : dec.status === "reprovado" ? "bad" : "cli" };
+    };
+    const tagEl = (v, stage) => { const t = vTag(v, stage); return el("span", { class: `kd-tag ${t.cls}` }, `v${v.number} · ${t.text}`); };
+    const sendBtnFor = (v) => {
+      if (v.sent || me.role !== "admin") return null;
+      const b = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente");
+      b.addEventListener("click", async () => { const { error } = await sb.rpc("send_version", { p_version: v.id }); error ? fail(error) : reload(); });
+      return b;
+    };
+
+    // ---------- Header: status e próxima ação primeiro ----------
+    const NEXT = {
+      espera: "Aguardando aprovação da pauta",
+      copy: "Escrever texto da arte e legenda",
+      fazer: "Produzir a arte",
+      producao: "Subir a arte quando terminar",
+      revisao: me.role === "admin" ? "Revisar e enviar ao cliente" : "Aguardando revisão do Rapha",
+      cliente: "Aguardando Wilker ou Letícia",
+      ajuste: `Ajustar ${st.stage === "copy" ? "texto/legenda" : "a arte"} conforme o pedido`,
+      aprovado: me.role === "admin" ? "Agendar a publicação" : "Aprovado · aguardando agendamento",
+      agendado: GWork.schedLabel(p),
+    };
+    const dateTxt = G.fmtDate(p.post_date).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+    const nSlides = curArte?.asset_paths?.length || 0;
+    const fact = (k, v) => v ? el("div", { class: "kd-fact" }, el("dt", {}, k), el("dd", {}, v)) : null;
+    const head = el("header", { class: "kd-head" },
+      el("div", { class: "kd-top" },
+        el("span", { class: `kd-status s-${col}` }, SUB[col].label),
+        el("span", { class: "kd-next" }, NEXT[col] || ""),
+        el("button", { class: "lb-close inline", type: "button", "aria-label": "Fechar", onclick: () => { openPost = null; render(); } }, "✕")),
+      el("h3", { id: "kd-title" }, p.title),
+      el("dl", { class: "kd-facts" },
+        fact("Publicação", dateTxt),
+        fact("Formato", `${G.FORMATS[p.format] || p.format}${p.format === "carrossel" && nSlides ? ` · ${nSlides} lâminas` : ""}`),
+        fact("Editoria", p.editoria ? edName(p.editoria) : "—"),
+        el("div", { class: "kd-fact" }, el("dt", {}, "Responsável"),
+          el("dd", { class: "kd-owner" }, p.assignee ? GWork.nameOf(d.team, p.assignee) : "Ninguém", take))),
+      adjDec ? el("div", { class: "content-box alert" },
+        el("span", { class: "eyebrow" }, `Ajuste pedido pelo cliente · ${st.stage === "copy" ? "texto e legenda" : "arte"}`),
+        adjDec.note || "", st.stage === "arte" && Object.keys(adjDec.slide_notes || {}).length ? el("div", { class: "msg" }, "Os ajustes de cada lâmina aparecem junto dela, na arte.") : null) : null,
+      me.role === "admin" && ["aprovado", "agendado"].includes(col)
+        ? GWork.schedulePanel(sb, p, async (on) => { await load(); render(); toast(on ? "Post agendado" : "Agendamento removido"); }) : null);
+
+    // ---------- Briefing (recolhível, aberto enquanto ninguém produziu nada) ----------
+    const hasBrief = p.objective || p.direction || (p.checklist || []).length;
+    const brief = hasBrief ? el("details", { class: "kd-block kd-brief", open: !curArte && !curCopy ? "" : null },
+      el("summary", {}, el("span", { class: "eyebrow" }, "Briefing")),
+      p.objective ? el("p", { class: "objective" }, `Objetivo: ${p.objective}`) : null,
+      p.direction ? el("p", { class: "direction" }, p.direction) : null,
+      (p.checklist || []).length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
+        el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null) : null;
+
+    // ---------- Esquerda: texto da arte e legenda ----------
+    const copyTa = el("textarea", { maxlength: "5000", rows: "6", placeholder: "Texto que vai dentro da arte (lâmina por lâmina)" });
+    const capTa = el("textarea", { maxlength: "2200", rows: "6", placeholder: "Legenda do post no Instagram" });
+    if (curCopy) { copyTa.value = curCopy.copy_text || ""; capTa.value = curCopy.caption_text || ""; }
+    const capCount = el("span", { class: "kd-count" });
+    const paintCount = () => { capCount.textContent = `${capTa.value.length}/2200`; };
+    capTa.addEventListener("input", paintCount); paintCount();
     const directCopy = me.role === "admin" ? el("label", { class: "row" }, el("input", { type: "checkbox" }), "Enviar direto ao cliente (pular revisão)") : null;
-    const upCopy = el("button", { class: "btn dark", type: "button" }, copyVersions.length ? "Subir nova versão da copy" : "Subir copy");
+    const upCopy = el("button", { class: "btn dark", type: "button" }, copyVersions.length ? "Subir nova versão" : "Subir texto e legenda");
     upCopy.addEventListener("click", async () => {
       upCopy.disabled = true;
       try {
-        await GWork.uploadCopy(sb, { post: p, allVersions: d.all, text: copyTa.value, sent: !!directCopy?.querySelector("input").checked });
+        await GWork.uploadCopy(sb, { post: p, allVersions: d.all, text: copyTa.value, caption: capTa.value, sent: !!directCopy?.querySelector("input").checked });
         await reload();
       } catch (e) { fail(e); upCopy.disabled = false; }
     });
-    const canCopy = ["copy", "producao", "ajuste", "revisao"].includes(col) && (st.stage === "copy" || col === "copy");
-    const arteVersions = d.all.filter((v) => v.post_id === p.id && v.stage === "arte").sort((a, b) => b.number - a.number);
+    const textBlock = (title, body, editor, extra) => el("section", { class: "kd-block" },
+      el("div", { class: "kd-bh" }, el("span", { class: "eyebrow" }, title), curCopy ? tagEl(curCopy, "copy") : null, extra || null),
+      canCopy ? editor : body ? el("div", { class: "kd-text" }, body) : el("p", { class: "msg" }, "Ainda não escrito."));
+    const left = el("div", { class: "kd-col" },
+      textBlock("Texto da arte", curCopy?.copy_text, copyTa),
+      textBlock("Legenda", curCopy?.caption_text, capTa, canCopy ? capCount : null),
+      canCopy ? el("div", { class: "kd-actions" }, directCopy, upCopy) : null,
+      curCopy && !curCopy.sent ? sendBtnFor(curCopy) : null,
+      copyVersions.length > 1 ? el("details", { class: "kd-hist" },
+        el("summary", {}, `Versões anteriores do texto (${copyVersions.length - 1})`),
+        copyVersions.slice(1).map((v) => el("div", { class: "draft" }, tagEl(v, "copy"),
+          el("span", { class: "msg" }, ` ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`), GWork.preview(v, d.urls), sendBtnFor(v)))) : null);
 
-    // Upload: equipe manda para revisão; admin escolhe
-    const fileIn = el("input", { type: "file", multiple: true, accept: "image/png,image/jpeg,image/webp,video/mp4" });
+    // ---------- Direita: carrossel da arte atual ----------
+    const fileIn = el("input", { type: "file", multiple: true, accept: "image/png,image/jpeg,image/webp,video/mp4", "aria-label": "Arquivos da arte" });
     const direct = me.role === "admin" ? el("label", { class: "row" }, el("input", { type: "checkbox" }), "Enviar direto ao cliente (pular revisão)") : null;
-    const up = el("button", { class: "btn dark", type: "button" }, "Subir arte");
+    const up = el("button", { class: "btn dark", type: "button" }, curArte ? "Subir nova versão" : "Subir arte");
     up.addEventListener("click", async () => {
       up.disabled = true;
       try {
@@ -271,68 +347,64 @@
         await reload();
       } catch (e) { fail(e); up.disabled = false; }
     });
+    const curDec = curArte?.sent ? lastDecision(p.id, "arte", curArte.id) : null;
+    const notes = curDec?.status === "reprovado" ? (curDec.slide_notes || {}) : {};
+    const right = el("div", { class: "kd-col" },
+      el("section", { class: "kd-block" },
+        el("div", { class: "kd-bh" }, el("span", { class: "eyebrow" }, "Arte"), curArte ? tagEl(curArte, "arte") : null),
+        curArte ? carousel(curArte.asset_paths || [], notes) : el("p", { class: "msg" }, "Nenhuma arte enviada ainda."),
+        curArte ? sendBtnFor(curArte) : null,
+        canArte ? el("div", { class: "kd-upload" }, fileIn, direct, el("div", { class: "kd-actions" }, up)) : null),
+      arteVersions.length > 1 ? el("details", { class: "kd-hist" },
+        el("summary", {}, `Versões anteriores da arte (${arteVersions.length - 1})`),
+        arteVersions.slice(1).map((v) => el("div", { class: "draft" }, tagEl(v, "arte"),
+          el("span", { class: "msg" }, ` ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`), GWork.preview(v, d.urls), sendBtnFor(v)))) : null);
 
-    const versionRow = (v) => {
-      const dec = v.sent ? lastDecision(p.id, "arte", v.id) : null;
-      const tag = !v.sent ? "Em revisão interna" : dec ? G.STATUS_LABEL[dec.status] : "Com o cliente";
-      let sendBtn = null;
-      if (!v.sent && me.role === "admin") {
-        sendBtn = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente");
-        sendBtn.addEventListener("click", async () => {
-          const { error } = await sb.rpc("send_version", { p_version: v.id });
-          error ? fail(error) : reload();
-        });
-      }
-      return el("div", { class: "draft" },
-        el("div", { class: "msg" }, `Arte v${v.number} · ${tag} · ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`),
-        GWork.preview(v, d.urls), sendBtn);
-    };
-
-    const slideNotes = lastArteDec?.slide_notes ? Object.entries(lastArteDec.slide_notes) : [];
-    return el("aside", { class: "kdetail", role: "dialog", "aria-label": p.title },
-      el("div", { class: "row between" },
-        el("span", { class: "eyebrow" }, SUB[col].label),
-        el("button", { class: "lb-close inline", type: "button", "aria-label": "Fechar", onclick: () => { openPost = null; render(); } }, "✕")),
-      el("h3", {}, p.title),
-      el("div", { class: "meta" },
-        el("span", { class: "chip" }, G.FORMATS[p.format] || p.format),
-        p.editoria ? el("span", { class: "chip ed" }, edName(p.editoria)) : null,
-        el("span", {}, G.fmtDate(p.post_date).toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }))),
-      el("div", { class: "row" }, take, p.assignee ? el("span", { class: "msg" }, `Com ${GWork.nameOf(d.team, p.assignee)}`) : null),
-
-      adjDec
-        ? el("div", { class: "content-box alert" }, el("span", { class: "eyebrow" }, `Ajuste pedido pelo cliente · ${st.stage === "copy" ? "copy" : "arte"}`),
-          adjDec.note || "", ...(st.stage === "arte" ? slideNotes : []).map(([k, v]) => el("div", {}, `Lâmina ${Number(k) + 1}: ${v}`))) : null,
-
-      me.role === "admin" && ["aprovado", "agendado"].includes(col)
-        ? GWork.schedulePanel(sb, p, async (on) => { await load(); render(); toast(on ? "Post agendado" : "Agendamento removido"); }) : null,
-
-      p.objective ? el("p", { class: "objective" }, `Objetivo: ${p.objective}`) : null,
-      p.direction ? el("p", { class: "direction" }, p.direction) : null,
-      (p.checklist || []).length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
-        el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null,
-      copy && !canCopy ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Copy aprovada · v${copy.number}`), copy.copy_text || "") : null,
-
-      canCopy ? el("div", { class: "stack" },
-        el("div", { class: "eyebrow" }, "Copy"), copyTa, directCopy, el("div", { class: "row" }, upCopy)) : null,
-      copyVersions.length && canCopy ? el("div", { class: "stack" }, el("div", { class: "eyebrow" }, "Versões da copy"), copyVersions.map((v) => {
-        const dec = v.sent ? lastDecision(p.id, "copy", v.id) : null;
-        const tag = !v.sent ? "Em revisão interna" : dec ? G.STATUS_LABEL[dec.status] : "Com o cliente";
-        let sb2 = null;
-        if (!v.sent && me.role === "admin") {
-          sb2 = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente");
-          sb2.addEventListener("click", async () => { const { error } = await sb.rpc("send_version", { p_version: v.id }); error ? fail(error) : reload(); });
-        }
-        return el("div", { class: "draft" }, el("div", { class: "msg" }, `Copy v${v.number} · ${tag} · ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`), GWork.preview(v, d.urls), sb2);
-      })) : null,
-
-      col !== "espera" && col !== "agendado" && !(st.stage === "copy" && p.kind !== "oportunidade") ? el("div", { class: "stack" },
-        el("div", { class: "eyebrow" }, "Subir arte"), fileIn, direct, el("div", { class: "row" }, up)) : null,
-      arteVersions.length ? el("div", { class: "stack" }, el("div", { class: "eyebrow" }, "Versões da arte"), arteVersions.map(versionRow)) : null,
-
-      el("div", { class: "stack" }, el("div", { class: "eyebrow" }, "Comentários internos"),
+    return el("aside", { class: "kdetail kd", role: "dialog", "aria-modal": "true", "aria-labelledby": "kd-title" },
+      head, brief,
+      el("div", { class: "kd-body" }, left, right),
+      el("section", { class: "kd-block kd-comments" }, el("span", { class: "eyebrow" }, "Comentários internos"),
         GWork.comments(sb, d.comments, d.team, p.id, reload)),
       out);
+  }
+
+  // Carrossel: setas, contador, pontos e o ajuste do cliente em cima de cada lâmina
+  function carousel(paths, notes) {
+    if (!paths.length) return null;
+    const track = el("div", { class: "kc-track", tabindex: "0", "aria-label": "Lâminas da arte" },
+      paths.map((path, i) => {
+        const url = d.urls[path];
+        const note = notes[String(i)];
+        const media = /\.mp4$/i.test(path)
+          ? el("video", { src: url, controls: true, preload: "metadata" })
+          : el("a", { href: url, target: "_blank", rel: "noopener", "aria-label": `Abrir lâmina ${i + 1} em tamanho real` }, el("img", { src: url, alt: `Lâmina ${i + 1}`, loading: "lazy" }));
+        return el("figure", { class: "kc-slide" }, media,
+          note ? el("figcaption", { class: "kc-note" }, el("b", {}, `Ajuste na lâmina ${i + 1}`), note) : null);
+      }));
+    if (paths.length === 1) return el("div", { class: "kc" }, track);
+    const count = el("span", { class: "kc-count" }, `1/${paths.length}`);
+    const dots = el("div", { class: "kc-dots" }, paths.map((_, i) => el("button", {
+      type: "button", class: `kc-dot${notes[String(i)] ? " has-note" : ""}`, "aria-label": `Ir para lâmina ${i + 1}`,
+      onclick: () => go(i),
+    })));
+    const idx = () => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+    const go = (i) => track.scrollTo({ left: Math.max(0, Math.min(paths.length - 1, i)) * track.clientWidth, behavior: "smooth" });
+    const paint = () => {
+      const i = idx();
+      count.textContent = `${i + 1}/${paths.length}`;
+      [...dots.children].forEach((b, k) => b.classList.toggle("on", k === i));
+      prev.disabled = i === 0; next.disabled = i === paths.length - 1;
+    };
+    const prev = el("button", { type: "button", class: "kc-nav prev", "aria-label": "Lâmina anterior", onclick: () => go(idx() - 1) }, "‹");
+    const next = el("button", { type: "button", class: "kc-nav next", "aria-label": "Próxima lâmina", onclick: () => go(idx() + 1) }, "›");
+    let raf = 0;
+    track.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); });
+    track.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); go(idx() + 1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); go(idx() - 1); }
+    });
+    requestAnimationFrame(paint);
+    return el("div", { class: "kc" }, el("div", { class: "kc-stage" }, track, prev, next), el("div", { class: "kc-bar" }, dots, count));
   }
 
   function render() {

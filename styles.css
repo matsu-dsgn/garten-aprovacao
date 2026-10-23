@@ -843,3 +843,77 @@ a.ov-tile:active { transform: scale(.98); }
 .radar-group-h small { font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .radar-status.is-alert { background: color-mix(in srgb, var(--bad) 18%, transparent); } }
 :root[data-theme="dark"] .radar-status.is-alert { background: color-mix(in srgb, var(--bad) 18%, transparent); }
+
+/* ---------- Card do Kanban em blocos (header · texto | arte · comentários) ---------- */
+.kdetail.kd { width: min(1080px, 100%); padding: 0; gap: 0; overflow: hidden; }
+.kd > * { padding: 22px 28px; }
+.kd-head { display: grid; gap: 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.kd-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.kd-top .lb-close { margin-left: auto; }
+.kd-status { --c: var(--ink-soft); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); }
+.kd-status.s-espera, .kd-status.s-copy, .kd-status.s-fazer { --c: var(--k-fazer); }
+.kd-status.s-producao { --c: var(--k-producao); } .kd-status.s-revisao { --c: var(--k-revisao); }
+.kd-status.s-cliente { --c: var(--k-cliente); } .kd-status.s-ajuste { --c: var(--k-ajuste); }
+.kd-status.s-aprovado, .kd-status.s-agendado { --c: var(--k-pronto); }
+.kd-next { font-weight: 600; color: var(--ink); }
+.kd-head h3 { font-family: var(--display); font-size: clamp(22px, 2.6vw, 30px); color: var(--ink); line-height: 1.12; }
+.kd-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 18px; margin: 0; align-items: start; }
+.kd-fact { display: grid; gap: 2px; min-width: 0; }
+.kd-fact dt { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.kd-fact dd { margin: 0; color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+.kd-owner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.kd-owner .btn { padding: 4px 10px; font-size: 12.5px; }
+.kd-brief { border-bottom: 1px solid var(--line); }
+.kd-brief summary, .kd-hist summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.kd-brief summary::before, .kd-hist summary::before { content: "▸"; font-size: 11px; color: var(--ink-soft); transition: transform .15s; }
+.kd-brief[open] summary::before, .kd-hist[open] summary::before { transform: rotate(90deg); }
+.kd-brief[open] { display: grid; gap: 10px; }
+.kd-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+.kd-col { display: grid; gap: 14px; min-width: 0; }
+.kd-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.kd > .kd-block { border-radius: 0; border-width: 1px 0 0; padding: 18px 28px; }
+.kd > .msg:empty { display: none; }
+.kd-bh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kd-bh .eyebrow { margin-right: auto; }
+.kd-text { white-space: pre-wrap; color: var(--ink); font-size: 14.5px; line-height: 1.55; max-height: 320px; overflow-y: auto; }
+.kd-block textarea { width: 100%; resize: vertical; }
+.kd-count { font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.kd-tag { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); color: var(--ink-soft); }
+.kd-tag.ok { color: var(--k-pronto); background: color-mix(in srgb, var(--k-pronto) 15%, transparent); }
+.kd-tag.bad { color: var(--k-ajuste); background: color-mix(in srgb, var(--k-ajuste) 15%, transparent); }
+.kd-tag.cli { color: var(--k-cliente); background: color-mix(in srgb, var(--k-cliente) 15%, transparent); }
+.kd-tag.rev { color: var(--k-revisao); background: color-mix(in srgb, var(--k-revisao) 15%, transparent); }
+.kd-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.kd-upload { display: grid; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.kd-hist { padding: 4px 2px; display: grid; gap: 10px; }
+.kd-hist summary { font-size: 13px; color: var(--ink-soft); }
+
+/* Carrossel */
+.kc { display: grid; gap: 8px; }
+.kc-stage { position: relative; }
+.kc-track { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: var(--radius-sm); background: var(--surface-2); }
+.kc-track::-webkit-scrollbar { display: none; }
+.kc-slide { margin: 0; scroll-snap-align: start; display: grid; align-content: start; }
+.kc-slide img, .kc-slide video { width: 100%; height: min(54vh, 560px); object-fit: contain; display: block; background: var(--surface-2); }
+.kc-slide a { display: block; cursor: zoom-in; }
+.kc-note { background: color-mix(in srgb, var(--k-ajuste) 14%, var(--surface)); border-top: 2px solid var(--k-ajuste); padding: 8px 12px; font-size: 13.5px; color: var(--ink); display: grid; gap: 2px; }
+.kc-note b { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--k-ajuste); }
+.kc-nav { position: absolute; top: 40%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--bg) 88%, transparent); color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+.kc-nav.prev { left: 10px; } .kc-nav.next { right: 10px; }
+.kc-nav:disabled { opacity: 0; pointer-events: none; }
+.kc-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.kc-dots { display: flex; flex-wrap: wrap; gap: 6px; }
+.kc-dot { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--line); cursor: pointer; }
+.kc-dot.on { background: var(--ink); }
+.kc-dot.has-note { box-shadow: 0 0 0 2px var(--k-ajuste); }
+.kc-count { font-size: 12.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 860px) {
+  .kd-body { grid-template-columns: 1fr; }
+  .kd-body > .kd-col:last-child { order: -1; } /* no celular a arte vem primeiro */
+  .kd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .kd > *, .kd > .kd-block { padding: 16px; }
+  .kdetail.kd { padding: 0; }
+}

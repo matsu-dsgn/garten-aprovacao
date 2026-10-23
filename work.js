@@ -14,7 +14,9 @@ window.GWork = (() => {
   }
 
   function preview(v, urls) {
-    if (v.stage === "copy") return el("div", { class: "content-box" }, v.copy_text || "");
+    if (v.stage === "copy") return el("div", { class: "stack-0" },
+      el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Texto da arte"), v.copy_text || ""),
+      v.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Legenda"), v.caption_text) : null);
     return el("div", { class: "thumbs" }, (v.asset_paths || []).map((p) => /\.mp4$/i.test(p)
       ? el("video", { src: urls[p], controls: true, preload: "metadata" })
       : el("a", { href: urls[p], target: "_blank", rel: "noopener" }, el("img", { src: urls[p], alt: "", loading: "lazy" }))));
@@ -79,11 +81,14 @@ window.GWork = (() => {
     if (error) throw error;
   }
 
-  async function uploadCopy(sb, { post, allVersions, text, sent }) {
-    if (!text.trim()) throw new Error("Copy vazia.");
+  // Copy (texto da arte) e legenda sobem juntas numa versão e são aprovadas juntas
+  async function uploadCopy(sb, { post, allVersions, text, caption, sent }) {
+    if (!text.trim()) throw new Error("Texto da arte vazio.");
+    const cap = (caption || "").trim();
+    if (cap.length > 2200) throw new Error("Legenda passa de 2.200 caracteres (limite do Instagram).");
     const n = (G.latestVersion(allVersions, post.id, "copy")?.number || 0) + 1;
     const { data: email } = await sb.rpc("auth_email");
-    const { error } = await sb.from("versions").insert({ post_id: post.id, stage: "copy", number: n, copy_text: text.trim().slice(0, 5000), sent, author_email: email });
+    const { error } = await sb.from("versions").insert({ post_id: post.id, stage: "copy", number: n, copy_text: text.trim().slice(0, 5000), caption_text: cap || null, sent, author_email: email });
     if (error) throw error;
   }
 

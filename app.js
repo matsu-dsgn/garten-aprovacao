@@ -233,12 +233,15 @@
   function stageContent(post, stage, st) {
     if (stage === "pauta") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Pauta"), "Aprove o tema e o direcional ao lado. Copy e arte vêm nas próximas etapas.");
     if (!st.version) return null;
-    if (stage === "copy") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Copy · versão ${st.version.number}`), st.version.copy_text || "");
+    // Copy = texto da arte · Legenda = texto do post. Aprovados juntos.
+    if (stage === "copy") return el("div", { class: "stack-0" },
+      el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Texto da arte · versão ${st.version.number}`), st.version.copy_text || ""),
+      st.version.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Legenda do post"), st.version.caption_text) : null);
     const paths = st.version.asset_paths || [];
     // A copy mais recente aparece junto da arte, para o cliente avaliar a peça completa
     const cp = G.latestVersion(data.versions, post.id, "copy");
     return el("div", { class: "stack-0" },
-      cp ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Legenda · copy v${cp.number}`), cp.copy_text || "") : null,
+      cp?.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Legenda · copy v${cp.number}`), cp.caption_text) : null,
       el("div", { class: "eyebrow" }, isOpp(post) ? `Post pronto · versão ${st.version.number}` : `Arte · versão ${st.version.number}`),
       paths.length > 1 ? el("div", { class: "slides-hint" }, `${paths.length} lâminas · arraste para o lado · toque para ampliar`) : el("div", { class: "slides-hint" }, "Toque para ampliar"),
       el("div", { class: `slides${paths.length > 1 ? " multi" : ""}` }, paths.map((p, i) => {
