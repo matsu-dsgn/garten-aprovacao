@@ -46,6 +46,11 @@
         f.addEventListener("keydown", (e) => { if (e.key === "Enter") GDeck.present(slides, i); });
         return f;
       }))));
+    // Cada slide anima na primeira vez que aparece na tela
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); GDeck.animate(e.target.firstChild); } }), { threshold: 0.35 });
+      document.querySelectorAll(".rel-list .dk-frame").forEach((f) => io.observe(f));
+    }
   }
 
   addEventListener("resize", () => document.querySelectorAll(".rel-list .dk-frame").forEach((w) => GDeck.fit(w, w.firstChild)));

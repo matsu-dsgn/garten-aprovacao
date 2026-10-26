@@ -261,6 +261,33 @@ window.GDeck = (() => {
     return w;
   }
 
+  // ---------- animações (apresentação) ----------
+  const REDUCE = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ENTER = ".dk-capa > *, .dk-div > *, .dk-head > *, .dk-ov-row, .dk-ov-total, .dk-ov-metric, .dk-ctile, .dk-kpi, .dk-analise, .dk-read, .dk-small, .dk-card, .dk-box-note, .dk-learn article, .dk-list li, .dk-end .dk-h1, .dk-end-sym, .dk-logo";
+  const COUNT = ".dk-now, .dk-kpi-n, .dk-ov-mbox, .dk-ov-box, .dk-ov-total b, .dk-card-m dd";
+  // "1.942", "6,08%", "3,5" → valor, casas decimais e sufixo
+  function parseNum(t) {
+    const m = String(t).trim().match(/^([\d.]+)(?:,(\d+))?(.*)$/);
+    if (!m) return null;
+    const v = Number(m[1].replace(/\./g, "") + (m[2] ? `.${m[2]}` : ""));
+    return isFinite(v) ? { v, dec: m[2] ? m[2].length : 0, suf: m[3] } : null;
+  }
+  function animate(slideEl) {
+    if (REDUCE()) return;
+    slideEl.querySelectorAll(ENTER).forEach((node, i) => { node.classList.add("dk-in"); node.style.animationDelay = `${Math.min(i, 14) * 70}ms`; });
+    slideEl.querySelectorAll(".dk-bar i").forEach((b, i) => { b.classList.add("dk-grow"); b.style.animationDelay = `${300 + i * 80}ms`; });
+    const t0 = performance.now() + 200;
+    const items = [...slideEl.querySelectorAll(COUNT)].map((node) => ({ node, n: parseNum(node.textContent) })).filter((x) => x.n && x.n.v > 0);
+    const fmt = (v, n) => v.toLocaleString("pt-BR", { minimumFractionDigits: n.dec, maximumFractionDigits: n.dec }) + n.suf;
+    items.forEach((x) => { x.node.textContent = fmt(0, x.n); });
+    const tick = (now) => {
+      const k = Math.max(0, Math.min(1, (now - t0) / 1100)), e = 1 - Math.pow(1 - k, 3);
+      for (const x of items) x.node.textContent = fmt(x.n.v * e, x.n);
+      if (k < 1 && slideEl.isConnected) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
   // Apresentação em tela cheia: setas, espaço, Esc
   function present(slides, start = 0) {
     let i = start;
@@ -273,6 +300,7 @@ window.GDeck = (() => {
       const k = Math.min(innerWidth / 1920, innerHeight / 1080);
       s.style.transform = `translate(-50%, -50%) scale(${k})`;
       count.textContent = `${i + 1} / ${slides.length}`;
+      animate(s);
     };
     const chev = (d) => { const ns = "http://www.w3.org/2000/svg"; const v = document.createElementNS(ns, "svg"); v.setAttribute("viewBox", "0 0 24 24"); v.setAttribute("aria-hidden", "true");
       const p = document.createElementNS(ns, "path"); p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-linecap", "round"); v.append(p); return v; };
@@ -303,5 +331,5 @@ window.GDeck = (() => {
     setTimeout(() => window.print(), 300);
   }
 
-  return { plan, build, one, thumb, fit, present, print, monthName, learningsOf };
+  return { plan, build, one, animate, thumb, fit, present, print, monthName, learningsOf };
 })();
