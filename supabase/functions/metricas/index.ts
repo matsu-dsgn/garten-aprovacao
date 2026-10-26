@@ -146,7 +146,10 @@ async function syncFacebook(now: string) {
     const d30 = Date.now() - 30 * 864e5;
     for (const r of rows.filter((x) => x.published_at && new Date(x.published_at).getTime() > d30)) {
       try {
-        const ins = await pget(`${r.id}/insights`, { metric: "post_impressions_unique" }, page.token);
+        // A Meta trocou "impressions" por "media views" (2025); tenta a métrica nova e cai na antiga
+        let ins: any;
+        try { ins = await pget(`${r.id}/insights`, { metric: "post_total_media_view_unique" }, page.token); }
+        catch (_) { ins = await pget(`${r.id}/insights`, { metric: "post_impressions_unique" }, page.token); }
         const reach = ins.data?.[0]?.values?.[0]?.value;
         if (typeof reach === "number") await db.from("ig_media").update({ reach, insights_at: now, insights_error: null }).eq("id", r.id);
       } catch (e) { await db.from("ig_media").update({ insights_error: (e as Error).message.slice(0, 300) }).eq("id", r.id); }
