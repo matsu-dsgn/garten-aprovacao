@@ -212,7 +212,10 @@ async function criarCard(alertId: string, actor: string) {
   const lista = meses ?? [];
   const mes = lista.find((m) => m.slug === slug) ?? lista.find((m) => m.slug >= iso(hoje).slice(0, 7)) ?? lista[lista.length - 1];
   if (!mes) return;
-  if (mes.slug !== slug) avisos.push(`Data sugerida (${br(data)}) fora de ${mes.title}: o mês ainda não existe no sistema`);
+  if (mes.slug !== slug) {
+    const nome = data.toLocaleDateString("pt-BR", { month: "long", timeZone: "UTC" });
+    avisos.push(`Data sugerida (${br(data)}) é de ${nome}, que ainda não existe no sistema. O card ficou em ${mes.title}.`);
+  }
 
   const direcao = [a.angulo_pauta, `Resumo do radar: ${a.resumo}`, a.vigencia ? `Vigência: ${a.vigencia}` : null, a.url ? `Fonte oficial: ${a.url}` : null]
     .filter(Boolean).join("\n\n");
