@@ -306,6 +306,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 /* Oportunidade */
 .chip.opp { background: var(--neon); color: var(--carbon); border-color: var(--neon); font-weight: 600; }
 .chip.deadline { font-weight: 600; }
+.chip.carteira { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
 .chip.deadline[data-level="soon"] { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); }
 .chip.deadline[data-level="over"] { background: var(--bad); color: var(--alabaster); border-color: var(--bad); }
 .card.is-opp .card-body { border-color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent-ink), var(--shadow); }
