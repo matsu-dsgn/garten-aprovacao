@@ -71,6 +71,10 @@ async function publicUrl(path: string, postId: string, idx: number): Promise<{ u
 }
 
 async function latestApprovedArte(postId: string): Promise<string[]> {
+  return (await latestApprovedVersion(postId)).paths;
+}
+
+async function latestApprovedVersion(postId: string): Promise<{ id: string; paths: string[] }> {
   const { data: vers } = await db.from("versions").select("id, number, asset_paths")
     .eq("post_id", postId).eq("stage", "arte").eq("sent", true).order("number", { ascending: false }).limit(1);
   const v = vers?.[0];
@@ -80,25 +84,50 @@ async function latestApprovedArte(postId: string): Promise<string[]> {
   if (dec?.[0]?.status !== "aprovado") throw new Error("Arte mais recente não está aprovada");
   const paths = (v.asset_paths ?? []) as string[];
   if (!paths.length || paths.length > 10) throw new Error("Instagram aceita de 1 a 10 mídias por post");
-  return paths;
+  return { id: v.id as string, paths };
+}
+
+// Stories em sequência: publica tela por tela, na ordem, salvando o progresso a cada uma.
+// Se cair no meio, o reagendamento continua da próxima tela (sem duplicar as que já saíram).
+// Se subirem uma arte nova depois de um erro, a sequência recomeça do início.
+async function publishStories(postId: string) {
+  const v = await latestApprovedVersion(postId);
+  const { data: st } = await db.from("posts").select("stories_done, stories_version").eq("id", postId).single();
+  const start = st?.stories_version === v.id ? (st?.stories_done ?? 0) : 0;
+  const total = v.paths.length;
+  if (DRY) return { media: "simulado", link: null };
+  if (start >= total) return { media: "ja-publicado", link: null };
+
+  let done = start;
+  let last = "";
+  try {
+    for (let i = start; i < total; i++) {
+      const m = await publicUrl(v.paths[i], postId, i + 1);
+      const c = await graph(`${IG_USER}/media`, m.video
+        ? { media_type: "STORIES", video_url: m.url }
+        : { media_type: "STORIES", image_url: m.url });
+      await waitReady(c.id);
+      const pub = await graph(`${IG_USER}/media_publish`, { creation_id: c.id });
+      last = pub.id;
+      done = i + 1;
+      await db.from("posts").update({ stories_done: done, stories_version: v.id }).eq("id", postId);
+      if (done < total) await sleep(3000);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(done > 0
+      ? `Publicou ${done} de ${total} telas. ${msg} Ao reagendar, continua da tela ${done + 1}.`
+      : msg);
+  }
+  return { media: last, link: null };
 }
 
 async function publishOne(postId: string) {
-  const paths = await latestApprovedArte(postId);
   const { data: post } = await db.from("posts").select("format").eq("id", postId).single();
+  // Stories não tem legenda: cada arte do card vira uma tela, na ordem
+  if (post?.format === "stories") return publishStories(postId);
 
-  // Stories: uma mídia por publicação, sem legenda (a API ignora caption em Stories)
-  if (post?.format === "stories") {
-    if (paths.length !== 1) throw new Error("Stories publica uma mídia por vez. Deixe só 1 arte na versão aprovada.");
-    if (DRY) return { media: "simulado", link: null };
-    const m = await publicUrl(paths[0], postId, 1);
-    const c = await graph(`${IG_USER}/media`, m.video
-      ? { media_type: "STORIES", video_url: m.url }
-      : { media_type: "STORIES", image_url: m.url });
-    await waitReady(c.id);
-    const pub = await graph(`${IG_USER}/media_publish`, { creation_id: c.id });
-    return { media: pub.id as string, link: null };
-  }
+  const paths = await latestApprovedArte(postId);
 
   // Legenda aprovada (copy = texto da arte, não vai na legenda)
   const { data: caption } = await db.rpc("approved_caption", { p_post: postId });

@@ -119,7 +119,9 @@ window.GWork = (() => {
       out.className = "msg err";
       out.textContent = /schedule_post|function .* does not exist|PGRST202/.test(m) ? "O agendamento ainda não foi ativado no banco." : m;
     };
-    const save = el("button", { class: "btn ok", type: "button" }, p.scheduled ? "Reagendar" : "Agendar");
+    const resume = p.format === "stories" && p.publish_status === "erro" && p.stories_done > 0;
+    const save = el("button", { class: "btn ok", type: "button" },
+      resume ? `Reagendar a partir da tela ${p.stories_done + 1}` : p.scheduled ? "Reagendar" : "Agendar");
     save.addEventListener("click", async () => {
       const d = new Date(at.value);
       if (!at.value || Number.isNaN(d.getTime())) { out.className = "msg err"; out.textContent = "Escolha data e hora."; return; }
