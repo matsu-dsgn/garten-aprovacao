@@ -126,3 +126,4 @@ revoke all on function public.notify_publish_error() from public, anon, authenti
 drop trigger if exists posts_notify_error on public.posts;
 create trigger posts_notify_error after update of publish_status on public.posts
   for each row execute function public.notify_publish_error();
+alter table public.pub_settings add column if not exists online_raw jsonb;

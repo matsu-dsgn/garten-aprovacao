@@ -108,7 +108,28 @@ async function sync() {
       await db.from("ig_media").update({ insights_error: err.message.slice(0, 300) }).eq("id", m.id);
     }
   }
+  if (!permError) await onlineFollowers(now);
   return { media: rows.length, insights: got, error: permError };
+}
+
+// Seguidores online por hora (média dos últimos dias). Guarda o dado bruto;
+// o horário sugerido só muda depois de confirmado o fuso da Meta (ver pub_settings.online_raw).
+async function onlineFollowers(now: string) {
+  try {
+    const json = await get(`${IG_USER}/insights`, { metric: "online_followers", period: "lifetime" });
+    const values = (json.data?.[0]?.values ?? []) as { value?: Record<string, number>; end_time?: string }[];
+    const sum = new Array(24).fill(0); let days = 0;
+    for (const v of values) {
+      if (!v.value || !Object.keys(v.value).length) continue;
+      days++;
+      for (const [h, n] of Object.entries(v.value)) sum[Number(h)] += n || 0;
+    }
+    if (!days) return;
+    const avg = sum.map((s) => Math.round(s / days));
+    await db.from("pub_settings").update({ online_raw: { avg, days, end_times: values.map((v) => v.end_time), at: now } }).eq("id", true);
+  } catch (e) {
+    await db.from("pub_settings").update({ online_raw: { error: (e as Error).message.slice(0, 300), at: now } }).eq("id", true);
+  }
 }
 
 Deno.serve(async (req) => {

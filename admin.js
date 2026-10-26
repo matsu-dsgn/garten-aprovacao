@@ -329,8 +329,51 @@
     } }, "+ Novo mês");
   }
 
+  // ---------- Avisos (agendamento automático, data que passou, erro de publicação) ----------
+  // Com o painel aberto, confere a cada minuto e mostra a notificação do navegador se você permitiu.
+  let lastSeenNotif = 0;
+  let notifTimer = null;
+  function avisosPanel() {
+    const box = el("section", { class: "avisos", "aria-live": "polite" });
+    const icon = { agendado: "Agendado", data_passou: "Data passou", sem_horario: "Sem horário", erro_publicacao: "Erro" };
+    const load = async (notify) => {
+      const { data, error } = await sb.from("notifications").select("*").is("read_at", null).order("created_at", { ascending: false }).limit(20);
+      if (error || !data) return;
+      const fresh = data.filter((n) => n.id > lastSeenNotif);
+      if (notify && lastSeenNotif && fresh.length && "Notification" in window && Notification.permission === "granted") {
+        for (const n of fresh.slice(0, 3)) {
+          const nt = new Notification(`Garten · ${n.title}`, { body: n.body || "", tag: `garten-${n.id}` });
+          nt.onclick = () => { window.focus(); if (n.url && /^kanban\.html\?/.test(n.url)) location.href = n.url; };
+        }
+      }
+      lastSeenNotif = Math.max(lastSeenNotif, ...data.map((n) => n.id), 0);
+      if (!data.length) return box.replaceChildren();
+      const all = el("button", { class: "btn ghost", type: "button" }, "Marcar todos como lidos");
+      all.addEventListener("click", async () => { await sb.rpc("mark_notifications_read", { p_ids: data.map((n) => n.id) }); load(false); });
+      const perm = "Notification" in window && Notification.permission === "default"
+        ? el("button", { class: "btn ghost", type: "button", onclick: async (e) => { await Notification.requestPermission(); e.target.remove(); } }, "Avisar no navegador") : null;
+      box.replaceChildren(
+        el("div", { class: "row between" }, el("h2", {}, `Avisos · ${data.length}`), el("div", { class: "row" }, perm, all)),
+        el("ul", { class: "aviso-list" }, data.map((n) => {
+          const ok = el("button", { class: "btn-del", type: "button", "aria-label": `Marcar "${n.title}" como lido` }, "Lido");
+          ok.addEventListener("click", async () => { await sb.rpc("mark_notifications_read", { p_ids: [n.id] }); load(false); });
+          return el("li", { class: `aviso k-${n.kind}` },
+            el("span", { class: "aviso-tag" }, icon[n.kind] || "Aviso"),
+            el("div", { class: "aviso-body" },
+              n.url && /^kanban\.html\?/.test(n.url) ? el("a", { href: n.url }, el("b", {}, n.title)) : el("b", {}, n.title),
+              el("span", { class: "msg" }, `${n.body || ""} · ${GWork.when(n.created_at)}`)),
+            ok);
+        })));
+    };
+    load(false);
+    clearInterval(notifTimer);
+    notifTimer = setInterval(() => { if (!document.hidden || window.Notification?.permission === "granted") load(true); }, 60000);
+    return box;
+  }
+
   function monthsView() {
     app.replaceChildren(
+      avisosPanel(),
       overviewPanel(),
       el("section", { class: "panel" },
         el("div", { class: "row between" }, el("h2", {}, "Meses"), newMonthBtn()),
