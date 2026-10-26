@@ -260,7 +260,10 @@ window.GWork = (() => {
     if (p.publish_status === "publicado" || p.publish_status === "publicando") {
       const link = p.ig_permalink && /^https:\/\/(www\.)?instagram\.com\//.test(p.ig_permalink)
         ? el("a", { href: p.ig_permalink, target: "_blank", rel: "noopener" }, "Ver no Instagram") : null;
-      return el("div", { class: "content-box sched" }, el("span", { class: "eyebrow" }, schedLabel(p)), link);
+      const fb = p.fb_post_id && /^[\d_]+$/.test(p.fb_post_id)
+        ? el("a", { href: `https://www.facebook.com/${p.fb_post_id}`, target: "_blank", rel: "noopener" }, "Ver no Facebook") : null;
+      return el("div", { class: "content-box sched" }, el("span", { class: "eyebrow" }, schedLabel(p)),
+        el("div", { class: "row" }, link, fb), p.fb_error ? el("p", { class: "msg err" }, `Facebook: ${p.fb_error}`) : null);
     }
     if (p.publish_status === "erro" && p.publish_error) { out.className = "msg err"; out.textContent = p.publish_error; }
     const base = p.scheduled_at ? new Date(p.scheduled_at) : (() => { const [y, mo, da] = String(p.post_date).split("-").map(Number); return new Date(y, mo - 1, da, 11, 0); })();
@@ -286,9 +289,20 @@ window.GWork = (() => {
       const { error } = await sb.rpc("schedule_post", { p_post: p.id, p_at: null });
       error ? fail(error) : onDone(false);
     });
+    // Facebook: só imagem (estático e carrossel). Padrão: ligado no feed.
+    const fbOk = ["estatico", "carrossel"].includes(p.format);
+    const fbBox = fbOk ? el("input", { type: "checkbox", checked: p.fb_publish ?? true }) : null;
+    fbBox?.addEventListener("change", async () => {
+      const { error } = await sb.from("posts").update({ fb_publish: fbBox.checked }).eq("id", p.id);
+      if (error) { fbBox.checked = !fbBox.checked; fail(error); return; }
+      p.fb_publish = fbBox.checked; out.className = "msg okk";
+      out.textContent = fbBox.checked ? "Vai para o Instagram e o Facebook." : "Vai só para o Instagram.";
+    });
     return el("div", { class: "content-box sched" },
       el("span", { class: "eyebrow" }, p.scheduled ? schedLabel(p) : "Agendar publicação"),
-      at, el("div", { class: "row" }, save, undo), out);
+      at, fbBox ? el("label", { class: "row" }, fbBox, "Publicar também no Facebook")
+        : el("p", { class: "msg" }, `${G.FORMATS[p.format] || "Este formato"} sai só no Instagram.`),
+      el("div", { class: "row" }, save, undo), out);
   }
 
   return { signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, nameOf, when, schedulePanel, schedLabel };

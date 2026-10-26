@@ -124,8 +124,50 @@ async function publishStories(postId: string) {
   return { media: last, link: null };
 }
 
+// ---------- Facebook: mesma arte e legenda na Página ligada ao Instagram ----------
+let pageCache: { id: string; token: string } | null = null;
+async function fbPage() {
+  if (pageCache) return pageCache;
+  const acc = await graph("me/accounts", { fields: "id,access_token,instagram_business_account" }, "GET");
+  const p = (acc.data ?? []).find((x: { instagram_business_account?: { id: string } }) => x.instagram_business_account?.id === IG_USER);
+  if (!p?.access_token) throw new Error("Página do Facebook ligada ao Instagram não encontrada");
+  pageCache = { id: p.id, token: p.access_token };
+  return pageCache;
+}
+async function fbCall(path: string, params: Record<string, string>, token: string) {
+  const res = await fetch(`${GRAPH}/${path}`, { method: "POST", body: new URLSearchParams({ ...params, access_token: token }) });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.error) throw new Error(json.error?.message || `Meta respondeu ${res.status}`);
+  return json;
+}
+// Só imagens (estático e carrossel). Falha aqui não desfaz o Instagram: vira aviso.
+async function publishFacebook(postId: string, media: { url: string; video: boolean }[], text: string) {
+  try {
+    if (media.some((m) => m.video)) return;
+    const page = await fbPage();
+    let id: string;
+    if (media.length === 1) {
+      id = (await fbCall(`${page.id}/photos`, { url: media[0].url, message: text }, page.token)).post_id;
+    } else {
+      const ids: string[] = [];
+      for (const m of media) ids.push((await fbCall(`${page.id}/photos`, { url: m.url, published: "false" }, page.token)).id);
+      id = (await fbCall(`${page.id}/feed`, { message: text, attached_media: JSON.stringify(ids.map((x) => ({ media_fbid: x }))) }, page.token)).id;
+    }
+    await db.from("posts").update({ fb_post_id: id, fb_error: null }).eq("id", postId);
+    await db.from("ig_media").upsert({ id, post_id: postId, network: "facebook", product_type: "FEED",
+      media_type: media.length > 1 ? "CAROUSEL_ALBUM" : "IMAGE", published_at: new Date().toISOString(),
+      permalink: `https://www.facebook.com/${id}` });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await db.from("posts").update({ fb_error: msg.slice(0, 500) }).eq("id", postId);
+    const { data: p } = await db.from("posts").select("title").eq("id", postId).single();
+    await db.from("notifications").insert({ kind: "erro_publicacao", post_id: postId, title: "Saiu no Instagram, falhou no Facebook",
+      body: `"${p?.title ?? "Post"}": ${msg.slice(0, 200)}` });
+  }
+}
+
 async function publishOne(postId: string) {
-  const { data: post } = await db.from("posts").select("format").eq("id", postId).single();
+  const { data: post } = await db.from("posts").select("format, fb_publish").eq("id", postId).single();
   // Stories não tem legenda: cada arte do card vira uma tela, na ordem
   if (post?.format === "stories") return publishStories(postId);
 
@@ -164,6 +206,9 @@ async function publishOne(postId: string) {
   const link = (info as { permalink?: string }).permalink ?? null;
   await db.from("ig_media").upsert({ id: pub.id, post_id: postId, permalink: link, published_at: new Date().toISOString(),
     product_type: media.length === 1 && media[0].video ? "REELS" : "FEED" });
+  // Feed vai também para o Facebook, a menos que o admin tenha desligado no post
+  const toFb = post?.fb_publish ?? ["estatico", "carrossel"].includes(post?.format ?? "");
+  if (toFb) await publishFacebook(postId, media, text);
   return { media: pub.id as string, link };
 }
 
