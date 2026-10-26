@@ -148,9 +148,10 @@
     const sum = (list, k) => list.reduce((a, m) => a + (m[k] || 0), 0);
     const tile = (label, value, sub, tone) => el("div", { class: `ov-tile${tone ? ` ${tone}` : ""}` },
       el("span", { class: "ov-label" }, label), el("b", { class: "ov-num" }, value), sub ? el("span", { class: "ov-sub" }, sub) : null);
-    const reachFeed = sum(feed, "reach"), savedFeed = sum(feed, "saved");
+    const reachFeed = sum(feed, "reach"), savedFeed = sum(feed, "saved"), sharesFeed = sum(feed, "shares");
 
-    // Agrupa por editoria ou formato. Métrica principal: salvamentos (utilidade)
+    // Agrupa por editoria ou formato. Duas métricas principais: compartilhamentos (alcance novo)
+    // e salvamentos (utilidade). Ordena pela soma das duas.
     const group = (keyFn, nameFn) => {
       const g = new Map();
       for (const m of feed) { const k = keyFn(m) || ""; (g.get(k) || g.set(k, []).get(k)).push(m); }
@@ -158,42 +159,46 @@
         name: nameFn(k), n: list.length,
         reach: hasInsights ? sum(list, "reach") / list.length : null,
         saved: hasInsights ? sum(list, "saved") / list.length : null,
+        shares: hasInsights ? sum(list, "shares") / list.length : null,
         rate: hasInsights && sum(list, "reach") ? sum(list, "saved") / sum(list, "reach") : null,
         inter: list.reduce((a, m) => a + interactions(m), 0) / list.length,
-      })).sort((a, b) => (b.saved ?? b.inter) - (a.saved ?? a.inter));
+      })).sort((a, b) => ((b.saved ?? 0) + (b.shares ?? 0) || b.inter) - ((a.saved ?? 0) + (a.shares ?? 0) || a.inter));
     };
     // A CSP não permite style inline: largura via CSSOM
     const bar = (f) => { const i = el("i"); i.style.width = `${Math.round(f * 100)}%`; return i; };
+    const fmt1 = (v) => (v == null ? "—" : v.toLocaleString("pt-BR", { maximumFractionDigits: 1 }));
+    const barCell = (v, max) => el("td", {}, v == null ? "—" : el("div", { class: "pub-bar" }, bar(v / max), el("span", {}, fmt1(v))));
     const table = (title, rows) => {
-      const max = Math.max(1, ...rows.map((r) => r.saved ?? r.inter));
+      const maxSh = Math.max(1, ...rows.map((r) => r.shares ?? 0));
+      const maxSv = Math.max(1, ...rows.map((r) => r.saved ?? 0));
+      const maxIn = Math.max(1, ...rows.map((r) => r.inter));
       return el("div", { class: "pub-table" },
         el("h3", { class: "ov-h" }, title),
         el("table", {},
           el("thead", {}, el("tr", {}, el("th", {}, ""), el("th", {}, "Posts"),
-            el("th", {}, hasInsights ? "Salvamentos (média)" : "Interações (média)"),
+            hasInsights ? [el("th", {}, "Compartilhamentos (média)"), el("th", {}, "Salvamentos (média)")] : el("th", {}, "Interações (média)"),
             el("th", {}, "Alcance (média)"), el("th", {}, "Taxa de salvamento"))),
-          el("tbody", {}, rows.map((r) => {
-            const v = r.saved ?? r.inter;
-            return el("tr", {}, el("th", { scope: "row" }, r.name), el("td", {}, String(r.n)),
-              el("td", {}, el("div", { class: "pub-bar" }, bar(v / max),
-                el("span", {}, v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })))),
-              el("td", {}, r.reach == null ? "—" : nf.format(Math.round(r.reach))),
-              el("td", {}, pctf(r.rate)));
-          }))));
+          el("tbody", {}, rows.map((r) => el("tr", {}, el("th", { scope: "row" }, r.name), el("td", {}, String(r.n)),
+            hasInsights ? [barCell(r.shares, maxSh), barCell(r.saved, maxSv)] : barCell(r.inter, maxIn),
+            el("td", {}, r.reach == null ? "—" : nf.format(Math.round(r.reach))),
+            el("td", {}, pctf(r.rate)))))));
     };
-    const best = (k) => feed.filter((m) => m[k] != null).sort((a, b) => b[k] - a[k])[0];
-    const topSaved = hasInsights ? best("saved") : null, topReach = hasInsights ? best("reach") : null;
+    const best = (k) => feed.filter((m) => m[k]).sort((a, b) => b[k] - a[k])[0];
+    const top = hasInsights ? { shares: best("shares"), saved: best("saved"), reach: best("reach") } : {};
     const titleOf = (m) => (m.post_id && d.posts.get(m.post_id)?.title) || (m.caption || "").split("\n")[0].slice(0, 70) || "Post sem legenda";
+    const bestLine = (label, m, k, unit) => m ? el("p", {}, el("span", { class: "eyebrow" }, label), ` ${titleOf(m)} · ${num(m[k])} ${unit}`) : null;
     return el("section", { class: "panel" },
       el("h3", { class: "ov-h" }, "Leitura do período"),
       el("div", { class: "ov-grid" },
         tile("Posts no feed", String(feed.length), `${stories.length} Stories no período`),
+        tile("Compartilhamentos", hasInsights ? num(sharesFeed) : "—", hasInsights ? `média de ${fmt1(sharesFeed / Math.max(1, feed.length))} por post` : "métrica principal", "ok"),
         tile("Salvamentos", hasInsights ? num(savedFeed) : "—", hasInsights && reachFeed ? `${pctf(savedFeed / reachFeed)} de quem viu salvou` : "métrica principal", "ok"),
         tile("Alcance somado", hasInsights ? num(reachFeed) : "—", hasInsights ? `média de ${num(Math.round(reachFeed / Math.max(1, feed.length)))} por post` : null),
         tile("Interações", num(feed.reduce((a, m) => a + interactions(m), 0)), "curtidas, comentários, salvamentos e compartilhamentos")),
-      topSaved || topReach ? el("div", { class: "pub-best" },
-        topSaved ? el("p", {}, el("span", { class: "eyebrow" }, "Mais salvo"), ` ${titleOf(topSaved)} · ${num(topSaved.saved)} salvamentos`) : null,
-        topReach ? el("p", {}, el("span", { class: "eyebrow" }, "Maior alcance"), ` ${titleOf(topReach)} · ${num(topReach.reach)} pessoas`) : null) : null,
+      top.shares || top.saved || top.reach ? el("div", { class: "pub-best" },
+        bestLine("Mais compartilhado", top.shares, "shares", "compartilhamentos"),
+        bestLine("Mais salvo", top.saved, "saved", "salvamentos"),
+        bestLine("Maior alcance", top.reach, "reach", "pessoas")) : null,
       feed.length ? table("Por editoria", group(edOf, (k) => (k ? edName(k) : "Sem editoria"))) : null,
       feed.length ? table("Por formato", group(fmtOf, (k) => G.FORMATS[k] || k)) : null);
   }
@@ -220,7 +225,7 @@
       const stat = (label, v, strong) => el("div", { class: `pub-stat${strong ? " strong" : ""}` }, el("b", {}, num(v)), el("span", {}, label));
       const stats = fmt === "stories"
         ? [stat("alcance", m.reach, true), stat("respostas", m.replies), stat("compart.", m.shares)]
-        : [stat("salvos", m.saved, true), stat("alcance", m.reach), stat("curtidas", m.like_count), stat("coment.", m.comments_count), stat("compart.", m.shares)];
+        : [stat("compart.", m.shares, true), stat("salvos", m.saved, true), stat("alcance", m.reach), stat("curtidas", m.like_count), stat("coment.", m.comments_count)];
       return el("li", { class: "pub-card" },
         el(link ? "a" : "div", { class: "pub-thumb", href: link || false, target: link ? "_blank" : false, rel: link ? "noopener" : false, "aria-label": link ? `Abrir ${title} no Instagram` : false },
           thumb ? el("img", { src: thumb, alt: "", loading: "lazy", referrerpolicy: "no-referrer" }) : el("span", { class: "pub-q-ph" })),

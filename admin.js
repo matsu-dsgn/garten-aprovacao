@@ -290,7 +290,7 @@
       const since = new Date(Date.now() - 7 * 864e5).toISOString();
       const [q, md] = await Promise.all([
         sb.from("posts").select("id, scheduled_at, publish_status").in("publish_status", ["agendado", "erro"]).order("scheduled_at"),
-        sb.from("ig_media").select("product_type, reach, saved").gte("published_at", since),
+        sb.from("ig_media").select("product_type, reach, saved, shares").gte("published_at", since),
       ]);
       if (q.error || md.error) return;
       const fila = q.data || [], pub = md.data || [];
@@ -299,6 +299,7 @@
       const feed = pub.filter((m) => m.product_type !== "STORY");
       const hasIns = feed.some((m) => m.reach != null);
       const saved = feed.reduce((a, m) => a + (m.saved || 0), 0);
+      const shares = feed.reduce((a, m) => a + (m.shares || 0), 0);
       const tile = (label, value, sub, tone) => el("a", { class: `ov-tile${tone ? ` ${tone}` : ""}`, href: "publicacoes.html" },
         el("span", { class: "ov-label" }, label), el("b", { class: "ov-num" }, String(value)), sub ? el("span", { class: "ov-sub" }, sub) : null);
       box.replaceChildren(el("h3", { class: "ov-h" }, "Publicações"),
@@ -306,7 +307,8 @@
           tile("Agendados", fila.length - erros, prox ? `próximo ${new Date(prox.scheduled_at).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : "nada na fila"),
           tile("Com erro", erros, erros ? "precisa reagendar" : null, erros ? "bad" : ""),
           tile("Publicados · 7 dias", feed.length, `${pub.length - feed.length} Stories`),
-          tile("Salvamentos · 7 dias", hasIns ? saved : "—", hasIns ? "métrica principal" : "aguardando permissão de métricas", "ok")));
+          tile("Compartilhamentos · 7 dias", hasIns ? shares : "—", hasIns ? null : "aguardando métricas", "ok"),
+          tile("Salvamentos · 7 dias", hasIns ? saved : "—", hasIns ? null : "aguardando métricas", "ok")));
     })();
     return box;
   }
