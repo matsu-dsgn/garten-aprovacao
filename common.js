@@ -244,16 +244,19 @@ window.G = (() => {
       el("h3", { class: "radar-group-h" }, el("span", {}, l), el("small", {}, `${list.length} ${list.length === 1 ? "item" : "itens"}`)),
       list.map(card))));
 
-  // Impacto na carteira: frase do radar ou, sem ela, montada pelos setores
+  // Impacto na carteira: frase do radar ou, sem ela, montada pelos setores e públicos
   const SETORES = { tecnologia: "tecnologia", gestao: "gestão", marketing: "marketing", engenharia: "engenharia", educacao: "educação", saude: "saúde" };
+  const PUBLICOS = { mei: "MEI", pessoa_fisica: "pessoa física" };
+  const lista = (n) => (n.length > 1 ? `${n.slice(0, -1).join(", ")} e ${n[n.length - 1]}` : n[0]);
   function radarImpacto(a) {
     if (a.impacto_carteira) return a.impacto_carteira;
     const s = (a.setores_afetados || []).filter(Boolean);
     if (!s.length) return null;
     if (s.includes("todos")) return "Afeta todos os seus clientes";
-    const n = s.map((x) => SETORES[x] || x);
-    const lista = n.length > 1 ? `${n.slice(0, -1).join(", ")} e ${n[n.length - 1]}` : n[0];
-    return `Afeta seus clientes da área de ${lista}`;
+    const pub = s.filter((x) => PUBLICOS[x]).map((x) => PUBLICOS[x]);
+    const areas = s.filter((x) => !PUBLICOS[x]).map((x) => SETORES[x] || x);
+    const quem = pub.length ? `Afeta seus clientes ${lista(pub)}` : "Afeta seus clientes";
+    return areas.length ? `${quem} da área de ${lista(areas)}` : quem;
   }
 
   return { radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
