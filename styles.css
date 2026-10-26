@@ -989,3 +989,24 @@ details.post-row[open] > summary { border-bottom: 1px solid var(--line); border-
 details.post-row > summary { letter-spacing: normal; text-transform: none; font-size: 15px; color: var(--ink); }
 details.post-row > summary h4 { font-size: 15px; letter-spacing: normal; }
 details.post-row > summary .pill { letter-spacing: normal; }
+
+/* ---------- Bloco de envio (texto + legenda + artes, um botão) ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.cmp { display: grid; gap: 14px; }
+.cmp-text { display: grid; gap: 12px; }
+.cmp-arte { display: grid; gap: 10px; }
+.cmp-drop { display: block; padding: 22px 16px; border: 1.5px dashed var(--line); border-radius: 12px; text-align: center; color: var(--ink-soft); cursor: pointer; transition: border-color .15s, background .15s; }
+.cmp-drop b { color: var(--ink); }
+.cmp-drop:hover, .cmp-drop.over { border-color: var(--accent-ink); background: var(--ok-bg); }
+.cmp-drop:focus-within { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.cmp-drop.has { padding: 12px 16px; }
+.cmp-thumbs { list-style: none; margin: 0; padding: 0; display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.cmp-thumb { position: relative; flex: 0 0 auto; width: 108px; cursor: grab; }
+.cmp-thumb img, .cmp-thumb video { display: block; width: 108px; height: 135px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2, #0b3459); }
+.cmp-n { position: absolute; top: 6px; left: 6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--deep); color: var(--alabaster); font-size: 12px; line-height: 22px; text-align: center; }
+.cmp-ctl { display: flex; justify-content: space-between; margin-top: 4px; }
+.cmp-ctl button { flex: 1; min-height: 28px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; cursor: pointer; font: inherit; font-size: 13px; }
+.cmp-ctl button + button { margin-left: 4px; }
+.cmp-ctl button:disabled { opacity: .35; cursor: default; }
+.cmp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.cmp-current { display: grid; gap: 10px; }

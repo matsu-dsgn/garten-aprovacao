@@ -305,48 +305,38 @@
       (p.checklist || []).length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
         el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null) : null;
 
+    // ---------- Envio: um botão só, cada pessoa vê a parte da sua função ----------
+    // A função também é checada no banco (políticas de versions e storage).
+    const fn = me.role === "admin" ? null : (d.team.find((t) => t.email === me.email)?.funcao || null);
+    const mayCopy = canCopy && fn !== "arte";
+    const mayArte = canArte && fn !== "copy";
+    const month = months.find((m) => m.id === monthId);
+    const direct = me.role === "admin" ? el("label", { class: "row" }, el("input", { type: "checkbox" }), "Enviar direto ao cliente (pular revisão)") : null;
+    const cmp = mayCopy || mayArte ? GWork.composer({
+      sb, post: p, slug: month.slug, getVersions: () => d.all, prefill: curCopy,
+      showCopy: mayCopy, showArte: mayArte,
+      sent: () => !!direct?.querySelector("input").checked,
+      sendLabel: me.role === "admin" ? "Enviar" : "Enviar para revisão",
+      onDone: async (t) => { await reload(); toast(t); },
+    }) : null;
+
     // ---------- Esquerda: texto da arte e legenda ----------
-    const copyTa = el("textarea", { maxlength: "5000", rows: "6", placeholder: "Texto que vai dentro da arte (lâmina por lâmina)" });
-    const capTa = el("textarea", { maxlength: "2200", rows: "6", placeholder: "Legenda do post no Instagram" });
-    if (curCopy) { copyTa.value = curCopy.copy_text || ""; capTa.value = curCopy.caption_text || ""; }
-    const capCount = el("span", { class: "kd-count" });
-    const paintCount = () => { capCount.textContent = `${capTa.value.length}/2200`; };
-    capTa.addEventListener("input", paintCount); paintCount();
-    const directCopy = me.role === "admin" ? el("label", { class: "row" }, el("input", { type: "checkbox" }), "Enviar direto ao cliente (pular revisão)") : null;
-    const upCopy = el("button", { class: "btn dark", type: "button" }, copyVersions.length ? "Subir nova versão" : "Subir texto e legenda");
-    upCopy.addEventListener("click", async () => {
-      upCopy.disabled = true;
-      try {
-        await GWork.uploadCopy(sb, { post: p, allVersions: d.all, text: copyTa.value, caption: capTa.value, sent: !!directCopy?.querySelector("input").checked });
-        await reload();
-      } catch (e) { fail(e); upCopy.disabled = false; }
-    });
-    const textBlock = (title, body, editor, extra) => el("section", { class: "kd-block" },
-      el("div", { class: "kd-bh" }, el("span", { class: "eyebrow" }, title), curCopy ? tagEl(curCopy, "copy") : null, extra || null),
-      canCopy ? editor : body ? el("div", { class: "kd-text" }, body) : el("p", { class: "msg" }, "Ainda não escrito."));
+    const stories = p.format === "stories";
+    const readText = (title, body) => el("section", { class: "kd-block" },
+      el("div", { class: "kd-bh" }, el("span", { class: "eyebrow" }, title), curCopy ? tagEl(curCopy, "copy") : null),
+      body ? el("div", { class: "kd-text" }, body) : el("p", { class: "msg" }, "Ainda não escrito."));
     const left = el("div", { class: "kd-col" },
-      textBlock("Texto da arte", curCopy?.copy_text, copyTa),
-      textBlock("Legenda", curCopy?.caption_text, capTa, canCopy ? capCount : null),
-      canCopy ? el("div", { class: "kd-actions" }, directCopy, upCopy) : null,
+      mayCopy ? el("section", { class: "kd-block" },
+        el("div", { class: "kd-bh" }, el("span", { class: "eyebrow" }, "Texto e legenda"), curCopy ? tagEl(curCopy, "copy") : null),
+        cmp.copyEl)
+        : [readText(stories ? "Texto das telas" : "Texto da arte", curCopy?.copy_text), stories ? null : readText("Legenda", curCopy?.caption_text)],
       curCopy && !curCopy.sent ? sendBtnFor(curCopy) : null,
       copyVersions.length > 1 ? el("details", { class: "kd-hist" },
         el("summary", {}, `Versões anteriores do texto (${copyVersions.length - 1})`),
         copyVersions.slice(1).map((v) => el("div", { class: "draft" }, tagEl(v, "copy"),
           el("span", { class: "msg" }, ` ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`), GWork.preview(v, d.urls), sendBtnFor(v)))) : null);
 
-    // ---------- Direita: carrossel da arte atual ----------
-    const fileIn = el("input", { type: "file", multiple: true, accept: "image/png,image/jpeg,image/webp,video/mp4", "aria-label": "Arquivos da arte" });
-    const direct = me.role === "admin" ? el("label", { class: "row" }, el("input", { type: "checkbox" }), "Enviar direto ao cliente (pular revisão)") : null;
-    const up = el("button", { class: "btn dark", type: "button" }, curArte ? "Subir nova versão" : "Subir arte");
-    up.addEventListener("click", async () => {
-      up.disabled = true;
-      try {
-        const month = months.find((m) => m.id === monthId);
-        const sent = !!direct?.querySelector("input").checked;
-        await GWork.uploadArte(sb, { slug: month.slug, post: p, allVersions: d.all, files: fileIn.files, sent, onProgress: (t) => { out.textContent = t; } });
-        await reload();
-      } catch (e) { fail(e); up.disabled = false; }
-    });
+    // ---------- Direita: carrossel da arte atual + novas artes ----------
     const curDec = curArte?.sent ? lastDecision(p.id, "arte", curArte.id) : null;
     const notes = curDec?.status === "reprovado" ? (curDec.slide_notes || {}) : {};
     const right = el("div", { class: "kd-col" },
@@ -354,15 +344,17 @@
         el("div", { class: "kd-bh" }, el("span", { class: "eyebrow" }, "Arte"), curArte ? tagEl(curArte, "arte") : null),
         curArte ? carousel(curArte.asset_paths || [], notes) : el("p", { class: "msg" }, "Nenhuma arte enviada ainda."),
         curArte ? sendBtnFor(curArte) : null,
-        canArte ? el("div", { class: "kd-upload" }, fileIn, direct, el("div", { class: "kd-actions" }, up)) : null),
+        mayArte ? el("div", { class: "kd-upload" }, el("span", { class: "eyebrow" }, curArte ? "Nova versão da arte" : "Subir arte"), cmp.arteEl) : null),
       arteVersions.length > 1 ? el("details", { class: "kd-hist" },
         el("summary", {}, `Versões anteriores da arte (${arteVersions.length - 1})`),
         arteVersions.slice(1).map((v) => el("div", { class: "draft" }, tagEl(v, "arte"),
           el("span", { class: "msg" }, ` ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`), GWork.preview(v, d.urls), sendBtnFor(v)))) : null);
+    const sendBar = cmp ? el("section", { class: "kd-block kd-send" }, direct, cmp.actions) : null;
 
     return el("aside", { class: "kdetail kd", role: "dialog", "aria-modal": "true", "aria-labelledby": "kd-title" },
       head, brief,
       el("div", { class: "kd-body" }, left, right),
+      sendBar,
       el("section", { class: "kd-block kd-comments" }, el("span", { class: "eyebrow" }, "Comentários internos"),
         GWork.comments(sb, d.comments, d.team, p.id, reload)),
       out);

@@ -8,8 +8,6 @@
 
   const SLUG_RE = /^[a-z0-9-]{3,40}$/;
   const FORMATS = Object.keys(G.FORMATS);
-  const MAX_FILE = 15 * 1024 * 1024;
-  const TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4" };
 
   let months = [];
   let editorias = [];
@@ -141,13 +139,17 @@
       const name = el("input", { type: "text", maxlength: "60", placeholder: "Nome" });
       const email = el("input", { type: "email", placeholder: "email@exemplo.com" });
       const role = el("select", {}, el("option", { value: "equipe" }, "Equipe (Kanban)"), el("option", { value: "admin" }, "Admin (tudo)"));
+      const funcaoSelect = (v) => { const sel = el("select", { "aria-label": "Função no Kanban" },
+        el("option", { value: "" }, "Arte e copy"), el("option", { value: "arte" }, "Só arte"), el("option", { value: "copy" }, "Só copy"));
+        sel.value = v; return sel; };
+      const funcao = funcaoSelect("");
       const out = msg("");
       const add = el("button", { class: "btn dark", type: "button" }, "Adicionar");
       add.addEventListener("click", async () => {
         const e = email.value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { out.className = "msg err"; out.textContent = "E-mail inválido."; return; }
         if (name.value.trim().length < 2) { out.className = "msg err"; out.textContent = "Coloque o nome."; return; }
-        const { error } = await sb.from("team_members").insert({ email: e, name: name.value.trim(), role: role.value });
+        const { error } = await sb.from("team_members").insert({ email: e, name: name.value.trim(), role: role.value, funcao: role.value === "admin" ? null : funcao.value || null });
         if (error) { out.className = "msg err"; out.textContent = error.message; return; }
         load();
       });
@@ -159,10 +161,18 @@
             const { error } = await sb.from("team_members").delete().eq("email", t.email);
             error ? alert(error.message) : load();
           });
-          return el("li", { class: "team-row" }, el("span", {}, el("b", {}, t.name), ` · ${t.email} · ${t.role === "admin" ? "Admin" : "Equipe"}`), rm);
+          // Função no Kanban: quem é de arte só sobe arte, quem é de copy só sobe texto (vale no banco)
+          const fn = t.role === "admin" ? null : funcaoSelect(t.funcao || "");
+          fn?.addEventListener("change", async () => {
+            const { error } = await sb.from("team_members").update({ funcao: fn.value || null }).eq("email", t.email);
+            out.className = error ? "msg err" : "msg okk";
+            out.textContent = error ? error.message : `Função de ${t.name} salva.`;
+          });
+          return el("li", { class: "team-row" }, el("span", {}, el("b", {}, t.name), ` · ${t.email} · ${t.role === "admin" ? "Admin" : "Equipe"}`),
+            el("div", { class: "row" }, fn, rm));
         })),
         el("div", { class: "grid2" }, field("Nome", name), field("E-mail (o mesmo do Google)", email)),
-        field("Acesso", role), el("div", { class: "row" }, add), out);
+        el("div", { class: "grid2" }, field("Acesso", role), field("Função no Kanban", funcao)), el("div", { class: "row" }, add), out);
     };
     const sumLabel = el("span", {}, "Equipe");
     sb.from("team_members").select("email", { count: "exact", head: true })
@@ -324,15 +334,23 @@
     const all = v.data || [];
     // versions = o que o cliente vê (enviadas); drafts = aguardando revisão interna
     const drafts = all.filter((x) => !x.sent);
-    const draftUrls = await GWork.signed(sb, drafts.flatMap((x) => x.asset_paths || []));
-    return { posts, allVersions: all, versions: all.filter((x) => x.sent), drafts, draftUrls, decisions: d.data || [], approvers: a.data || [], comments: c.data || [], team: t.data || [] };
+    // Miniaturas: rascunhos + arte atual de cada post (o que está com o cliente)
+    const sentAll = all.filter((x) => x.sent);
+    const curArtes = posts.map((p) => G.latestVersion(sentAll, p.id, "arte")).filter(Boolean);
+    const draftUrls = await GWork.signed(sb, [...drafts, ...curArtes].flatMap((x) => x.asset_paths || []));
+    return { posts, allVersions: all, versions: sentAll, drafts, draftUrls, decisions: d.data || [], approvers: a.data || [], comments: c.data || [], team: t.data || [] };
   }
 
   const openPosts = new Set(); // posts abertos no mês (sobrevive ao re-render)
+  const openComposers = new Set(); // bloco "Copy e arte" aberto (sobrevive ao re-render)
+  let flash = null; // { id, text } mensagem de sucesso que sobrevive ao re-render
 
-  async function openMonth(m) {
-    app.replaceChildren(msg("Carregando…"));
+  // soft = atualizar no lugar (depois de um envio): sem tela de "Carregando" e sem pular a rolagem
+  async function openMonth(m, soft = false) {
+    const y = window.scrollY;
+    if (!soft) app.replaceChildren(msg("Carregando…"));
     try { data = await loadData(m); } catch (e) { return app.replaceChildren(msg(e.message, "err")); }
+    if (soft) requestAnimationFrame(() => window.scrollTo(0, y));
     app.replaceChildren(
       el("div", { class: "row" },
         el("button", { class: "btn ghost", onclick: () => { current = null; monthsView(); } }, "← Meses"),
@@ -502,60 +520,31 @@
       el("p", {}, "Cole o JSON que montamos no planejamento. Os posts são adicionados ao mês."), ta, el("div", { class: "row" }, go), out);
   }
 
-  // Confere a assinatura real do arquivo, não só a extensão/MIME declarados
-  async function sniff(file) {
-    const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-    const hex = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
-    if (hex.startsWith("89504e47")) return "image/png";
-    if (hex.startsWith("ffd8ff")) return "image/jpeg";
-    if (hex.startsWith("52494646") && hex.slice(16, 24) === "57454250") return "image/webp";
-    if (hex.slice(8, 16) === "66747970") return "video/mp4";
-    return null;
-  }
-
-  async function uploadArte(m, p, files, out) {
-    const list = [...files];
-    if (!list.length || list.length > 20) throw new Error("Envie de 1 a 20 arquivos.");
-    for (const f of list) {
-      if (f.size > MAX_FILE) throw new Error(`${f.name}: máximo 15 MB.`);
-      const real = await sniff(f);
-      if (!real || !TYPES[real] || real !== f.type) throw new Error(`${f.name}: tipo não permitido (PNG, JPG, WEBP ou MP4).`);
-    }
-    const n = (G.latestVersion(data.allVersions, p.id, "arte")?.number || 0) + 1;
-    const paths = [];
-    for (const [i, f] of list.entries()) {
-      out.textContent = `Enviando ${i + 1}/${list.length}…`;
-      const path = `${m.slug}/${p.id}/arte-v${n}/${String(i + 1).padStart(2, "0")}.${TYPES[f.type]}`;
-      const { error } = await sb.storage.from("artes").upload(path, f, { contentType: f.type, upsert: false });
-      if (error) throw error;
-      paths.push(path);
-    }
-    const { error } = await sb.from("versions").insert({ post_id: p.id, stage: "arte", number: n, asset_paths: paths });
-    if (error) throw error;
-  }
-
   function postRow(m, p) {
     const out = msg("");
     const fail = (e) => { out.className = "msg err"; out.textContent = e.message || String(e); };
     const states = Object.fromEntries(G.STAGES.map((s) => [s.key, G.stageState(data, p, s.key)]));
 
-    const copyTa = el("textarea", { maxlength: "5000", placeholder: "Texto da arte (nova versão)" });
-    const capTa = el("textarea", { maxlength: "2200", placeholder: "Legenda do post no Instagram" });
-    const copyBtn = el("button", { class: "btn dark" }, "Subir copy e legenda");
-    copyBtn.addEventListener("click", async () => {
-      copyBtn.disabled = true;
-      try {
-        await GWork.uploadCopy(sb, { post: p, allVersions: data.allVersions, text: copyTa.value, caption: capTa.value, sent: true });
-        openMonth(m);
-      } catch (e) { fail(e); copyBtn.disabled = false; }
+    // Bloco de envio: texto, legenda e artes num botão só; o painel atualiza no lugar
+    const cmp = GWork.composer({
+      sb, post: p, slug: m.slug, getVersions: () => data.allVersions,
+      showCopy: true, showArte: true, sent: true, sendLabel: "Enviar ao cliente",
+      onDone: async (text) => { flash = { id: p.id, text }; openPosts.add(p.id); openComposers.add(p.id); await openMonth(m, true); },
     });
-
-    const fileIn = el("input", { type: "file", multiple: true, accept: "image/png,image/jpeg,image/webp,video/mp4" });
-    const arteBtn = el("button", { class: "btn dark" }, "Subir arte");
-    arteBtn.addEventListener("click", async () => {
-      arteBtn.disabled = true;
-      try { await uploadArte(m, p, fileIn.files, out); openMonth(m); } catch (e) { fail(e); arteBtn.disabled = false; }
-    });
+    if (flash?.id === p.id) { cmp.say(flash.text, "okk"); flash = null; }
+    // O que está com o cliente agora, para conferir sem abrir a visão dele
+    const curCopy = G.latestVersion(data.versions, p.id, "copy");
+    const curArte = G.latestVersion(data.versions, p.id, "arte");
+    const tag = (v, stage) => `v${v.number} · ${G.STATUS_LABEL[states[stage === "copy" ? "copy" : "arte"]?.status] || "com o cliente"}`;
+    const current = curCopy || curArte ? el("div", { class: "cmp-current content-box" },
+      el("span", { class: "eyebrow" }, "Com o cliente agora"),
+      curCopy ? el("div", {}, el("span", { class: "msg" }, `Texto ${tag(curCopy, "copy")}`), GWork.preview(curCopy, data.draftUrls)) : null,
+      curArte ? el("div", {}, el("span", { class: "msg" }, `Arte ${tag(curArte, "arte")} · ${(curArte.asset_paths || []).length} ${(curArte.asset_paths || []).length === 1 ? "arquivo" : "arquivos"}`),
+        GWork.preview(curArte, data.draftUrls)) : null) : null;
+    const composerBox = el("details", { open: openComposers.has(p.id) || (!curCopy && !curArte) },
+      el("summary", {}, curCopy || curArte ? "Copy e arte · nova versão" : "Copy e arte"),
+      el("div", { class: "stack" }, current, cmp.el));
+    composerBox.addEventListener("toggle", () => { composerBox.open ? openComposers.add(p.id) : openComposers.delete(p.id); });
 
     const edSel = el("select", { "aria-label": "Editoria" },
       el("option", { value: "" }, "Sem editoria"),
@@ -629,10 +618,7 @@
         el("div", { class: "row" }, G.STAGES.map((s) =>
           el("span", { class: `pill ${states[s.key].status}` }, `${s.label}: ${G.STATUS_LABEL[states[s.key].status]}`)))),
       el("div", { class: "post-body" },
-      el("details", {}, el("summary", {}, "Copy e arte"),
-        el("div", { class: "stack" },
-          copyTa, capTa, el("div", { class: "row" }, copyBtn),
-          fileIn, el("div", { class: "row" }, arteBtn))),
+      composerBox,
       review,
       contests,
       G.STAGES.map((s) => G.historyList(data, states[s.key].decisions, s.key === "copy" ? "copy" : s.label.toLowerCase())),

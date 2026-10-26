@@ -61,7 +61,7 @@ window.GWork = (() => {
   // Sobe arte. sent=false manda para revisão interna; admin pode mandar direto ao cliente
   async function uploadArte(sb, { slug, post, allVersions, files, sent, onProgress }) {
     const list = [...files];
-    if (!list.length || list.length > 20) throw new Error("Envie de 1 a 20 arquivos.");
+    if (!list.length || list.length > 10) throw new Error("Envie de 1 a 10 arquivos (limite do Instagram).");
     for (const f of list) {
       if (f.size > MAX_FILE) throw new Error(`${f.name}: máximo 15 MB.`);
       const real = await sniff(f);
@@ -90,6 +90,109 @@ window.GWork = (() => {
     const { data: email } = await sb.rpc("auth_email");
     const { error } = await sb.from("versions").insert({ post_id: post.id, stage: "copy", number: n, copy_text: text.trim().slice(0, 5000), caption_text: cap || null, sent, author_email: email });
     if (error) throw error;
+  }
+
+  // ---------- Bloco de envio: texto, legenda e artes num botão só, sem recarregar ----------
+  // Devolve as partes separadas para o Kanban distribuir em colunas; o painel empilha.
+  // opts: { sb, post, slug, getVersions, showCopy, showArte, prefill, sent: bool | () => bool, sendLabel, onDone }
+  const MAX_ARTES = 10; // limite do Instagram por post
+  function composer(opts) {
+    const { sb, post } = opts;
+    const stories = post.format === "stories";
+    const out = el("p", { class: "msg", role: "status", "aria-live": "polite" });
+    const say = (t, kind = "") => { out.className = `msg ${kind}`; out.textContent = t; };
+
+    // Texto e legenda
+    const copyTa = el("textarea", { maxlength: "5000", rows: "5", placeholder: stories ? "Texto das telas (opcional)" : "Texto que vai dentro da arte" });
+    const capTa = el("textarea", { maxlength: "2200", rows: "5", placeholder: "Legenda do post no Instagram" });
+    const base = { text: opts.prefill?.copy_text || "", cap: opts.prefill?.caption_text || "" };
+    copyTa.value = base.text; capTa.value = base.cap;
+    const capCount = el("span", { class: "kd-count" });
+    const paint = () => { capCount.textContent = `${capTa.value.length}/2200`; };
+    capTa.addEventListener("input", paint); paint();
+    const copyEl = opts.showCopy ? el("div", { class: "cmp-text" },
+      el("label", { class: "f" }, el("span", { class: "eyebrow" }, stories ? "Texto das telas" : "Texto da arte"), copyTa),
+      stories ? el("p", { class: "msg" }, "Stories não tem legenda: todo texto vai dentro da arte.")
+        : el("label", { class: "f" }, el("span", { class: "eyebrow row between" }, "Legenda", capCount), capTa)) : null;
+
+    // Artes: acumulam, com miniatura, ordem e remoção
+    let files = [];
+    const list = el("ol", { class: "cmp-thumbs", "aria-label": "Artes que serão enviadas, na ordem" });
+    const picker = el("input", { type: "file", multiple: true, accept: "image/png,image/jpeg,video/mp4", class: "sr-only", "aria-label": "Escolher artes" });
+    const drop = el("label", { class: "cmp-drop" }, picker,
+      el("b", {}, "Arraste as artes aqui"), el("span", {}, " ou clique para escolher · JPG, PNG ou MP4 · até 15 MB"));
+    async function add(incoming) {
+      for (const f of incoming) {
+        if (files.length >= MAX_ARTES) { say(`Máximo de ${MAX_ARTES} artes por post (limite do Instagram).`, "err"); break; }
+        if (f.size > MAX_FILE) { say(`${f.name}: passa de 15 MB.`, "err"); continue; }
+        const real = await sniff(f);
+        if (real === "image/webp") { say(`${f.name}: o Instagram não publica WEBP. Exporte em JPG ou PNG.`, "err"); continue; }
+        if (!real || !TYPES[real]) { say(`${f.name}: tipo não aceito (JPG, PNG ou MP4).`, "err"); continue; }
+        files.push({ file: f, type: real, url: URL.createObjectURL(f) });
+      }
+      paintThumbs();
+    }
+    function move(i, to) { if (to < 0 || to >= files.length) return; const [x] = files.splice(i, 1); files.splice(to, 0, x); paintThumbs(); }
+    let dragFrom = null;
+    function paintThumbs() {
+      list.replaceChildren(...files.map((f, i) => {
+        const media = f.type === "video/mp4" ? el("video", { src: f.url, muted: true, preload: "metadata" }) : el("img", { src: f.url, alt: "" });
+        const li = el("li", { class: "cmp-thumb", draggable: "true" },
+          media, el("span", { class: "cmp-n" }, String(i + 1)),
+          el("div", { class: "cmp-ctl" },
+            el("button", { type: "button", "aria-label": `Mover ${i + 1} para trás`, disabled: i === 0, onclick: () => move(i, i - 1) }, "←"),
+            el("button", { type: "button", "aria-label": `Mover ${i + 1} para frente`, disabled: i === files.length - 1, onclick: () => move(i, i + 1) }, "→"),
+            el("button", { type: "button", "aria-label": `Remover ${f.file.name}`, onclick: () => { URL.revokeObjectURL(f.url); files.splice(i, 1); paintThumbs(); } }, "×")));
+        li.addEventListener("dragstart", (e) => { dragFrom = i; e.dataTransfer.effectAllowed = "move"; });
+        li.addEventListener("dragover", (e) => { if (dragFrom !== null) e.preventDefault(); });
+        li.addEventListener("drop", (e) => { e.preventDefault(); e.stopPropagation(); if (dragFrom !== null) move(dragFrom, i); dragFrom = null; });
+        return li;
+      }));
+      list.hidden = !files.length;
+      drop.classList.toggle("has", files.length > 0);
+    }
+    picker.addEventListener("change", () => { add([...picker.files]); picker.value = ""; });
+    drop.addEventListener("dragover", (e) => { if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); drop.classList.add("over"); } });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); drop.classList.remove("over"); add([...e.dataTransfer.files]); });
+    paintThumbs();
+    const arteEl = opts.showArte ? el("div", { class: "cmp-arte" }, drop, list) : null;
+
+    // Envio único: manda só o que mudou
+    const btn = el("button", { class: "btn ok", type: "button" }, opts.sendLabel || "Enviar");
+    btn.addEventListener("click", async () => {
+      const text = copyTa.value.trim(), cap = capTa.value.trim();
+      const copyChanged = opts.showCopy && (text !== base.text.trim() || (!stories && cap !== base.cap.trim()));
+      const sendCopy = copyChanged && (text || !stories);
+      const sendArte = opts.showArte && files.length > 0;
+      if (!sendCopy && !sendArte) return say("Nada novo para enviar: escreva o texto ou adicione as artes.", "err");
+      const sent = typeof opts.sent === "function" ? opts.sent() : !!opts.sent;
+      btn.disabled = true;
+      const done = [];
+      try {
+        if (sendCopy) {
+          say("Enviando texto…");
+          await uploadCopy(sb, { post, allVersions: opts.getVersions(), text, caption: stories ? "" : cap, sent });
+          done.push(stories ? "texto" : "texto e legenda");
+        }
+        if (sendArte) {
+          await uploadArte(sb, { slug: opts.slug, post, allVersions: opts.getVersions(), files: files.map((f) => f.file), sent,
+            onProgress: (t) => say(t.replace("Enviando", "Enviando arte")) });
+          done.push(`${files.length} ${files.length === 1 ? "arte" : "artes"}`);
+          files.forEach((f) => URL.revokeObjectURL(f.url)); files = []; paintThumbs();
+        }
+        const msgOk = `Enviado ✓ ${done.join(" + ")}${sent ? " · já está com o cliente" : " · foi para a revisão interna"}`;
+        say(msgOk, "okk");
+        btn.disabled = false;
+        await opts.onDone?.(msgOk);
+      } catch (e) {
+        // O que já subiu fica registrado; o resto pode ser reenviado
+        say(`${done.length ? `Enviou ${done.join(" + ")}, mas ` : ""}${e.message || e}`, "err");
+        btn.disabled = false;
+      }
+    });
+    const actions = el("div", { class: "cmp-actions" }, btn, out);
+    return { copyEl, arteEl, actions, say, el: el("div", { class: "cmp" }, copyEl, arteEl, actions) };
   }
 
   // ---------- Agendamento (regra validada no banco: só arte aprovada, só admin) ----------
@@ -140,5 +243,5 @@ window.GWork = (() => {
       at, el("div", { class: "row" }, save, undo), out);
   }
 
-  return { signed, preview, comments, uploadArte, uploadCopy, nameOf, when, schedulePanel, schedLabel };
+  return { signed, preview, comments, uploadArte, uploadCopy, composer, nameOf, when, schedulePanel, schedLabel };
 })();
