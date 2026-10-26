@@ -113,8 +113,9 @@
 .dk-card { display: grid; grid-template-columns: 70px 1fr; gap: 14px; min-height: 0; }
 .dk-rank { font-family: var(--display); font-weight: 800; font-size: 52px; color: #00703d; line-height: 1; }
 .dk-card-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.dk-card-img { display: block; width: 100%; height: 280px; border-radius: 22px; overflow: hidden; background: #b8c8da; flex: none; }
-.dk-card-img img, .dk-ph { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dk-card-img { display: block; height: 350px; border-radius: 18px; overflow: hidden; background: #b8c8da; flex: none; align-self: flex-start; }
+.dk-card-img.r34 { aspect-ratio: 3 / 4; } .dk-card-img.r916 { aspect-ratio: 9 / 16; }
+.dk-card-img img, .dk-ph { width: 100%; height: 100%; object-fit: contain; display: block; }
 .dk-card-t { margin: 4px 0 0; font-size: 24px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dk-card-d { margin: 0; font-size: 20px; color: #46566b; }
 .dk-card-m { margin: 4px 0 0; display: grid; gap: 4px; }
@@ -164,3 +165,7 @@
   body.dk-printing .dk-print .dk-slide { transform: none !important; page-break-after: always; break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 @media (prefers-reduced-motion: reduce) { .dk-nav { transition: none; } }
+
+.dk-flow--stack { flex-direction: column; align-items: flex-start; gap: 4px; }
+.dk-flow-prev { display: flex; align-items: baseline; gap: 12px; }
+.dk-flow--stack .dk-now { font-size: 104px; }

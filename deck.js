@@ -138,8 +138,11 @@ window.GDeck = (() => {
         ["posts", "Publicações"], ["reach", "Alcance"], ["interactions", "Interações"]].map(([k, label], i) => {
         const isRate = k === "rate", cur = isRate ? rate(c) : c[k], prv = isRate ? rate(p) : p[k];
         return el("div", { class: `dk-ctile${i === 0 ? " hero" : ""}` }, el("span", { class: "dk-cap dk-cap--l" }, label),
-          el("div", { class: "dk-flow" }, el("span", { class: "dk-was" }, isRate ? pctf(prv) : num(prv)), el("span", { class: "dk-arrow", "aria-hidden": "true" }, "→"),
-            el("b", { class: "dk-now" }, isRate ? pctf(cur) : num(cur))),
+          isRate
+            ? el("div", { class: "dk-flow dk-flow--stack" }, el("span", { class: "dk-flow-prev" }, el("span", { class: "dk-was" }, pctf(prv)), el("span", { class: "dk-arrow", "aria-hidden": "true" }, "↓")),
+              el("b", { class: "dk-now" }, pctf(cur)))
+            : el("div", { class: "dk-flow" }, el("span", { class: "dk-was" }, num(prv)), el("span", { class: "dk-arrow", "aria-hidden": "true" }, "→"),
+              el("b", { class: "dk-now" }, num(cur))),
           pill(isRate ? pp(cur, prv) : pct(cur, prv)) || el("span", { class: "dk-pill flat" }, "sem base"));
       });
       return S("bg-pale", head(`${prevName} → ${Mes}`, `${NET[s.net]}: mês anterior × atual`), el("div", { class: "dk-cmp" }, tiles), foot());
@@ -196,7 +199,7 @@ window.GDeck = (() => {
         return el("article", { class: "dk-card" },
           el("span", { class: "dk-rank" }, `#${i + 1}`),
           el("div", { class: "dk-card-body" },
-            el(href ? "a" : "div", { class: "dk-card-img", href: href || false, target: href ? "_blank" : false, rel: href ? "noopener" : false }, img),
+            el(href ? "a" : "div", { class: `dk-card-img ${p.format === "reels" || p.format === "stories" ? "r916" : "r34"}`, href: href || false, target: href ? "_blank" : false, rel: href ? "noopener" : false }, img),
             el("p", { class: "dk-card-t" }, p.title),
             el("p", { class: "dk-card-d" }, `${new Date(p.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} · ${G.FORMATS[p.format] || p.format}`),
             el("dl", { class: "dk-card-m" },
