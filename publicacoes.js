@@ -46,7 +46,7 @@
     app.replaceChildren(msg("Carregando…"));
     const since = new Date(Date.now() - Number(period) * 864e5).toISOString();
     const [media, queue, eds, runs] = await Promise.all([
-      sb.from("ig_media").select("*").gte("published_at", since).order("published_at", { ascending: false }),
+      sb.from("ig_media").select("*").eq("network", "instagram").gte("published_at", since).order("published_at", { ascending: false }),
       sb.from("posts").select("id, title, format, editoria, scheduled_at, publish_status, publish_error, stories_done, months(slug)")
         .in("publish_status", ["agendado", "publicando", "erro"]).order("scheduled_at"),
       sb.from("editorias").select("slug, name").order("sort"),

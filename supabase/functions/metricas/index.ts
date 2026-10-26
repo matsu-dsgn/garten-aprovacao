@@ -61,10 +61,10 @@ async function sync() {
   const now = new Date().toISOString();
 
   const rows = [
-    ...feed.map((m) => ({ id: m.id, product_type: m.media_product_type === "REELS" ? "REELS" : "FEED", media_type: m.media_type ?? null,
+    ...feed.map((m) => ({ id: m.id, network: "instagram", product_type: m.media_product_type === "REELS" ? "REELS" : "FEED", media_type: m.media_type ?? null,
       caption: m.caption?.slice(0, 2200) ?? null, permalink: m.permalink ?? null, thumb_url: thumbOf(m),
       published_at: m.timestamp ?? null, like_count: m.like_count ?? null, comments_count: m.comments_count ?? null, synced_at: now })),
-    ...stories.map((m) => ({ id: m.id, product_type: "STORY", media_type: m.media_type ?? null, permalink: m.permalink ?? null,
+    ...stories.map((m) => ({ id: m.id, network: "instagram", product_type: "STORY", media_type: m.media_type ?? null, permalink: m.permalink ?? null,
       thumb_url: thumbOf(m), published_at: m.timestamp ?? null, synced_at: now })),
   ];
   if (rows.length) { const { error } = await db.from("ig_media").upsert(rows); if (error) throw error; }
@@ -79,7 +79,7 @@ async function sync() {
   // Insights: feed/Reels dos últimos 30 dias (e os que nunca tiveram), Stories das últimas 24h
   const d30 = new Date(Date.now() - 30 * 864e5).toISOString();
   const d1 = new Date(Date.now() - 864e5).toISOString();
-  const { data: due } = await db.from("ig_media").select("id, product_type, published_at")
+  const { data: due } = await db.from("ig_media").select("id, product_type, published_at").eq("network", "instagram")
     // posts antigos sem métrica entram uma vez (ex.: publicados antes do sistema existir)
     .or(`and(product_type.in.(FEED,REELS),or(published_at.gte.${d30},insights_at.is.null)),and(product_type.eq.STORY,published_at.gte.${d1})`)
     .order("published_at", { ascending: false }).limit(60);
@@ -109,7 +109,68 @@ async function sync() {
     }
   }
   if (!permError) await onlineFollowers(now);
-  return { media: rows.length, insights: got, error: permError };
+  const fb = await syncFacebook(now);
+  await snapshotFollowers();
+  return { media: rows.length, insights: got, error: permError, facebook: fb };
+}
+
+// ---------- Facebook (Página ligada ao Instagram) ----------
+async function fbPage() {
+  const acc = await get("me/accounts", { fields: "id,access_token,instagram_business_account" });
+  const p = (acc.data ?? []).find((x: { instagram_business_account?: { id: string } }) => x.instagram_business_account?.id === IG_USER);
+  return p?.access_token ? { id: p.id as string, token: p.access_token as string } : null;
+}
+async function pget(path: string, params: Record<string, string>, token: string) {
+  const qs = new URLSearchParams({ ...params, access_token: token });
+  const res = await fetch(`${GRAPH}/${path}?${qs}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.error) throw new MetaError(json.error?.message || `Meta respondeu ${res.status}`, json.error?.code);
+  return json;
+}
+// Posts da Página. Precisa de pages_read_user_content; sem ela, devolve o aviso e segue.
+async function syncFacebook(now: string) {
+  try {
+    const page = await fbPage();
+    if (!page) return "Página não encontrada";
+    const json = await pget(`${page.id}/published_posts`, {
+      fields: "id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)",
+      limit: "50" }, page.token);
+    type P = { id: string; message?: string; created_time?: string; permalink_url?: string; full_picture?: string;
+      shares?: { count?: number }; reactions?: { summary?: { total_count?: number } }; comments?: { summary?: { total_count?: number } } };
+    const rows = ((json.data ?? []) as P[]).map((p) => ({ id: p.id, network: "facebook", product_type: "FEED",
+      caption: p.message?.slice(0, 2200) ?? null, permalink: p.permalink_url ?? null, thumb_url: p.full_picture ?? null,
+      published_at: p.created_time ?? null, like_count: p.reactions?.summary?.total_count ?? 0,
+      comments_count: p.comments?.summary?.total_count ?? 0, shares: p.shares?.count ?? 0, synced_at: now }));
+    if (rows.length) await db.from("ig_media").upsert(rows);
+    // Alcance por post (quando a Meta libera)
+    const d30 = Date.now() - 30 * 864e5;
+    for (const r of rows.filter((x) => x.published_at && new Date(x.published_at).getTime() > d30)) {
+      try {
+        const ins = await pget(`${r.id}/insights`, { metric: "post_impressions_unique" }, page.token);
+        const reach = ins.data?.[0]?.values?.[0]?.value;
+        if (typeof reach === "number") await db.from("ig_media").update({ reach, insights_at: now, insights_error: null }).eq("id", r.id);
+      } catch (e) { await db.from("ig_media").update({ insights_error: (e as Error).message.slice(0, 300) }).eq("id", r.id); }
+    }
+    return `${rows.length} posts`;
+  } catch (e) { return (e as Error).message.slice(0, 300); }
+}
+
+// Seguidores do dia (Instagram e Facebook), no fuso de São Paulo
+async function snapshotFollowers() {
+  const day = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+  try {
+    const ig = await get(IG_USER, { fields: "followers_count" });
+    if (typeof ig.followers_count === "number")
+      await db.from("follower_snapshots").upsert({ network: "instagram", day, followers: ig.followers_count });
+  } catch (_) { /* segue */ }
+  try {
+    const page = await fbPage();
+    if (page) {
+      const p = await pget(page.id, { fields: "followers_count" }, page.token);
+      if (typeof p.followers_count === "number")
+        await db.from("follower_snapshots").upsert({ network: "facebook", day, followers: p.followers_count });
+    }
+  } catch (_) { /* segue */ }
 }
 
 // Seguidores online por hora (média dos últimos dias). Guarda o dado bruto;

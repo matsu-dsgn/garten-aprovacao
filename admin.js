@@ -290,7 +290,7 @@
       const since = new Date(Date.now() - 7 * 864e5).toISOString();
       const [q, md] = await Promise.all([
         sb.from("posts").select("id, scheduled_at, publish_status").in("publish_status", ["agendado", "erro"]).order("scheduled_at"),
-        sb.from("ig_media").select("product_type, reach, saved, shares").gte("published_at", since),
+        sb.from("ig_media").select("product_type, reach, saved, shares").eq("network", "instagram").gte("published_at", since),
       ]);
       if (q.error || md.error) return;
       const fila = q.data || [], pub = md.data || [];
