@@ -12,7 +12,8 @@
     const q = new URLSearchParams(location.search).get("m"), k = new URLSearchParams(location.hash.slice(1)).get("k");
     if (q && k) document.getElementById("top-actions").prepend(el("nav", { class: "topnav" },
       G.navLink(`index.html?m=${encodeURIComponent(q)}#k=${encodeURIComponent(k)}`, "Pauta do mês", "pauta", false),
-      G.navLink(location.pathname.split("/").pop() + location.search + location.hash, "Radar", "radar", true)));
+      G.navLink(location.pathname.split("/").pop() + location.search + location.hash, "Radar", "radar", true),
+      G.navLink(`relatorio-cliente.html?m=${encodeURIComponent(q)}#k=${encodeURIComponent(k)}`, "Relatório", "publicacoes", false)));
   }
 
   const params = new URLSearchParams(location.search);

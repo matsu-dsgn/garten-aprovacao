@@ -37,7 +37,8 @@ window.GDeck = (() => {
   // ---------- montagem da sequência ----------
   function plan(report) {
     const d = report.data || {}, t = report.texts || {}, hidden = new Set(report.hidden || []);
-    const nets = Object.entries(d.networks || {});
+    const ORDER = ["instagram", "facebook"];
+    const nets = Object.entries(d.networks || {}).sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b));
     const has = (n) => (n?.current?.posts || 0) + (n?.current?.stories || 0) > 0;
     const out = [{ id: "capa", label: "Capa" }, { id: "overview", label: "O mês em números" }];
     for (const [k, n] of nets) {
@@ -72,7 +73,7 @@ window.GDeck = (() => {
       el("div", { class: "dk-foot" }, el("span", {}, Object.keys(d.networks || {}).filter((k) => (d.networks[k].current?.posts || 0) > 0).map((k) => NET[k]).join(" e ") || "Instagram"), el("span", {})));
 
     if (s.id === "overview") {
-      const nets = Object.entries(d.networks).filter(([, x]) => (x.current?.posts || 0) + (x.current?.stories || 0) > 0);
+      const nets = Object.entries(d.networks).sort(([a], [b]) => (a === "instagram" ? -1 : b === "instagram" ? 1 : 0)).filter(([, x]) => (x.current?.posts || 0) + (x.current?.stories || 0) > 0);
       const rows = [
         ["Posts no feed", (x) => x.current.posts, (x) => x.previous?.posts],
         ["Stories", (x) => x.current.stories, (x) => x.previous?.stories],

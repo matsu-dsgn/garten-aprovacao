@@ -269,12 +269,36 @@ async function radarRate(req: Request) {
   return json(req, await radarState());
 }
 
+// Relatório mensal: só os publicados. Lista + o escolhido (ou o mais recente), com imagens assinadas.
+async function reportView(req: Request, want: string | null) {
+  const { data: list, error } = await db.from("reports").select("slug, published_at")
+    .eq("status", "publicado").order("slug", { ascending: false });
+  if (error) return json(req, { error: "Não foi possível carregar" }, 500);
+  if (!list?.length) return json(req, { list: [], report: null });
+  const slug = want && SLUG_RE.test(want) && list.some((r) => r.slug === want) ? want : list[0].slug;
+  const { data: rep } = await db.from("reports").select("slug, data, texts, hidden").eq("slug", slug).eq("status", "publicado").maybeSingle();
+  if (!rep) return json(req, { error: "Relatório não encontrado" }, 404);
+  const paths: string[] = [];
+  for (const n of Object.values((rep.data as any)?.networks ?? {}) as any[])
+    for (const t of n?.top ?? []) if (typeof t.image === "string" && /^[\w\-./]+$/.test(t.image) && !t.image.includes("..")) paths.push(t.image);
+  const urls: Record<string, string> = {};
+  if (paths.length) {
+    const { data: s } = await db.storage.from("artes").createSignedUrls(paths, 3600);
+    for (const x of s ?? []) if (x.path && x.signedUrl) urls[x.path] = x.signedUrl;
+  }
+  return json(req, { list: list.map((r) => r.slug), report: rep, urls });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(req) });
   const url = new URL(req.url);
   const month = await authMonth(url.searchParams.get("m"), req.headers.get("x-month-token"));
   if (!month) return json(req, { error: "Link inválido ou expirado" }, 401);
 
+  if (url.searchParams.get("v") === "relatorio") {
+    if (req.method !== "GET") return json(req, { error: "Método não permitido" }, 405);
+    return reportView(req, url.searchParams.get("r"));
+  }
   const isRadar = url.searchParams.get("v") === "radar";
   if (isRadar && req.method === "GET") return json(req, await radarState());
   if (isRadar && req.method === "POST") return radarRate(req);

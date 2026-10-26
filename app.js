@@ -11,7 +11,8 @@
   if (slug && token) document.getElementById("top-actions").prepend(
     el("nav", { class: "topnav" },
       G.navLink(location.pathname.split("/").pop() + location.search + location.hash, "Pauta do mês", "pauta", true),
-      G.navLink(`radar-cliente.html?m=${encodeURIComponent(slug)}#k=${encodeURIComponent(token)}`, "Radar", "radar", false)));
+      G.navLink(`radar-cliente.html?m=${encodeURIComponent(slug)}#k=${encodeURIComponent(token)}`, "Radar", "radar", false),
+      G.navLink(`relatorio-cliente.html?m=${encodeURIComponent(slug)}#k=${encodeURIComponent(token)}`, "Relatório", "publicacoes", false)));
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const openTab = {};
   let data = null;

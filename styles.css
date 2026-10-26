@@ -1059,3 +1059,21 @@ details.post-row > summary .pill { letter-spacing: normal; }
 .aviso-body a { color: var(--ink); text-decoration: none; }
 .aviso-body a:hover { color: var(--accent-ink); }
 @media (max-width: 560px) { .aviso { grid-template-columns: 1fr auto; } .aviso-tag { grid-column: 1 / -1; justify-self: start; } }
+
+/* Relatório mensal (editor e cliente) */
+.rel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin: 24px 0 16px; }
+.rel-actions { flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.rel-grid { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 40px; }
+.rel-slides { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rel-slides li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; }
+.rel-slides li.on { background: color-mix(in srgb, currentColor 8%, transparent); }
+.rel-slides button { flex: 1; text-align: left; background: none; border: 0; padding: 4px 0; font: inherit; color: inherit; cursor: pointer; }
+.rel-slides button:disabled { opacity: .45; cursor: default; }
+.rel-slides small { opacity: .6; font-size: 12px; }
+.rel-stage { border-radius: 12px; overflow: hidden; }
+.rel-field { display: grid; gap: 6px; }
+.rel-field textarea { width: 100%; font: inherit; resize: vertical; }
+.rel-list { display: grid; gap: 20px; margin-bottom: 48px; }
+.rel-list .dk-frame { cursor: pointer; border-radius: 12px; overflow: hidden; }
+.rel-list .dk-frame:focus-visible { outline: 3px solid #9aff57; outline-offset: 3px; }
+@media (max-width: 860px) { .rel-grid { grid-template-columns: 1fr; } }
