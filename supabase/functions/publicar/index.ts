@@ -111,6 +111,8 @@ async function publishStories(postId: string) {
       last = pub.id;
       done = i + 1;
       await db.from("posts").update({ stories_done: done, stories_version: v.id }).eq("id", postId);
+      // Cada tela vira uma mídia própria no Instagram: registra para as métricas
+      await db.from("ig_media").upsert({ id: pub.id, post_id: postId, product_type: "STORY", published_at: new Date().toISOString() });
       if (done < total) await sleep(3000);
     }
   } catch (e) {
@@ -159,7 +161,10 @@ async function publishOne(postId: string) {
   await waitReady(creation);
   const pub = await graph(`${IG_USER}/media_publish`, { creation_id: creation });
   const info = await graph(pub.id, { fields: "permalink" }, "GET").catch(() => ({}));
-  return { media: pub.id as string, link: (info as { permalink?: string }).permalink ?? null };
+  const link = (info as { permalink?: string }).permalink ?? null;
+  await db.from("ig_media").upsert({ id: pub.id, post_id: postId, permalink: link, published_at: new Date().toISOString(),
+    product_type: media.length === 1 && media[0].video ? "REELS" : "FEED" });
+  return { media: pub.id as string, link };
 }
 
 Deno.serve(async (req) => {

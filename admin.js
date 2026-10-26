@@ -275,11 +275,40 @@
         acts.length ? el("div", { class: "ov-acts" }, el("h3", { class: "ov-h" }, "Quem acionar"),
           acts.map(([who, list]) => el("details", { open: true }, el("summary", {}, `${who} · ${list.length}`), el("ul", {}, list.map((t) => el("li", {}, el("a", { href: cardHref(t.id) }, t.text)))))))
           : el("p", { class: "msg okk" }, "Nada travado agora."),
+        pubOverview(),
         radarValidacoes(rv.data || []),
         (rd.count || 0) ? el("a", { class: "ov-radar", href: "radar.html" }, G.icon("radar"), `${rd.count} ${rd.count === 1 ? "novidade" : "novidades"} no radar legislativo`) : null);
     } catch (e) {
       box.replaceChildren(msg(`Não foi possível montar o overview: ${e.message}`, "err"));
     }
+  }
+
+  // Publicações: resumo rápido (o relatório completo fica em publicacoes.html)
+  function pubOverview() {
+    const box = el("div", { class: "stack-0" });
+    (async () => {
+      const since = new Date(Date.now() - 7 * 864e5).toISOString();
+      const [q, md] = await Promise.all([
+        sb.from("posts").select("id, scheduled_at, publish_status").in("publish_status", ["agendado", "erro"]).order("scheduled_at"),
+        sb.from("ig_media").select("product_type, reach, saved").gte("published_at", since),
+      ]);
+      if (q.error || md.error) return;
+      const fila = q.data || [], pub = md.data || [];
+      const erros = fila.filter((p) => p.publish_status === "erro").length;
+      const prox = fila.find((p) => p.publish_status === "agendado");
+      const feed = pub.filter((m) => m.product_type !== "STORY");
+      const hasIns = feed.some((m) => m.reach != null);
+      const saved = feed.reduce((a, m) => a + (m.saved || 0), 0);
+      const tile = (label, value, sub, tone) => el("a", { class: `ov-tile${tone ? ` ${tone}` : ""}`, href: "publicacoes.html" },
+        el("span", { class: "ov-label" }, label), el("b", { class: "ov-num" }, String(value)), sub ? el("span", { class: "ov-sub" }, sub) : null);
+      box.replaceChildren(el("h3", { class: "ov-h" }, "Publicações"),
+        el("div", { class: "ov-grid" },
+          tile("Agendados", fila.length - erros, prox ? `próximo ${new Date(prox.scheduled_at).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : "nada na fila"),
+          tile("Com erro", erros, erros ? "precisa reagendar" : null, erros ? "bad" : ""),
+          tile("Publicados · 7 dias", feed.length, `${pub.length - feed.length} Stories`),
+          tile("Salvamentos · 7 dias", hasIns ? saved : "—", hasIns ? "métrica principal" : "aguardando permissão de métricas", "ok")));
+    })();
+    return box;
   }
 
   // Validações do cliente no radar nos últimos 7 dias, de qualquer mês
