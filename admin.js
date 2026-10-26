@@ -256,7 +256,7 @@
         months.map((x) => el("option", { value: x.id, selected: x.id === m.id }, x.title))) : null;
       picker?.addEventListener("change", () => { overviewMonth = picker.value; const nb = overviewPanel(); box.replaceWith(nb); });
 
-      box.replaceChildren(
+      box.replaceChildren(...[
         el("div", { class: "row between" }, el("h2", {}, `Overview · ${m.title}`), picker || el("span", {})),
         el("h3", { class: "ov-h" }, "Pautas"),
         el("div", { class: "ov-grid" },
@@ -277,7 +277,7 @@
           : el("p", { class: "msg okk" }, "Nada travado agora."),
         pubOverview(),
         radarValidacoes(rv.data || []),
-        (rd.count || 0) ? el("a", { class: "ov-radar", href: "radar.html" }, G.icon("radar"), `${rd.count} ${rd.count === 1 ? "novidade" : "novidades"} no radar legislativo`) : null);
+        (rd.count || 0) ? el("a", { class: "ov-radar", href: "radar.html" }, G.icon("radar"), `${rd.count} ${rd.count === 1 ? "novidade" : "novidades"} no radar legislativo`) : null].filter(Boolean));
     } catch (e) {
       box.replaceChildren(msg(`Não foi possível montar o overview: ${e.message}`, "err"));
     }
@@ -374,22 +374,31 @@
   }
 
   function monthsView() {
-    app.replaceChildren(
+    const stats = months.length ? sb.from("posts").select("month_id, scheduled").in("month_id", months.map((m) => m.id)).then(({ data }) => {
+      const o = {}; for (const p of data || []) { const x = (o[p.month_id] ||= { total: 0, sched: 0 }); x.total++; if (p.scheduled) x.sched++; } return o;
+    }) : Promise.resolve({});
+    const cards = months.map((m, i) => {
+      const stat = el("span", { class: "mcard-stat" }, "…");
+      stats.then((st) => { const x = st[m.id] || { total: 0, sched: 0 };
+        stat.textContent = x.total ? `${x.total} ${x.total === 1 ? "post" : "posts"} · ${x.sched} ${x.sched === 1 ? "agendado" : "agendados"}` : "Sem posts ainda"; });
+      return el("article", { class: `mcard${i === 0 ? " now" : ""}` },
+        el("div", { class: "mcard-top" }, el("span", { class: "mcard-tag" }, i === 0 ? "Atual" : "Histórico"),
+          el("details", { class: "more" },
+            el("summary", { "aria-label": `Mais ações de ${m.title}` }, "⋯"),
+            el("button", { class: "btn-del", type: "button", onclick: () => deleteMonth(m) }, "Excluir mês"))),
+        el("h3", { class: "mcard-t" }, m.title), stat,
+        el("div", { class: "row mcard-acts" },
+          el("button", { class: "btn ghost", type: "button", onclick: () => { current = m; openMonth(m); } }, "Abrir"),
+          el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban")));
+    });
+    app.replaceChildren(...[
       avisosPanel(),
       overviewPanel(),
       el("section", { class: "panel" },
         el("div", { class: "row between" }, el("h2", {}, "Meses"), newMonthBtn()),
-        months.length ? el("ul", { class: "history" }, months.map((m, i) =>
-          el("li", { class: "team-row" },
-            el("span", {}, el("b", {}, m.title), i === 0 ? " · atual" : " · histórico"),
-            el("div", { class: "row" },
-              el("button", { class: "btn ghost", onclick: () => { current = m; openMonth(m); } }, "Abrir"),
-              el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban"),
-              el("details", { class: "more" },
-                el("summary", { "aria-label": `Mais ações de ${m.title}` }, "⋯"),
-                el("button", { class: "btn-del", type: "button", onclick: () => deleteMonth(m) }, "Excluir mês")))))) : msg("Nenhum mês ainda.")),
+        months.length ? el("div", { class: "mcards" }, cards) : msg("Nenhum mês ainda.")),
       el("div", { id: "new-month" }),
-      teamPanel());
+      teamPanel()].filter(Boolean));
     if (!months.length) document.getElementById("new-month").replaceWith(monthForm(null));
   }
 

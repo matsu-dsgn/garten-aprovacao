@@ -1108,3 +1108,15 @@ body.rel-editor #app.wrap { max-width: none; padding: 0 20px; }
 .rel-list .dk-frame { cursor: pointer; border-radius: 12px; overflow: hidden; }
 .rel-list .dk-frame:focus-visible { outline: 3px solid #9aff57; outline-offset: 3px; }
 @media (max-width: 1100px) { .rel-3 { grid-template-columns: 1fr; height: auto; } .rel-nav, .rel-side { border: 0; max-height: none; } .rel-stage { min-height: 320px; } }
+
+/* Meses em blocos (painel) */
+.mcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-top: 16px; }
+.mcard { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; border-radius: 16px; border: 1px solid var(--line); background: color-mix(in srgb, currentColor 4%, transparent); }
+.mcard.now { border-color: var(--ink, currentColor); border-width: 2px; }
+.mcard-top { display: flex; justify-content: space-between; align-items: center; }
+.mcard-tag { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+.mcard.now .mcard-tag { opacity: 1; }
+.mcard.now .mcard-tag::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--neon); vertical-align: 1px; }
+.mcard-t { margin: 4px 0 0; font-family: var(--display); font-size: 32px; font-weight: 400; text-transform: uppercase; }
+.mcard-stat { font-size: 13px; opacity: .75; }
+.mcard-acts { margin-top: auto; padding-top: 10px; gap: 8px; }
