@@ -76,11 +76,12 @@ async function sync() {
     for (const p of posts ?? []) await db.from("ig_media").update({ post_id: p.id }).eq("id", p.ig_media_id).is("post_id", null);
   }
 
-  // Insights: feed/Reels dos últimos 30 dias, Stories das últimas 24h
+  // Insights: feed/Reels dos últimos 30 dias (e os que nunca tiveram), Stories das últimas 24h
   const d30 = new Date(Date.now() - 30 * 864e5).toISOString();
   const d1 = new Date(Date.now() - 864e5).toISOString();
   const { data: due } = await db.from("ig_media").select("id, product_type, published_at")
-    .or(`and(product_type.in.(FEED,REELS),published_at.gte.${d30}),and(product_type.eq.STORY,published_at.gte.${d1})`)
+    // posts antigos sem métrica entram uma vez (ex.: publicados antes do sistema existir)
+    .or(`and(product_type.in.(FEED,REELS),or(published_at.gte.${d30},insights_at.is.null)),and(product_type.eq.STORY,published_at.gte.${d1})`)
     .order("published_at", { ascending: false }).limit(60);
 
   let got = 0; let permError: string | null = null;
@@ -94,9 +95,14 @@ async function sync() {
       got++;
     } catch (e) {
       const err = e as MetaError;
-      // Sem permissão de métricas: para de tentar nesta rodada
-      if (err.code === 10 || err.code === 200 || /permission/i.test(err.message)) {
-        permError = "O token não tem a permissão instagram_manage_insights. Gere um token novo com ela para ver alcance e salvamentos.";
+      // Poucas visualizações: a Meta ainda não libera métricas deste item (normal em Stories recentes)
+      if (/not enough viewers/i.test(err.message)) {
+        await db.from("ig_media").update({ insights_error: "Poucas visualizações: a Meta ainda não liberou as métricas." }).eq("id", m.id);
+        continue;
+      }
+      // Sem permissão de métricas: para de tentar nesta rodada (o código 10 também é usado acima, por isso o texto)
+      if (err.code === 200 || /permission/i.test(err.message)) {
+        permError = `O token não tem a permissão instagram_manage_insights. Gere um token novo com ela para ver alcance e salvamentos. (Meta: ${err.message})`;
         break;
       }
       await db.from("ig_media").update({ insights_error: err.message.slice(0, 300) }).eq("id", m.id);

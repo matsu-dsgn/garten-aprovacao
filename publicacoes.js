@@ -27,7 +27,7 @@
   };
 
   const PERIODS = { "7": "Últimos 7 dias", "30": "Últimos 30 dias", "90": "Últimos 90 dias" };
-  let period = "30";
+  let period = "90";
   let d = null;
 
   async function boot() {
