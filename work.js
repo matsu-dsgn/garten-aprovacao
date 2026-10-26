@@ -181,7 +181,7 @@ window.GWork = (() => {
           done.push(`${files.length} ${files.length === 1 ? "arte" : "artes"}`);
           files.forEach((f) => URL.revokeObjectURL(f.url)); files = []; paintThumbs();
         }
-        const msgOk = `Enviado ✓ ${done.join(" + ")}${sent ? " · já está com o cliente" : " · foi para a revisão interna"}`;
+        const msgOk = `Enviado ✓ ${done.join(" + ")}${sent ? " · já está com o cliente" : opts.draftNote || " · foi para aprovação do Rapha"}`;
         say(msgOk, "okk");
         btn.disabled = false;
         await opts.onDone?.(msgOk);
@@ -193,6 +193,54 @@ window.GWork = (() => {
     });
     const actions = el("div", { class: "cmp-actions" }, btn, out);
     return { copyEl, arteEl, actions, say, el: el("div", { class: "cmp" }, copyEl, arteEl, actions) };
+  }
+
+  // ---------- Revisão interna (só admin): pedir ajuste em cada parte e enviar o post ao cliente ----------
+  // opts: { sb, post, all, urls, team, onChange(msgOk) }
+  function reviewPanel(opts) {
+    const { sb, post, all } = opts;
+    const out = el("p", { class: "msg", role: "status", "aria-live": "polite" });
+    const say = (t, kind = "") => { out.className = `msg ${kind}`; out.textContent = t; };
+    const sentMax = (stage) => Math.max(0, ...all.filter((v) => v.post_id === post.id && v.stage === stage && v.sent).map((v) => v.number));
+    const newest = (stage) => all.filter((v) => v.post_id === post.id && v.stage === stage && !v.sent && v.number > sentMax(stage))
+      .sort((a, b) => b.number - a.number)[0] || null;
+    const drafts = [newest("copy"), newest("arte")].filter(Boolean);
+    const r = G.readiness(all, post);
+    if (!drafts.length) return null;
+
+    const item = (v) => {
+      const label = v.stage === "copy" ? (post.format === "stories" ? "Texto" : "Texto e legenda") : "Arte";
+      const note = el("textarea", { maxlength: "1500", rows: "3", placeholder: `O que ajustar ${v.stage === "copy" ? "no texto/legenda" : "na arte"}?` });
+      const ask = el("button", { class: "btn ghost", type: "button" }, `Pedir ajuste ${v.stage === "copy" ? "na copy" : "na arte"}`);
+      const form = el("div", { class: "stack-0", hidden: true }, note, el("div", { class: "row" },
+        el("button", { class: "btn bad", type: "button", onclick: async (e) => {
+          e.target.disabled = true;
+          const { error } = await sb.rpc("request_internal_adjust", { p_version: v.id, p_note: note.value });
+          e.target.disabled = false;
+          error ? say(error.message, "err") : opts.onChange?.(`Ajuste pedido ${v.stage === "copy" ? "na copy" : "na arte"} ✓`);
+        } }, "Pedir ajuste"),
+        el("button", { class: "btn ghost", type: "button", onclick: () => { form.hidden = true; ask.hidden = false; } }, "Cancelar")));
+      ask.addEventListener("click", () => { form.hidden = false; ask.hidden = true; note.focus(); });
+      return el("div", { class: "draft" },
+        el("div", { class: "msg" }, `${label} v${v.number} · por ${nameOf(opts.team, v.author_email)} · ${when(v.created_at)}`),
+        preview(v, opts.urls),
+        v.review_note ? el("div", { class: "content-box alert" }, el("span", { class: "eyebrow" }, "Ajuste pedido"), v.review_note)
+          : el("div", {}, ask, form));
+    };
+
+    const send = el("button", { class: "btn ok", type: "button", disabled: !r.ok }, "Enviar ao cliente");
+    const why = r.falta.length ? `Para enviar ao cliente falta: ${r.falta.join(", ")}.`
+      : r.ajuste ? "Tem ajuste interno pedido: espere a nova versão." : "";
+    send.addEventListener("click", async () => {
+      send.disabled = true;
+      const { error } = await sb.rpc("send_post", { p_post: post.id });
+      if (error) { send.disabled = false; return say(error.message, "err"); }
+      opts.onChange?.("Enviado ao cliente ✓");
+    });
+    return el("div", { class: "review" },
+      el("div", { class: "eyebrow" }, "Revisão interna"),
+      drafts.map(item),
+      el("div", { class: "cmp-actions" }, send, why ? el("span", { class: "msg" }, why) : null), out);
   }
 
   // ---------- Agendamento (regra validada no banco: só arte aprovada, só admin) ----------
@@ -243,5 +291,5 @@ window.GWork = (() => {
       at, el("div", { class: "row" }, save, undo), out);
   }
 
-  return { signed, preview, comments, uploadArte, uploadCopy, composer, nameOf, when, schedulePanel, schedLabel };
+  return { signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, nameOf, when, schedulePanel, schedLabel };
 })();

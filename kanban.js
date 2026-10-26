@@ -90,7 +90,7 @@
         who ? avatar(p.assignee, who) : null),
       el("div", { class: "ktitle" }, p.title),
       el("div", { class: "kfoot" },
-        el("span", { class: `kpill p-${sk}` }, (sk === "agendado" ? GWork.schedLabel(p) : SUB[sk].label) + (st.stage && ["revisao", "cliente", "ajuste", "producao"].includes(sk) ? ` · ${st.stage === "copy" ? "copy" : "arte"}` : "")),
+        el("span", { class: `kpill p-${sk}` }, (sk === "agendado" ? GWork.schedLabel(p) : SUB[sk].label) + (st.stage && ["revisao", "cliente", "ajuste", "producao"].includes(sk) ? ` · ${st.stage === "ambos" ? "copy + arte" : st.stage === "copy" ? "copy" : "arte"}` : "")),
         p.editoria ? el("span", { class: "ktag" }, edName(p.editoria)) : null,
         p.kind === "oportunidade" ? el("span", { class: "ktag opp" }, p.origin === "radar" ? "Radar · validado" : "Oportunidade") : null,
         dueTag(p),
@@ -239,11 +239,12 @@
     const sentArte = G.latestVersion(d.sent, p.id, "arte");
     const lastArteDec = sentArte ? lastDecision(p.id, "arte", sentArte.id) : null;
     const lastCopyDec = copy ? lastDecision(p.id, "copy", copy.id) : null;
-    const adjDec = st.col === "ajuste" ? (st.stage === "copy" ? lastCopyDec : lastArteDec) : null;
+    const adjDec = st.col === "ajuste" && !st.internal ? (st.stage === "copy" ? lastCopyDec : lastArteDec) : null;
     const copyVersions = d.all.filter((v) => v.post_id === p.id && v.stage === "copy").sort((a, b) => b.number - a.number);
 
-    const canCopy = ["copy", "producao", "ajuste", "revisao"].includes(col) && (st.stage === "copy" || col === "copy");
-    const canArte = col !== "espera" && col !== "agendado" && !(st.stage === "copy" && p.kind !== "oportunidade");
+    // Copy e arte andam em paralelo até o post ir ao cliente
+    const editable = !["espera", "cliente", "aprovado", "agendado"].includes(col);
+    const canCopy = editable, canArte = editable;
     const arteVersions = d.all.filter((v) => v.post_id === p.id && v.stage === "arte").sort((a, b) => b.number - a.number);
     const curArte = arteVersions[0] || null;
     const curCopy = copyVersions[0] || null;
@@ -256,12 +257,8 @@
       return { text: G.STATUS_LABEL[dec.status] || dec.status, cls: dec.status === "aprovado" ? "ok" : dec.status === "reprovado" ? "bad" : "cli" };
     };
     const tagEl = (v, stage) => { const t = vTag(v, stage); return el("span", { class: `kd-tag ${t.cls}` }, `v${v.number} · ${t.text}`); };
-    const sendBtnFor = (v) => {
-      if (v.sent || me.role !== "admin") return null;
-      const b = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente");
-      b.addEventListener("click", async () => { const { error } = await sb.rpc("send_version", { p_version: v.id }); error ? fail(error) : reload(); });
-      return b;
-    };
+    // Envio ao cliente agora é por post (bloco de revisão), não por versão avulsa
+    const sendBtnFor = () => null;
 
     // ---------- Header: status e próxima ação primeiro ----------
     const NEXT = {
@@ -269,9 +266,9 @@
       copy: "Escrever texto da arte e legenda",
       fazer: "Produzir a arte",
       producao: "Subir a arte quando terminar",
-      revisao: me.role === "admin" ? "Revisar e enviar ao cliente" : "Aguardando revisão do Rapha",
+      revisao: me.role === "admin" ? "Revisar e enviar ao cliente" : "Aguardando aprovação do Rapha",
       cliente: "Aguardando Wilker ou Letícia",
-      ajuste: `Ajustar ${st.stage === "copy" ? "texto/legenda" : "a arte"} conforme o pedido`,
+      ajuste: `Ajustar ${st.stage === "copy" ? "texto/legenda" : "a arte"} conforme o pedido${st.internal ? " do Rapha" : ""}`,
       aprovado: me.role === "admin" ? "Agendar a publicação" : "Aprovado · aguardando agendamento",
       agendado: GWork.schedLabel(p),
     };
@@ -293,6 +290,8 @@
       adjDec ? el("div", { class: "content-box alert" },
         el("span", { class: "eyebrow" }, `Ajuste pedido pelo cliente · ${st.stage === "copy" ? "texto e legenda" : "arte"}`),
         adjDec.note || "", st.stage === "arte" && Object.keys(adjDec.slide_notes || {}).length ? el("div", { class: "msg" }, "Os ajustes de cada lâmina aparecem junto dela, na arte.") : null) : null,
+      st.internal ? el("div", { class: "content-box alert" },
+        el("span", { class: "eyebrow" }, `Ajuste pedido pelo Rapha · ${st.stage === "copy" ? "texto e legenda" : "arte"}`), st.internal.review_note) : null,
       me.role === "admin" && ["aprovado", "agendado"].includes(col)
         ? GWork.schedulePanel(sb, p, async (on) => { await load(); render(); toast(on ? "Post agendado" : "Agendamento removido"); }) : null);
 
@@ -311,14 +310,22 @@
     const mayCopy = canCopy && fn !== "arte";
     const mayArte = canArte && fn !== "copy";
     const month = months.find((m) => m.id === monthId);
-    const direct = me.role === "admin" ? el("label", { class: "row" }, el("input", { type: "checkbox" }), "Enviar direto ao cliente (pular revisão)") : null;
+    const isAdmin = me.role === "admin";
+    // Tudo nasce como versão para aprovação; o admin já tenta mandar o post completo ao cliente
     const cmp = mayCopy || mayArte ? GWork.composer({
       sb, post: p, slug: month.slug, getVersions: () => d.all, prefill: curCopy,
-      showCopy: mayCopy, showArte: mayArte,
-      sent: () => !!direct?.querySelector("input").checked,
-      sendLabel: me.role === "admin" ? "Enviar" : "Enviar para revisão",
-      onDone: async (t) => { await reload(); toast(t); },
+      showCopy: mayCopy, showArte: mayArte, sent: false,
+      sendLabel: isAdmin ? "Enviar ao cliente" : "Enviar para aprovação",
+      draftNote: isAdmin ? "" : undefined,
+      onDone: async (t) => {
+        if (!isAdmin) { await reload(); return toast(t); }
+        const { error } = await sb.rpc("send_post", { p_post: p.id });
+        await reload();
+        toast(error ? `Salvo. Ainda não foi ao cliente: ${error.message}` : "Enviado ao cliente ✓", !!error);
+      },
     }) : null;
+    const review = isAdmin ? GWork.reviewPanel({ sb, post: p, all: d.all, urls: d.urls, team: d.team,
+      onChange: async (t) => { await reload(); toast(t); } }) : null;
 
     // ---------- Esquerda: texto da arte e legenda ----------
     const stories = p.format === "stories";
@@ -349,10 +356,11 @@
         el("summary", {}, `Versões anteriores da arte (${arteVersions.length - 1})`),
         arteVersions.slice(1).map((v) => el("div", { class: "draft" }, tagEl(v, "arte"),
           el("span", { class: "msg" }, ` ${GWork.nameOf(d.team, v.author_email)} · ${GWork.when(v.created_at)}`), GWork.preview(v, d.urls), sendBtnFor(v)))) : null);
-    const sendBar = cmp ? el("section", { class: "kd-block kd-send" }, direct, cmp.actions) : null;
+    const sendBar = cmp ? el("section", { class: "kd-block kd-send" }, cmp.actions) : null;
 
     return el("aside", { class: "kdetail kd", role: "dialog", "aria-modal": "true", "aria-labelledby": "kd-title" },
       head, brief,
+      review ? el("section", { class: "kd-block" }, review) : null,
       el("div", { class: "kd-body" }, left, right),
       sendBar,
       el("section", { class: "kd-block kd-comments" }, el("span", { class: "eyebrow" }, "Comentários internos"),

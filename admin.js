@@ -528,10 +528,16 @@
     // Bloco de envio: texto, legenda e artes num botão só; o painel atualiza no lugar
     const cmp = GWork.composer({
       sb, post: p, slug: m.slug, getVersions: () => data.allVersions,
-      showCopy: true, showArte: true, sent: true, sendLabel: "Enviar ao cliente",
-      onDone: async (text) => { flash = { id: p.id, text }; openPosts.add(p.id); openComposers.add(p.id); await openMonth(m, true); },
+      // Salva como versão nova e já tenta mandar ao cliente; se o post não estiver completo, fica salvo
+      showCopy: true, showArte: true, sent: false, sendLabel: "Enviar ao cliente", draftNote: "",
+      onDone: async () => {
+        const { error } = await sb.rpc("send_post", { p_post: p.id });
+        flash = error ? { id: p.id, kind: "err", text: `Salvo ✓, mas ainda não foi ao cliente. ${error.message}` }
+          : { id: p.id, kind: "okk", text: "Enviado ao cliente ✓" };
+        openPosts.add(p.id); openComposers.add(p.id); await openMonth(m, true);
+      },
     });
-    if (flash?.id === p.id) { cmp.say(flash.text, "okk"); flash = null; }
+    if (flash?.id === p.id && openComposers.has(p.id)) { cmp.say(flash.text, flash.kind || "okk"); flash = null; }
     // O que está com o cliente agora, para conferir sem abrir a visão dele
     const curCopy = G.latestVersion(data.versions, p.id, "copy");
     const curArte = G.latestVersion(data.versions, p.id, "arte");
@@ -594,21 +600,10 @@
       return el("div", { class: "decide" }, note, el("div", { class: "row" }, b));
     });
 
-    // Revisão interna: rascunhos da equipe esperando o seu ok
-    const drafts = data.drafts.filter((v) => v.post_id === p.id);
-    const review = drafts.length ? el("div", { class: "review" },
-      el("div", { class: "eyebrow" }, `Revisão interna (${drafts.length})`),
-      drafts.map((v) => {
-        const sendBtn = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente");
-        sendBtn.addEventListener("click", async () => {
-          const { error } = await sb.rpc("send_version", { p_version: v.id });
-          error ? fail(error) : openMonth(m);
-        });
-        return el("div", { class: "draft" },
-          el("div", { class: "msg" }, `${v.stage === "arte" ? "Arte" : "Copy"} v${v.number} · por ${GWork.nameOf(data.team, v.author_email)} · ${GWork.when(v.created_at)}`),
-          GWork.preview(v, data.draftUrls), el("div", { class: "row" }, sendBtn),
-          el("p", { class: "msg" }, "Para pedir ajuste interno, comente abaixo."));
-      })) : null;
+    // Revisão interna: pedir ajuste em cada parte e enviar o post completo ao cliente
+    const review = GWork.reviewPanel({ sb, post: p, all: data.allVersions, urls: data.draftUrls, team: data.team,
+      onChange: async (text) => { flash = { id: p.id, kind: "okk", text }; openPosts.add(p.id); await openMonth(m, true); } });
+    if (flash?.id === p.id) { out.className = `msg ${flash.kind || "okk"}`; out.textContent = flash.text; flash = null; }
 
     // Recolhido por padrão: a linha mostra data, título e status; o resto abre no clique.
     // O que estava aberto continua aberto depois de salvar (a página re-renderiza).

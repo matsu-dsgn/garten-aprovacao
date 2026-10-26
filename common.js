@@ -196,7 +196,14 @@ window.G = (() => {
     const opp = p.kind === "oportunidade";
     const sentArte = G.latestVersion(d.sent, p.id, "arte");
     const draftArte = G.latestVersion(d.drafts, p.id, "arte");
-    if (draftArte && draftArte.number > (sentArte?.number || 0)) return { col: "revisao", stage: "arte" };
+    const sentCopy0 = G.latestVersion(d.sent, p.id, "copy");
+    const draftCopy0 = G.latestVersion(d.drafts, p.id, "copy");
+    const newArte = draftArte && draftArte.number > (sentArte?.number || 0) ? draftArte : null;
+    const newCopy = draftCopy0 && draftCopy0.number > (sentCopy0?.number || 0) ? draftCopy0 : null;
+    // Ajuste interno pedido pelo Rapha num rascunho volta o card para Ajuste
+    const internal = [newCopy, newArte].find((v) => v?.review_note);
+    if (internal) return { col: "ajuste", stage: internal.stage, internal: internal };
+    if (newArte || newCopy) return { col: "revisao", stage: newArte && newCopy ? "ambos" : newArte ? "arte" : "copy" };
     if (sentArte) {
       const s = lastDecision(p.id, "arte", sentArte.id)?.status;
       if (s === "aprovado") return { col: "aprovado" };
@@ -216,6 +223,23 @@ window.G = (() => {
     const pautaOk = opp || G.stageState({ versions: d.sent, decisions: d.decisions }, p, "pauta").status === "aprovado";
     if (pautaOk) return { col: p.assignee ? "producao" : "copy", stage: "copy" };
     return { col: "espera" };
+  }
+
+  // O post está completo para ir ao cliente? Arte sempre; texto e legenda também, menos no Stories.
+  // Mesma regra do send_post no banco (lá é a que vale).
+  function readiness(all, p) {
+    const last = (stage) => all.filter((v) => v.post_id === p.id && v.stage === stage).sort((a, b) => b.number - a.number)[0] || null;
+    const sentMax = (stage) => Math.max(0, ...all.filter((v) => v.post_id === p.id && v.stage === stage && v.sent).map((v) => v.number));
+    const copy = last("copy"), arte = last("arte");
+    const falta = [];
+    if (!arte || !(arte.asset_paths || []).length) falta.push("arte");
+    if (p.format !== "stories") {
+      if (!copy || !(copy.copy_text || "").trim()) falta.push("texto da arte");
+      if (!copy || !(copy.caption_text || "").trim()) falta.push("legenda");
+    }
+    const ajuste = [copy, arte].some((v) => v && !v.sent && v.review_note);
+    const novo = (copy?.number || 0) > sentMax("copy") || (arte?.number || 0) > sentMax("arte");
+    return { ok: !falta.length && !ajuste && novo, falta, ajuste, novo };
   }
 
   // Agrupa itens por quando entraram no radar: Hoje, Ontem, Esta semana, depois por mês
@@ -259,5 +283,5 @@ window.G = (() => {
     return areas.length ? `${quem} da área de ${lista(areas)}` : quem;
   }
 
-  return { radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  return { readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();
