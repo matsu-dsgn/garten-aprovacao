@@ -244,5 +244,17 @@ window.G = (() => {
       el("h3", { class: "radar-group-h" }, el("span", {}, l), el("small", {}, `${list.length} ${list.length === 1 ? "item" : "itens"}`)),
       list.map(card))));
 
-  return { radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // Impacto na carteira: frase do radar ou, sem ela, montada pelos setores
+  const SETORES = { tecnologia: "tecnologia", gestao: "gestão", marketing: "marketing", engenharia: "engenharia", educacao: "educação", saude: "saúde" };
+  function radarImpacto(a) {
+    if (a.impacto_carteira) return a.impacto_carteira;
+    const s = (a.setores_afetados || []).filter(Boolean);
+    if (!s.length) return null;
+    if (s.includes("todos")) return "Afeta todos os seus clientes";
+    const n = s.map((x) => SETORES[x] || x);
+    const lista = n.length > 1 ? `${n.slice(0, -1).join(", ")} e ${n[n.length - 1]}` : n[0];
+    return `Afeta seus clientes da área de ${lista}`;
+  }
+
+  return { radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

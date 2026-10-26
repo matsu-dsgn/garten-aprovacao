@@ -73,6 +73,7 @@
       el("p", {}, a.resumo),
       dl("Vigência", vig(a.vigencia)),
       dl("Para quem vale", a.publico),
+      dl("Na carteira", G.radarImpacto(a)),
       dl("Ideia de post", a.angulo_pauta),
       url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, "Ver fonte oficial ↗") : null,
       el("p", { class: "radar-disclaimer" }, "Resumo automático. Confira sempre na fonte oficial."),

@@ -142,7 +142,7 @@ async function decide(req: Request, month: { id: string }) {
 
 // ---------- Radar legislativo (visão do cliente) ----------
 // Qualquer link de mês válido dá acesso ao radar inteiro (não é dado por mês).
-const RADAR_FIELDS = "id, created_at, data_publicacao, esfera, orgao, ato, titulo, resumo, vigencia, publico, relevancia, tipo, angulo_pauta, url, status, cliente_avaliacao, cliente_actor";
+const RADAR_FIELDS = "id, created_at, data_publicacao, esfera, orgao, ato, titulo, resumo, vigencia, publico, relevancia, tipo, angulo_pauta, url, setores_afetados, impacto_carteira, status, cliente_avaliacao, cliente_actor";
 
 async function radarState() {
   const [{ data: alerts }, { data: runs }, { data: approvers }] = await Promise.all([
