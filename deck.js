@@ -1,6 +1,6 @@
 // Relatório mensal em slides (1920×1080), compartilhado entre o editor (admin) e a visão do cliente.
-// Inspirado no relatório Sou Seara: capa → números do mês → cada rede (divisória, visão geral, leitura, top 3)
-// → aprendizados → próximos passos → encerramento. Slides sem dado se escondem sozinhos.
+// Mesma estrutura do relatório Sou Seara: capa → overview → comparativos → cada rede (divisória, overview,
+// formato/editoria, o que bombou) → comentários → aprendizados → próximos passos → encerramento. Slides sem dado se escondem sozinhos.
 // Todo texto entra via textContent (G.el); a CSP não permite style inline, larguras vão por CSSOM.
 window.GDeck = (() => {
   const { el } = G;
@@ -26,31 +26,60 @@ window.GDeck = (() => {
   const logo = (dark) => el("img", { class: "dk-logo", src: dark ? "assets/logo.svg" : "assets/logo-deep-space-blue.svg", alt: "garten" });
   const width = (node, f) => { node.style.width = `${Math.max(1.5, Math.round(f * 100))}%`; return node; };
 
-  // Variação contra o mês anterior, em número absoluto (números pequenos viram percentuais enganosos)
-  function vary(cur, prev, prevLabel) {
+  // Variação contra o mês anterior. Base pequena (< 20) vira número absoluto: % sobre 3 posts engana.
+  function pct(cur, prev) {
     if (prev == null || cur == null) return null;
-    const d = Math.round(cur - prev);
-    if (d === 0) return el("span", { class: "dk-var eq" }, `igual a ${prevLabel}`);
-    return el("span", { class: `dk-var ${d > 0 ? "up" : "down"}` }, `${d > 0 ? "+" : "−"}${nf.format(Math.abs(d))} vs ${prevLabel}`);
+    if (prev === 0) return cur === 0 ? { flat: true, text: "— igual" } : { up: true, text: "▲ novo" };
+    const d = cur - prev;
+    if (Math.abs(prev) < 20) {
+      const r = Math.round(d * 10) / 10;
+      if (!r) return { flat: true, text: "— igual" };
+      return { up: r > 0, text: `${r > 0 ? "▲ +" : "▼ −"}${dec(Math.abs(r))}` };
+    }
+    const v = (d / Math.abs(prev)) * 100;
+    if (Math.abs(v) < 0.05) return { flat: true, text: "— 0,0%" };
+    return { up: v > 0, text: `${v > 0 ? "▲ +" : "▼ −"}${Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%` };
   }
+  // Taxa: diferença em pontos percentuais
+  function pp(cur, prev) {
+    if (prev == null || cur == null) return null;
+    const r = Math.round((cur - prev) * 100) / 100;
+    if (!r) return { flat: true, text: "— igual" };
+    return { up: r > 0, text: `${r > 0 ? "▲ +" : "▼ −"}${Math.abs(r).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} p.p.` };
+  }
+  const pill = (v, suffix = "") => v ? el("span", { class: `dk-pill ${v.flat ? "flat" : v.up ? "up" : "down"}` }, v.text + (v.flat ? "" : suffix)) : null;
+  const rate = (x) => (x && x.reach ? (x.interactions / x.reach) * 100 : null);
+  const pctf = (v) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`);
+  const RATE_HELP = "Taxa de engajamento = interações ÷ alcance × 100";
+
+  // Aprendizados: 3 cartões {title, text}. Aceita o formato antigo (lista de frases).
+  function learningsOf(t) {
+    const raw = Array.isArray(t?.learnings) ? t.learnings : [];
+    const out = raw.slice(0, 3).map((l) => typeof l === "string" ? { title: "", text: l } : { title: String(l?.title || ""), text: String(l?.text || "") });
+    while (out.length < 3) out.push({ title: "", text: "" });
+    return out;
+  }
+  const NETS_ORDER = ["instagram", "facebook"];
+  const netsOf = (d) => Object.entries(d.networks || {}).sort(([a], [b]) => NETS_ORDER.indexOf(a) - NETS_ORDER.indexOf(b));
+  const active = (n) => (n?.current?.posts || 0) + (n?.current?.stories || 0) > 0;
 
   // ---------- montagem da sequência ----------
   function plan(report) {
     const d = report.data || {}, t = report.texts || {}, hidden = new Set(report.hidden || []);
-    const ORDER = ["instagram", "facebook"];
-    const nets = Object.entries(d.networks || {}).sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b));
-    const has = (n) => (n?.current?.posts || 0) + (n?.current?.stories || 0) > 0;
-    const out = [{ id: "capa", label: "Capa" }, { id: "overview", label: "O mês em números" }];
+    const nets = netsOf(d);
+    const out = [{ id: "capa", label: "Capa", type: "capa" }, { id: "overview", label: "Overview do mês", type: "overview" }];
+    for (const [k, n] of nets) out.push({ id: `${k}-cmp`, label: `Comparativo — ${NET[k]}`, type: "cmp", net: k, auto: !active(n) || !n.previous });
     for (const [k, n] of nets) {
-      const auto = !has(n);
-      out.push({ id: `${k}-div`, label: `${NET[k]} · abertura`, net: k, auto });
-      out.push({ id: `${k}`, label: `${NET[k]} · visão geral`, net: k, auto });
-      out.push({ id: `${k}-leitura`, label: `${NET[k]} · formato e editoria`, net: k, auto: auto || (n.byFormat || []).length + (n.byEditoria || []).length < 2 });
-      out.push({ id: `${k}-top`, label: `${NET[k]} · melhores posts`, net: k, auto: !(n.top || []).length });
+      const off = !active(n);
+      out.push({ id: `${k}-div`, label: `Divisória — ${NET[k]}`, type: "div", net: k, auto: off });
+      out.push({ id: `${k}`, label: `Overview ${NET[k]}`, type: "rede", net: k, auto: off });
+      out.push({ id: `${k}-leitura`, label: `Formato e editoria — ${NET[k]}`, type: "leitura", net: k, auto: off || (n.byFormat || []).length + (n.byEditoria || []).length < 2 });
+      out.push({ id: `${k}-top`, label: `O que bombou — ${NET[k]}`, type: "top", net: k, auto: !(n.top || []).length });
     }
-    out.push({ id: "aprendizados", label: "Aprendizados", auto: !(t.learnings || []).filter(Boolean).length });
-    out.push({ id: "proximos", label: "Próximos passos", auto: !(t.next_steps || []).filter(Boolean).length });
-    out.push({ id: "fim", label: "Encerramento" });
+    out.push({ id: "comentarios", label: "Análise de comentários", type: "comentarios", auto: !(t.comments || "").trim() });
+    out.push({ id: "aprendizados", label: "Aprendizados do mês", type: "aprendizados", auto: !learningsOf(t).some((l) => l.title || l.text) });
+    out.push({ id: "proximos", label: "Próximos passos", type: "proximos", auto: !(t.next_steps || []).filter(Boolean).length });
+    out.push({ id: "fim", label: "Encerramento", type: "fim" });
     for (const s of out) { s.manual = hidden.has(s.id); s.hidden = s.manual || !!s.auto; }
     return out;
   }
@@ -59,73 +88,93 @@ window.GDeck = (() => {
   function slide(s, report, urls, page) {
     const d = report.data, t = report.texts || {};
     const { mes, ano } = monthName(d.slug);
-    const prevLabel = monthName(d.prev_slug).mes;
-    const foot = () => el("div", { class: "dk-foot" }, el("span", {}, `Relatório de ${mes} ${ano}`), el("span", {}, String(page).padStart(2, "0")));
+    const Mes = `${mes[0].toUpperCase()}${mes.slice(1)} ${ano}`;
+    const prevName = monthName(d.prev_slug || d.slug).mes;
+    const foot = () => el("div", { class: "dk-foot" }, el("span", {}, `Garten · Relatório de redes · ${Mes}`), el("span", {}, page ? String(page).padStart(2, "0") : ""));
     const S = (cls, ...kids) => el("section", { class: `dk-slide ${cls}`, "data-id": s.id }, ...kids);
+    const head = (kicker, title) => el("div", { class: "dk-head" }, el("p", { class: "dk-kicker" }, kicker), el("h2", { class: "dk-h2" }, title));
     const n = s.net ? d.networks[s.net] : null;
 
-    if (s.id === "capa") return S("bg-deep",
+    if (s.type === "capa") return S("bg-deep",
       symbol("dk-outline dk-outline--capa", true), logo(true),
       el("div", { class: "dk-capa" },
         el("p", { class: "dk-kicker" }, "Relatório mensal de redes sociais"),
         el("h1", { class: "dk-h1" }, "Relatório de"),
         el("h1", { class: "dk-h1 dk-hlt dk-indent" }, `${mes} ${ano}`)),
-      el("div", { class: "dk-foot" }, el("span", {}, Object.keys(d.networks || {}).filter((k) => (d.networks[k].current?.posts || 0) > 0).map((k) => NET[k]).join(" e ") || "Instagram"), el("span", {})));
+      el("div", { class: "dk-foot" }, el("span", {}, netsOf(d).filter(([, x]) => active(x)).map(([k]) => NET[k]).join(" e ") || "Instagram"), el("span", {})));
 
-    if (s.id === "overview") {
-      const nets = Object.entries(d.networks).sort(([a], [b]) => (a === "instagram" ? -1 : b === "instagram" ? 1 : 0)).filter(([, x]) => (x.current?.posts || 0) + (x.current?.stories || 0) > 0);
-      const rows = [
-        ["Posts no feed", (x) => x.current.posts, (x) => x.previous?.posts],
-        ["Stories", (x) => x.current.stories, (x) => x.previous?.stories],
-        ["Alcance somado dos posts", (x) => x.current.reach, (x) => x.previous?.reach],
-        ["Compartilhamentos", (x) => x.current.shares, (x) => x.previous?.shares],
-        ["Salvamentos", (x) => x.current.saved, (x) => x.previous?.saved],
-        ["Seguidores", (x) => x.followers?.end, () => null],
-      ];
+    if (s.type === "overview") {
+      const nets = netsOf(d).filter(([, x]) => active(x));
+      const tot = (f) => nets.reduce((a, [, x]) => a + (f(x) || 0), 0);
+      const totPrev = (f) => nets.some(([, x]) => x.previous) ? nets.reduce((a, [, x]) => a + (x.previous ? f(x.previous) || 0 : 0), 0) : null;
+      const rows = nets.map(([k, x]) => {
+        const f = x.followers || {}, gain = f.end != null && f.start != null && f.start !== f.end ? f.end - f.start : null;
+        return el("div", { class: "dk-ov-row" },
+          el("span", { class: "dk-ov-net" }, NET[k]),
+          el("span", { class: "dk-ov-cell" }, el("b", { class: "dk-ov-box" }, num(f.end)), el("span", { class: "dk-cap" }, "Total")),
+          el("span", { class: "dk-ov-cell" }, gain != null
+            ? el("span", { class: `dk-pill ${gain > 0 ? "up" : "down"}` }, `${gain > 0 ? "▲ +" : "▼ −"}${num(Math.abs(gain))}`)
+            : el("span", { class: "dk-pill flat" }, f.end == null ? "sem histórico" : "começou agora"),
+            el("span", { class: "dk-cap" }, "Ganhos no mês")));
+      });
+      const totalF = nets.every(([, x]) => x.followers?.end != null) ? tot((x) => x.followers.end) : null;
+      const metric = (label, f) => el("div", { class: "dk-ov-metric" }, el("span", { class: "dk-cap dk-cap--l" }, label),
+        el("b", { class: "dk-ov-mbox" }, num(tot((x) => f(x.current)))), pill(pct(tot((x) => f(x.current)), totPrev(f)), " vs mês ant."));
       return S("bg-light",
-        el("p", { class: "dk-kicker" }, `Visão geral · ${mes}`),
-        el("h2", { class: "dk-h2" }, "O mês em números"),
-        el("table", { class: "dk-table dk-table--big" },
-          el("thead", {}, el("tr", {}, el("th", {}, ""), nets.map(([k]) => el("th", {}, NET[k])))),
-          el("tbody", {}, rows.map(([label, cur, prev]) => el("tr", {}, el("th", { scope: "row" }, label),
-            nets.map(([, x]) => el("td", {}, el("b", {}, num(cur(x))), vary(cur(x), prev(x), prevLabel))))))),
+        head(Mes, "Overview do mês"),
+        el("div", { class: "dk-ov" },
+          el("section", { class: "dk-ov-left" }, el("p", { class: "dk-sec" }, "Evolução da comunidade"), rows,
+            el("div", { class: "dk-ov-total" }, el("span", {}, "Total de seguidores"), el("b", {}, num(totalF)))),
+          el("section", { class: "dk-ov-right" }, el("p", { class: "dk-sec" }, "Números totais das redes"),
+            el("div", { class: "dk-ov-grid" },
+              metric("Publicações", (c) => c.posts), metric("Alcance", (c) => c.reach),
+              metric("Compartilhamentos", (c) => c.shares), metric("Salvamentos", (c) => c.saved)))),
         foot());
     }
 
-    if (s.id.endsWith("-div")) return S("bg-neon",
+    if (s.type === "cmp") {
+      const c = n.current, p = n.previous || {};
+      const tiles = [["rate", "Taxa de engajamento"], ["shares", "Compartilhamentos"], ["saved", "Salvamentos"],
+        ["posts", "Publicações"], ["reach", "Alcance"], ["interactions", "Interações"]].map(([k, label], i) => {
+        const isRate = k === "rate", cur = isRate ? rate(c) : c[k], prv = isRate ? rate(p) : p[k];
+        return el("div", { class: `dk-ctile${i === 0 ? " hero" : ""}` }, el("span", { class: "dk-cap dk-cap--l" }, label),
+          el("div", { class: "dk-flow" }, el("span", { class: "dk-was" }, isRate ? pctf(prv) : num(prv)), el("span", { class: "dk-arrow", "aria-hidden": "true" }, "→"),
+            el("b", { class: "dk-now" }, isRate ? pctf(cur) : num(cur))),
+          pill(isRate ? pp(cur, prv) : pct(cur, prv)) || el("span", { class: "dk-pill flat" }, "sem base"));
+      });
+      return S("bg-pale", head(`${prevName} → ${Mes}`, `${NET[s.net]}: mês anterior × atual`), el("div", { class: "dk-cmp" }, tiles), foot());
+    }
+
+    if (s.type === "div") return S("bg-neon",
       symbol("dk-outline dk-outline--div", true),
-      el("div", { class: "dk-div" }, el("p", { class: "dk-kicker" }, "Detalhe por rede"), el("h1", { class: "dk-giant" }, NET[s.net])),
+      el("div", { class: "dk-div" }, el("p", { class: "dk-kicker" }, "Resultados do"), el("h1", { class: "dk-giant" }, NET[s.net]),
+        el("p", { class: "dk-div-mes" }, Mes)),
       foot());
 
-    if (n && s.id === s.net) {
-      const c = n.current, a = n.account || {};
-      const tile = (label, v, sub, strong) => el("div", { class: `dk-tile${strong ? " strong" : ""}` },
-        el("span", { class: "dk-tile-l" }, label), el("b", { class: "dk-tile-n" }, typeof v === "string" ? v : num(v)), sub || null);
-      const accTiles = s.net === "instagram"
-        ? [["Visitas ao perfil", a.profile_views], ["Contas engajadas", a.accounts_engaged], ["Cliques no site", a.website_clicks]]
-        : [["Visualizações da Página", a.page_media_view], ["Engajamento na Página", a.page_post_engagements]];
+    if (s.type === "rede") {
+      const c = n.current, p = n.previous, a = n.account || {}, f = n.followers || {};
+      const k = (label, v, prevV, hero, sub) => el("div", { class: `dk-kpi${hero ? " hero" : ""}` }, el("span", { class: "dk-cap dk-cap--l" }, label),
+        el("b", { class: "dk-kpi-n" }, typeof v === "string" ? v : num(v)), p && prevV !== undefined ? pill(pct(typeof v === "number" ? v : null, prevV), " vs mês ant.") : null,
+        sub ? el("span", { class: "dk-kpi-sub" }, sub) : null);
+      const extra = s.net === "instagram" ? ["Visitas ao perfil", a.profile_views] : ["Visualizações da Página", a.page_media_view];
       const analysis = (t[`analysis_${s.net}`] || "").trim();
-      return S("bg-deep",
-        el("p", { class: "dk-kicker" }, NET[s.net]),
-        el("h2", { class: "dk-h2" }, "Visão geral"),
-        el("div", { class: "dk-grid" },
-          tile("Compartilhamentos", c.shares, vary(c.shares, n.previous?.shares, prevLabel), true),
-          tile("Salvamentos", c.saved, vary(c.saved, n.previous?.saved, prevLabel), true),
-          tile("Alcance somado", c.reach, c.posts ? el("span", { class: "dk-sub" }, `média de ${num((c.reach || 0) / c.posts)} por post`) : null),
-          tile("Interações", c.interactions, el("span", { class: "dk-sub" }, "curtidas, comentários, salvamentos e compartilhamentos")),
-          tile("Posts", c.posts, el("span", { class: "dk-sub" }, c.stories ? `+ ${c.stories} Stories` : "no feed")),
-          tile("Seguidores", n.followers?.end, n.followers?.start != null && n.followers.end !== n.followers.start
-            ? el("span", { class: "dk-sub" }, `${n.followers.end - n.followers.start > 0 ? "+" : ""}${n.followers.end - n.followers.start} no mês`) : null)),
-        accTiles.some(([, v]) => v != null) ? el("div", { class: "dk-acc" }, accTiles.filter(([, v]) => v != null).map(([l, v]) =>
-          el("span", {}, el("b", {}, num(v)), ` ${l.toLowerCase()}`))) : null,
-        analysis ? el("div", { class: "dk-note" }, el("span", { class: "dk-fio" }), el("p", {}, analysis)) : null,
+      return S("bg-light",
+        head(Mes, `Overview ${NET[s.net]}`),
+        el("div", { class: "dk-rede" },
+          el("div", { class: "dk-kpis" },
+            k("Compartilhamentos", c.shares, p?.shares, true), k("Salvamentos", c.saved, p?.saved, true),
+            el("div", { class: "dk-kpi hero dk-kpi--rate" }, el("span", { class: "dk-cap dk-cap--l" }, "Taxa de engajamento"),
+              el("b", { class: "dk-kpi-n" }, pctf(rate(c))), p ? pill(pp(rate(c), rate(p)), " vs mês ant.") : null, el("span", { class: "dk-kpi-sub" }, RATE_HELP)),
+            k("Alcance", c.reach, p?.reach), k("Visualizações", c.views, p?.views), k("Interações", c.interactions, p?.interactions),
+            k("Seguidores", f.end), k("Publicações", c.posts, p?.posts, false, c.stories ? `+ ${c.stories} Stories` : null), k(extra[0], extra[1])),
+          el("div", { class: "dk-analise" }, el("p", { class: "dk-h3" }, "Análise do mês"), el("p", { class: "dk-analise-t" }, analysis || "—"))),
         foot());
     }
 
-    if (n && s.id.endsWith("-leitura")) {
+    if (s.type === "leitura") {
       const table = (title, rows) => {
         const max = Math.max(0.01, ...rows.map((r) => r.shares + r.saved));
-        return el("div", { class: "dk-read" }, el("h3", { class: "dk-h3" }, title),
+        return el("div", { class: "dk-read" }, el("p", { class: "dk-sec" }, title),
           el("table", { class: "dk-table" },
             el("thead", {}, el("tr", {}, el("th", {}, ""), el("th", {}, "Posts"), el("th", {}, "Compart. + salvos (média)"), el("th", {}, "Alcance (média)"))),
             el("tbody", {}, rows.slice(0, 6).map((r) => el("tr", {}, el("th", { scope: "row" }, r.name), el("td", {}, String(r.posts)),
@@ -133,40 +182,47 @@ window.GDeck = (() => {
               el("td", {}, num(r.reach)))))));
       };
       return S("bg-light",
-        el("p", { class: "dk-kicker" }, NET[s.net]),
-        el("h2", { class: "dk-h2" }, "O que funcionou melhor"),
+        head(NET[s.net], "O que funcionou melhor"),
         el("div", { class: "dk-cols" }, table("Por formato", n.byFormat || []), table("Por editoria", n.byEditoria || [])),
-        el("p", { class: "dk-small" }, "Média por post. Com poucos posts no mês, as diferenças pequenas ainda não são tendência."),
+        el("p", { class: "dk-small" }, "Média por post. Com poucos posts no mês, diferenças pequenas ainda não são tendência."),
         foot());
     }
 
-    if (n && s.id.endsWith("-top")) return S("bg-charcoal",
-      el("p", { class: "dk-kicker" }, NET[s.net]),
-      el("h2", { class: "dk-h2" }, (n.top || []).length === 1 ? "O post de destaque" : `Os ${(n.top || []).length} posts de destaque`),
+    if (s.type === "top") return S("bg-pale",
+      head(NET[s.net], "O que bombou"),
       el("div", { class: "dk-top" }, (n.top || []).map((p, i) => {
         const href = safeUrl(p.permalink);
         const img = p.image && urls[p.image] ? el("img", { src: urls[p.image], alt: "", loading: "lazy" }) : el("span", { class: "dk-ph" });
         return el("article", { class: "dk-card" },
-          el(href ? "a" : "div", { class: "dk-card-img", href: href || false, target: href ? "_blank" : false, rel: href ? "noopener" : false }, img,
-            el("span", { class: "dk-rank" }, String(i + 1))),
-          el("p", { class: "dk-card-t" }, p.title),
-          el("p", { class: "dk-card-d" }, `${new Date(p.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} · ${G.FORMATS[p.format] || p.format}`),
-          el("div", { class: "dk-card-m" },
-            el("span", {}, el("b", {}, num(p.shares)), " compart."), el("span", {}, el("b", {}, num(p.saved)), " salvos"),
-            el("span", {}, el("b", {}, num(p.reach)), " alcance")));
+          el("span", { class: "dk-rank" }, `#${i + 1}`),
+          el("div", { class: "dk-card-body" },
+            el(href ? "a" : "div", { class: "dk-card-img", href: href || false, target: href ? "_blank" : false, rel: href ? "noopener" : false }, img),
+            el("p", { class: "dk-card-t" }, p.title),
+            el("p", { class: "dk-card-d" }, `${new Date(p.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} · ${G.FORMATS[p.format] || p.format}`),
+            el("dl", { class: "dk-card-m" },
+              el("div", {}, el("dt", {}, "Compartilhamentos"), el("dd", {}, num(p.shares))),
+              el("div", {}, el("dt", {}, "Salvamentos"), el("dd", {}, num(p.saved))),
+              el("div", {}, el("dt", {}, "Alcance"), el("dd", {}, num(p.reach))),
+              el("div", {}, el("dt", {}, "Curtidas e coment."), el("dd", {}, num((p.likes || 0) + (p.comments || 0)))))));
       })),
       foot());
 
-    if (s.id === "aprendizados") return S("bg-light",
-      el("p", { class: "dk-kicker" }, `O que ${mes} ensinou`),
-      el("h2", { class: "dk-h2" }, "Aprendizados"),
-      el("ol", { class: "dk-list" }, (t.learnings || []).filter(Boolean).slice(0, 6).map((x) => el("li", {}, x))),
+    if (s.type === "comentarios") return S("bg-deep",
+      head(Mes, "Análise de comentários"),
+      el("div", { class: "dk-box-note" }, el("p", {}, (t.comments || "").trim() || "—")),
       foot());
 
-    if (s.id === "proximos") return S("bg-deep",
+    if (s.type === "aprendizados") return S("bg-light",
+      head(Mes, "Aprendizados do mês"),
+      el("div", { class: "dk-learn" }, learningsOf(t).map((l, i) => el("article", {},
+        el("span", { class: "dk-learn-n" }, String(i + 1)),
+        el("h3", { class: "dk-learn-t" }, l.title || "—"),
+        el("p", { class: "dk-learn-d" }, l.text)))),
+      foot());
+
+    if (s.type === "proximos") return S("bg-deep",
       symbol("dk-outline dk-outline--side", true),
-      el("p", { class: "dk-kicker" }, "Para o próximo mês"),
-      el("h2", { class: "dk-h2" }, "Próximos passos"),
+      head("Para o próximo mês", "Próximos passos"),
       el("ol", { class: "dk-list" }, (t.next_steps || []).filter(Boolean).slice(0, 6).map((x) => el("li", {}, x))),
       foot());
 
@@ -175,6 +231,14 @@ window.GDeck = (() => {
       el("h1", { class: "dk-h1" }, "A base sólida"),
       el("h1", { class: "dk-h1 dk-hlt dk-indent" }, "para o seu próximo passo."),
       el("div", { class: "dk-foot" }, logo(false), el("span", {})));
+  }
+
+  // Um slide específico (o editor mostra até os escondidos)
+  function one(report, urls, id) {
+    const p = plan(report), s = p.find((x) => x.id === id) || p[0];
+    const visible = p.filter((x) => !x.hidden);
+    const page = visible.indexOf(s) + 1;
+    return slide(s, report, urls || {}, page || 0);
   }
 
   function build(report, urls) {
@@ -236,5 +300,5 @@ window.GDeck = (() => {
     setTimeout(() => window.print(), 300);
   }
 
-  return { plan, build, thumb, fit, present, print, monthName };
+  return { plan, build, one, thumb, fit, present, print, monthName, learningsOf };
 })();
