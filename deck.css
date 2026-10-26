@@ -20,8 +20,9 @@
 .dk-capa { margin-top: auto; margin-bottom: 40px; display: grid; gap: 6px; }
 .dk-capa .dk-kicker { margin-bottom: 26px; font-size: 30px; }
 .dk-outline { position: absolute; color: #9aff57; pointer-events: none; }
-.dk-outline--capa { width: 1500px; right: -560px; top: -280px; opacity: .55; }
-.dk-outline--div { width: 1700px; right: -420px; top: -330px; color: #002a50; opacity: .25; }
+.dk-outline--capa { width: 820px; right: -330px; top: -330px; opacity: .55; }
+.dk-capa .dk-h1, .dk-slide .dk-h1 { position: relative; z-index: 1; }
+.dk-outline--div { width: 620px; right: -160px; top: -260px; color: #002a50; opacity: .25; }
 .dk-outline--side { width: 1100px; right: -520px; bottom: -420px; opacity: .3; }
 .dk-foot { position: absolute; left: 144px; right: 144px; bottom: 64px; display: flex; justify-content: space-between; align-items: center; font-size: 22px; color: #a2bdd2; }
 .bg-light .dk-foot { color: #46566b; } .bg-neon .dk-foot { color: #002a50; }
