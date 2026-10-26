@@ -85,6 +85,21 @@ async function latestApprovedArte(postId: string): Promise<string[]> {
 
 async function publishOne(postId: string) {
   const paths = await latestApprovedArte(postId);
+  const { data: post } = await db.from("posts").select("format").eq("id", postId).single();
+
+  // Stories: uma mídia por publicação, sem legenda (a API ignora caption em Stories)
+  if (post?.format === "stories") {
+    if (paths.length !== 1) throw new Error("Stories publica uma mídia por vez. Deixe só 1 arte na versão aprovada.");
+    if (DRY) return { media: "simulado", link: null };
+    const m = await publicUrl(paths[0], postId, 1);
+    const c = await graph(`${IG_USER}/media`, m.video
+      ? { media_type: "STORIES", video_url: m.url }
+      : { media_type: "STORIES", image_url: m.url });
+    await waitReady(c.id);
+    const pub = await graph(`${IG_USER}/media_publish`, { creation_id: c.id });
+    return { media: pub.id as string, link: null };
+  }
+
   // Legenda aprovada (copy = texto da arte, não vai na legenda)
   const { data: caption } = await db.rpc("approved_caption", { p_post: postId });
   const text = String(caption ?? "").slice(0, 2200);
