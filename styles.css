@@ -837,6 +837,11 @@ a.ov-tile:active { transform: scale(.98); }
 .ov-acts ul { margin: 8px 0 2px 18px; display: grid; gap: 3px; font-size: 14px; color: var(--ink-2); }
 .ov-radar { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-ink); font-weight: 600; font-size: 14px; }
 .ov-radar .nav-ico { width: 18px; height: 18px; }
+.ov-radar-ok { display: grid; gap: 6px; margin-bottom: 10px; }
+.ov-radar-ok > span { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-ink); font-weight: 600; font-size: 14px; }
+.ov-radar-ok .nav-ico { width: 18px; height: 18px; }
+.ov-radar-ok ul { margin: 0; padding-left: 26px; }
+.radar-card-link { display: inline-block; font-weight: 600; color: var(--accent-ink); }
 .ov-pick { width: auto; max-width: 220px; flex: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 99px; padding: 6px 12px; font: inherit; font-size: 14px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ov-tile.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); } }
 :root[data-theme="dark"] .ov-tile.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); }

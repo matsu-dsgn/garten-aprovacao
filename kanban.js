@@ -92,7 +92,7 @@
       el("div", { class: "kfoot" },
         el("span", { class: `kpill p-${sk}` }, (sk === "agendado" ? GWork.schedLabel(p) : SUB[sk].label) + (st.stage && ["revisao", "cliente", "ajuste", "producao"].includes(sk) ? ` · ${st.stage === "copy" ? "copy" : "arte"}` : "")),
         p.editoria ? el("span", { class: "ktag" }, edName(p.editoria)) : null,
-        p.kind === "oportunidade" ? el("span", { class: "ktag opp" }, "Oportunidade") : null,
+        p.kind === "oportunidade" ? el("span", { class: "ktag opp" }, p.origin === "radar" ? "Radar · validado" : "Oportunidade") : null,
         dueTag(p),
         ncom ? el("span", { class: "kcom", "aria-label": `${ncom} comentários` }, `${ncom} coment.`) : null));
     card.addEventListener("pointerdown", (e) => startDrag(e, card, p));

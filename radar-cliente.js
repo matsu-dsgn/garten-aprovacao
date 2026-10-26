@@ -75,6 +75,7 @@
       dl("Vigência", vig(a.vigencia)),
       dl("Para quem vale", a.publico),
       dl("Ideia de post", a.angulo_pauta),
+      a.card_date ? dl("No calendário", `Virou post sugerido para ${a.card_date.split("-").reverse().join("/")}`) : null,
       url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, "Ver fonte oficial ↗") : null,
       el("p", { class: "radar-disclaimer" }, "Resumo automático. Confira sempre na fonte oficial."),
       el("div", { class: "row" },

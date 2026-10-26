@@ -20,6 +20,7 @@
   let alerts = [];
   let lastRun = null;
   let runs = [];
+  let cards = new Map(); // alerta → post criado pelo "Faz sentido" do cliente
   let filter = "ativos"; // ativos | todos | virou_pauta | descartado
 
   const msg = (text, kind = "") => el("p", { class: `msg ${kind}`, role: "status" }, text);
@@ -38,10 +39,12 @@
   }
 
   async function load() {
-    const [a, r] = await Promise.all([
+    const [a, r, c] = await Promise.all([
       sb.from("radar_alerts").select("*").order("created_at", { ascending: false }).limit(300),
       sb.from("radar_runs").select("run_at, finished_at, itens, ok, notas").order("run_at", { ascending: false }).limit(10),
+      sb.from("posts").select("id, post_date, radar_alert_id, months(slug)").not("radar_alert_id", "is", null),
     ]);
+    cards = new Map((c.data || []).map((p) => [p.radar_alert_id, p]));
     if (a.error) return app.replaceChildren(msg(a.error.message, "err"));
     alerts = a.data || [];
     runs = r.data || [];
@@ -154,6 +157,8 @@
       dl("Para quem vale", a.publico),
       dl("Ângulo de pauta", a.angulo_pauta),
       url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, "Ver fonte oficial ↗") : null,
+      cards.get(a.id) ? el("a", { class: "radar-card-link", href: `kanban.html?mes=${encodeURIComponent(cards.get(a.id).months?.slug || "")}&post=${encodeURIComponent(cards.get(a.id).id)}` },
+        `Virou card no Kanban · sugerido para ${cards.get(a.id).post_date.split("-").reverse().join("/")} ↗`) : null,
       actions,
     );
   }

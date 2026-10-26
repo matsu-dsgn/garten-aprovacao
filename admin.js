@@ -186,14 +186,16 @@
 
   async function fillOverview(box, m) {
     try {
-      const { data: posts, error } = await sb.from("posts").select("id, title, post_date, kind, assignee, scheduled").eq("month_id", m.id).order("post_date");
+      const { data: posts, error } = await sb.from("posts").select("id, title, post_date, kind, origin, assignee, scheduled, validated_by, validated_at, validation_withdrawn").eq("month_id", m.id).order("post_date");
       if (error) throw error;
       const ids = posts.map((p) => p.id);
       const q = (t, order) => ids.length ? sb.from(t).select("*").in("post_id", ids).order(order) : Promise.resolve({ data: [] });
-      const [v, dc, tm, rd] = await Promise.all([
+      const semana = new Date(Date.now() - 7 * 864e5).toISOString();
+      const [v, dc, tm, rd, rv] = await Promise.all([
         q("versions", "number"), q("decisions", "created_at"),
         sb.from("team_members").select("email, name"),
         sb.from("radar_alerts").select("id", { count: "exact", head: true }).eq("status", "novo"),
+        sb.from("posts").select("id, title, validated_by, months(slug)").eq("origin", "radar").gte("validated_at", semana).order("validated_at", { ascending: false }),
       ]);
       const all = v.data || [];
       const d = { sent: all.filter((x) => x.sent), drafts: all.filter((x) => !x.sent), decisions: dc.data || [] };
@@ -226,6 +228,9 @@
 
       // Quem acionar
       const acts = [];
+      const radarCards = posts.filter((p) => p.origin === "radar");
+      if (radarCards.length) acts.push(["Validadas pelo cliente no radar", radarCards.map((p) => item(p, p.validation_withdrawn
+        ? `${p.title} (validação retirada pelo cliente)` : `${p.title} (${p.validated_by || "cliente"} · ${p.post_date.split("-").reverse().join("/")})`))]);
       const stg = (p) => (p.stage === "arte" ? "arte" : "texto");
       const item = (p, text) => ({ id: p.id, text });
       if (cols.revisao.length) acts.push(["Você revisa", cols.revisao.map((p) => item(p, `${p.title} (${stg(p)})`))]);
@@ -260,10 +265,20 @@
         acts.length ? el("div", { class: "ov-acts" }, el("h3", { class: "ov-h" }, "Quem acionar"),
           acts.map(([who, list]) => el("details", { open: true }, el("summary", {}, `${who} · ${list.length}`), el("ul", {}, list.map((t) => el("li", {}, el("a", { href: cardHref(t.id) }, t.text)))))))
           : el("p", { class: "msg okk" }, "Nada travado agora."),
+        radarValidacoes(rv.data || []),
         (rd.count || 0) ? el("a", { class: "ov-radar", href: "radar.html" }, G.icon("radar"), `${rd.count} ${rd.count === 1 ? "novidade" : "novidades"} no radar legislativo`) : null);
     } catch (e) {
       box.replaceChildren(msg(`Não foi possível montar o overview: ${e.message}`, "err"));
     }
+  }
+
+  // Validações do cliente no radar nos últimos 7 dias, de qualquer mês
+  function radarValidacoes(list) {
+    if (!list.length) return null;
+    const quem = [...new Set(list.map((p) => p.validated_by).filter(Boolean))];
+    const txt = `${quem.length ? quem.join(" e ") : "O cliente"} ${quem.length > 1 ? "validaram" : "validou"} ${list.length} ${list.length === 1 ? "pauta" : "pautas"} do radar nesta semana`;
+    return el("div", { class: "ov-radar-ok" }, el("span", {}, G.icon("radar"), txt),
+      el("ul", {}, list.map((p) => el("li", {}, el("a", { href: `kanban.html?mes=${encodeURIComponent(p.months?.slug || "")}&post=${encodeURIComponent(p.id)}` }, p.title)))));
   }
 
   function newMonthBtn() {
@@ -624,7 +639,10 @@
       el("details", {}, el("summary", {}, `Comentários internos (${data.comments.filter((c) => c.post_id === p.id).length})${p.assignee ? ` · com ${GWork.nameOf(data.team, p.assignee)}` : ""}`),
         GWork.comments(sb, data.comments, data.team, p.id, () => openMonth(m))),
       p.kind === "oportunidade" ? el("div", { class: "row" },
-        el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido do cliente" : "Oportunidade"),
+        el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido do cliente" : p.origin === "radar" ? "Validado pelo cliente · Radar" : "Oportunidade"),
+        p.origin === "radar" ? el("span", { class: `msg${p.validation_withdrawn ? " err" : ""}` }, p.validation_withdrawn
+          ? "O cliente retirou a validação depois que o post já tinha copy ou arte. Decida se segue."
+          : `por ${p.validated_by || "cliente"}${p.validated_at ? ` em ${new Date(p.validated_at).toLocaleDateString("pt-BR")}` : ""}`) : null,
         p.respond_by ? el("span", { class: "msg" }, `Prazo: ${new Date(p.respond_by).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`) : null,
         dlSel) : null,
       el("div", { class: "row" }, edSel, linkBtn, sched, del), out));

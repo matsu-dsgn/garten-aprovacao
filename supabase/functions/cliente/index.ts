@@ -145,12 +145,100 @@ async function decide(req: Request, month: { id: string }) {
 const RADAR_FIELDS = "id, created_at, data_publicacao, esfera, orgao, ato, titulo, resumo, vigencia, publico, relevancia, tipo, angulo_pauta, url, setores_afetados, impacto_carteira, status, cliente_avaliacao, cliente_actor";
 
 async function radarState() {
-  const [{ data: alerts }, { data: runs }, { data: approvers }] = await Promise.all([
+  const [{ data: alerts }, { data: runs }, { data: approvers }, { data: cards }] = await Promise.all([
     db.from("radar_alerts").select(RADAR_FIELDS).order("created_at", { ascending: false }).limit(150),
     db.from("radar_runs").select("run_at, finished_at, itens, ok").order("run_at", { ascending: false }).limit(10),
     db.from("approvers").select("slug, name").eq("active", true),
+    db.from("posts").select("radar_alert_id, post_date").not("radar_alert_id", "is", null),
   ]);
-  return { alerts: alerts ?? [], runs: runs ?? [], approvers: approvers ?? [] };
+  const byAlert = new Map((cards ?? []).map((c) => [c.radar_alert_id, c.post_date]));
+  const list = (alerts ?? []).map((a) => ({ ...a, card_date: byAlert.get(a.id) ?? null }));
+  return { alerts: list, runs: runs ?? [], approvers: approvers ?? [] };
+}
+
+// ---------- "Faz sentido" vira card no calendário ----------
+// Datas em dia útil (seg–sex), contadas a partir de hoje em São Paulo.
+const DIAS_POR_RELEVANCIA: Record<string, number> = { alta: 2, media: 5, baixa: 10 };
+
+function hojeSP() {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+const br = (d: Date) => iso(d).split("-").reverse().join("/");
+const util = (d: Date) => d.getUTCDay() !== 0 && d.getUTCDay() !== 6;
+function somaUteis(d: Date, n: number) {
+  const r = new Date(d);
+  let k = Math.abs(n);
+  const passo = n < 0 ? -1 : 1;
+  while (k > 0) { r.setUTCDate(r.getUTCDate() + passo); if (util(r)) k--; }
+  return r;
+}
+
+// Prazo = a data futura mais próxima citada na vigência (dd/mm/aaaa ou aaaa-mm-dd)
+function prazoDaVigencia(vig: string | null, hoje: Date) {
+  if (!vig) return null;
+  const datas: Date[] = [];
+  for (const [, d, m, y] of vig.matchAll(/(\d{2})\/(\d{2})\/(\d{4})/g)) datas.push(new Date(Date.UTC(+y, +m - 1, +d)));
+  for (const [, y, m, d] of vig.matchAll(/(\d{4})-(\d{2})-(\d{2})/g)) datas.push(new Date(Date.UTC(+y, +m - 1, +d)));
+  const futuras = datas.filter((x) => !isNaN(+x) && x > hoje).sort((a, b) => +a - +b);
+  return futuras[0] ?? null;
+}
+
+async function criarCard(alertId: string, actor: string) {
+  const { data: existe } = await db.from("posts").select("id").eq("radar_alert_id", alertId).maybeSingle();
+  if (existe) {
+    await db.from("posts").update({ validated_by: actor, validated_at: new Date().toISOString(), validation_withdrawn: false }).eq("id", existe.id);
+    return;
+  }
+  const { data: a } = await db.from("radar_alerts").select("*").eq("id", alertId).maybeSingle();
+  if (!a) return;
+
+  const hoje = hojeSP();
+  let data = somaUteis(hoje, DIAS_POR_RELEVANCIA[a.relevancia] ?? 5);
+  const avisos: string[] = ["Conferir o ato na fonte oficial antes de escrever"];
+  const prazo = prazoDaVigencia(a.vigencia, hoje);
+  if (prazo) {
+    const limite = somaUteis(prazo, -2);
+    if (data > limite) {
+      if (limite > hoje) data = limite;
+      else { data = somaUteis(hoje, 1); avisos.unshift(`Urgente: o prazo é ${br(prazo)}`); }
+    }
+  }
+
+  // Mês da data sugerida; se ainda não existir, o próximo mês cadastrado (ou o último)
+  const slug = iso(data).slice(0, 7);
+  const { data: meses } = await db.from("months").select("id, slug, title").order("slug");
+  const lista = meses ?? [];
+  const mes = lista.find((m) => m.slug === slug) ?? lista.find((m) => m.slug >= iso(hoje).slice(0, 7)) ?? lista[lista.length - 1];
+  if (!mes) return;
+  if (mes.slug !== slug) avisos.push(`Data sugerida (${br(data)}) fora de ${mes.title}: o mês ainda não existe no sistema`);
+
+  const direcao = [a.angulo_pauta, `Resumo do radar: ${a.resumo}`, a.vigencia ? `Vigência: ${a.vigencia}` : null, a.url ? `Fonte oficial: ${a.url}` : null]
+    .filter(Boolean).join("\n\n");
+  const { error } = await db.from("posts").insert({
+    month_id: mes.id, post_date: iso(data), format: "carrossel", theme: "Radar legislativo",
+    title: String(a.titulo).slice(0, 160),
+    objective: String(a.impacto_carteira || a.publico || "").slice(0, 400) || null,
+    direction: direcao.slice(0, 4000), checklist: avisos.slice(0, 15),
+    kind: "oportunidade", origin: "radar", sort: 99,
+    radar_alert_id: a.id, validated_by: actor, validated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+  await db.from("radar_alerts").update({ status: "virou_pauta" }).eq("id", a.id);
+}
+
+// Cliente desfez o "Faz sentido": card sem trabalho some; com trabalho fica, marcado
+async function desfazerCard(alertId: string) {
+  const { data: post } = await db.from("posts").select("id, scheduled").eq("radar_alert_id", alertId).maybeSingle();
+  if (!post) return;
+  const { count } = await db.from("versions").select("id", { count: "exact", head: true }).eq("post_id", post.id);
+  if (!post.scheduled && !(count ?? 0)) {
+    await db.from("posts").delete().eq("id", post.id);
+    await db.from("radar_alerts").update({ status: "lido" }).eq("id", alertId).eq("status", "virou_pauta");
+  } else {
+    await db.from("posts").update({ validation_withdrawn: true }).eq("id", post.id);
+  }
 }
 
 async function radarRate(req: Request) {
@@ -161,7 +249,7 @@ async function radarRate(req: Request) {
   const rawValue = body.value;
   if (!UUID_RE.test(id)) return json(req, { error: "Item inválido" }, 400);
   if (rawValue !== null && !["faz_sentido", "nao_faz"].includes(String(rawValue))) return json(req, { error: "Avaliação inválida" }, 400);
-  const { data: approver } = await db.from("approvers").select("slug").eq("slug", actor).eq("active", true).maybeSingle();
+  const { data: approver } = await db.from("approvers").select("slug, name").eq("slug", actor).eq("active", true).maybeSingle();
   if (!approver) return json(req, { error: "Selecione quem está avaliando" }, 400);
   const value = rawValue === null ? null : String(rawValue);
   const { data, error } = await db.from("radar_alerts")
@@ -169,6 +257,12 @@ async function radarRate(req: Request) {
     .eq("id", id).select("id").maybeSingle();
   if (error) return json(req, { error: "Não foi possível salvar" }, 500);
   if (!data) return json(req, { error: "Item não encontrado" }, 404);
+  try {
+    if (value === "faz_sentido") await criarCard(id, approver.name || actor);
+    else await desfazerCard(id);
+  } catch (e) {
+    console.error("card do radar:", e);
+  }
   return json(req, await radarState());
 }
 

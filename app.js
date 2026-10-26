@@ -72,7 +72,7 @@
   setInterval(() => document.querySelectorAll("[data-deadline]").forEach((n) => {
     const d = deadlineText(n.dataset.deadline); n.textContent = d.text; n.dataset.level = d.level;
   }), 30000);
-  const oppBadge = (p) => isOpp(p) ? el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido de vocês" : "Oportunidade") : null;
+  const oppBadge = (p) => isOpp(p) ? el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido de vocês" : p.origin === "radar" ? "Oportunidade · validada por vocês no radar" : "Oportunidade") : null;
   const edName = (slug) => ((data.editorias || []).find((e) => e.slug === slug) || {}).name || "";
   // Rótulos na voz de quem aprova: deixa claro de quem é a vez
   const LABEL = { aprovado: "Aprovado", reprovado: "Ajuste pedido", contestado: "Em discussão", pendente: "Sua vez", aguardando: "Garten produzindo" };
