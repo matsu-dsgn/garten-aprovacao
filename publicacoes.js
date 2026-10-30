@@ -218,7 +218,7 @@
         ed.value = m.editoria || "";
         ed.addEventListener("change", async () => {
           const { error } = await sb.rpc("set_media_editoria", { p_media: m.id, p_editoria: ed.value || null });
-          if (error) { alert(error.message); ed.value = m.editoria || ""; return; }
+          if (error) { G.toast(error.message, true); ed.value = m.editoria || ""; return; }
           m.editoria = ed.value || null; render();
         });
       }

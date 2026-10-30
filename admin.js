@@ -107,9 +107,10 @@
 
   // Exclui o mês com tudo dentro (posts, versões, decisões) e as artes do storage
   async function deleteMonth(m) {
-    const typed = prompt(`Excluir "${m.title}" apaga todos os posts, aprovações e artes desse mês, sem volta.\n\nPara confirmar, digite o slug: ${m.slug}`);
-    if (typed == null) return;
-    if (typed.trim() !== m.slug) { alert("O slug não confere. Nada foi excluído."); return; }
+    const typed = await G.ask({ title: `Excluir ${m.title}?`, danger: true, okLabel: "Excluir mês",
+      text: "Isso apaga todos os posts, aprovações e artes desse mês, sem volta.",
+      input: { label: `Para confirmar, digite o slug: ${m.slug}`, expect: m.slug, placeholder: m.slug } });
+    if (typed !== m.slug) return;
     // artes no storage: {slug}/{post}/{versao}/arquivo
     const paths = [];
     const { data: posts } = await sb.storage.from("artes").list(m.slug, { limit: 1000 });
@@ -122,17 +123,17 @@
     }
     if (paths.length) {
       const { error } = await sb.storage.from("artes").remove(paths);
-      if (error) { alert(`Não consegui apagar as artes: ${error.message}. Nada foi excluído.`); return; }
+      if (error) { G.toast(`Não consegui apagar as artes: ${error.message}. Nada foi excluído.`, true); return; }
     }
     const { error } = await sb.from("months").delete().eq("id", m.id);
-    if (error) { alert(`Erro ao excluir: ${error.message}`); return; }
+    if (error) { G.toast(`Erro ao excluir: ${error.message}`, true); return; }
     try { localStorage.removeItem(`garten-link-${m.slug}`); } catch { /* ok */ }
     if (current?.id === m.id) current = null;
     await loadMonths();
   }
 
   function teamPanel() {
-    const box = el("div", { class: "stack" }, msg("Carregando…"));
+    const box = el("div", { class: "stack" }, G.skeleton(3));
     const load = async () => {
       const { data: team, error } = await sb.from("team_members").select("*").order("role").order("name");
       if (error) return box.replaceChildren(msg(error.message, "err"));
@@ -157,9 +158,9 @@
         el("ul", { class: "history" }, (team || []).map((t) => {
           const rm = el("button", { class: "btn-del", type: "button", "aria-label": `Remover ${t.name}` }, "Remover");
           rm.addEventListener("click", async () => {
-            if (!confirm(`Remover ${t.name} da equipe? A pessoa perde o acesso na hora.`)) return;
+            if (!(await G.ask({ title: `Remover ${t.name} da equipe?`, text: "A pessoa perde o acesso na hora.", okLabel: "Remover", danger: true }))) return;
             const { error } = await sb.from("team_members").delete().eq("email", t.email);
-            error ? alert(error.message) : load();
+            error ? G.toast(error.message, true) : (G.toast(`${t.name} saiu da equipe`), load());
           });
           // Função no Kanban: quem é de arte só sobe arte, quem é de copy só sobe texto (vale no banco)
           const fn = t.role === "admin" ? null : funcaoSelect(t.funcao || "");
@@ -186,7 +187,7 @@
   // Mesma regra de coluna do Kanban (G.kanbanState), para os números baterem
   let overviewMonth = null;
   function overviewPanel() {
-    const box = el("section", { class: "ov", "aria-live": "polite" }, el("p", { class: "msg" }, "Carregando overview…"));
+    const box = el("section", { class: "ov", "aria-live": "polite" }, G.skeleton(3));
     if (!months.length) return null;
     const m = months.find((x) => x.id === overviewMonth) || months[0];
     overviewMonth = m.id;
@@ -431,7 +432,7 @@
   // soft = atualizar no lugar (depois de um envio): sem tela de "Carregando" e sem pular a rolagem
   async function openMonth(m, soft = false) {
     const y = window.scrollY;
-    if (!soft) app.replaceChildren(msg("Carregando…"));
+    if (!soft) app.replaceChildren(G.skeleton(5));
     try { data = await loadData(m); } catch (e) { return app.replaceChildren(msg(e.message, "err")); }
     if (soft) requestAnimationFrame(() => window.scrollTo(0, y));
     app.replaceChildren(
@@ -484,7 +485,7 @@
 
     const gen = el("button", { class: "btn dark" }, "Gerar novo link");
     gen.addEventListener("click", async () => {
-      if (!confirm("Gerar um novo link invalida o anterior. Continuar?")) return;
+      if (!(await G.ask({ title: "Gerar um novo link?", text: "O link anterior para de funcionar na hora.", okLabel: "Gerar link" }))) return;
       const { data: token, error } = await sb.rpc("rotate_month_token", { p_month: m.id });
       if (error) { out.className = "msg err"; out.textContent = error.message; return; }
       const { error: e2 } = await sb.from("month_links").upsert({ month_id: m.id, token, created_at: new Date().toISOString() });
@@ -494,7 +495,7 @@
     });
     const revoke = el("button", { class: "btn bad", hidden: true }, "Encerrar link");
     revoke.addEventListener("click", async () => {
-      if (!confirm("Encerrar o link? O cliente perde o acesso até você gerar um novo.")) return;
+      if (!(await G.ask({ title: "Encerrar o link?", text: "O cliente perde o acesso até você gerar um novo.", okLabel: "Encerrar", danger: true }))) return;
       const { error } = await sb.rpc("revoke_month_token", { p_month: m.id });
       if (error) { out.className = "msg err"; out.textContent = error.message; return; }
       await sb.from("month_links").delete().eq("month_id", m.id);
@@ -522,12 +523,14 @@
     el("option", { value: "hoje18" }, "Hoje às 18h"),
     el("option", { value: "amanha10" }, "Amanhã às 10h"));
 
-  function postLink(m, p) {
+  async function postLink(m, p) {
     let base = null;
     try { base = localStorage.getItem(`garten-link-${m.slug}`); } catch { /* ok */ }
     if (!base) {
-      base = prompt("Cole o link do cliente deste mês (o que você mandou no WhatsApp):") || "";
-      if (!/index\.html\?m=.+#k=[0-9a-f]{48}$/.test(base)) { alert("Link inválido. Gere um novo link do mês se não tiver mais o anterior."); return null; }
+      base = (await G.ask({ title: "Cole o link do cliente", text: "É o link do mês que você mandou no WhatsApp. Fica salvo neste navegador.",
+        okLabel: "Usar este link", input: { label: "Link do mês", placeholder: "https://…/index.html?m=…#k=…" } })) || "";
+      if (!base) return null;
+      if (!/index\.html\?m=.+#k=[0-9a-f]{48}$/.test(base)) { G.toast("Link inválido. Gere um novo link do mês se não tiver mais o anterior.", true); return null; }
       try { localStorage.setItem(`garten-link-${m.slug}`, base); } catch { /* ok */ }
     }
     return base.replace("#k=", `&p=${p.id}#k=`);
@@ -645,7 +648,7 @@
     });
     const linkBtn = el("button", { class: "btn ghost" }, "Copiar link do post");
     linkBtn.addEventListener("click", async () => {
-      const url = postLink(m, p); if (!url) return;
+      const url = await postLink(m, p); if (!url) return;
       try { await navigator.clipboard.writeText(url); out.className = "msg okk"; out.textContent = "Link do post copiado."; }
       catch { prompt("Copie o link:", url); }
     });
@@ -663,7 +666,7 @@
     });
     const del = el("button", { class: "btn bad" }, "Excluir post");
     del.addEventListener("click", async () => {
-      if (!confirm(`Excluir "${p.title}" e todo o histórico dele?`)) return;
+      if (!(await G.ask({ title: `Excluir "${p.title}"?`, text: "O post sai do mês junto com todo o histórico.", okLabel: "Excluir post", danger: true }))) return;
       const { error } = await sb.from("posts").delete().eq("id", p.id);
       error ? fail(error) : openMonth(m);
     });

@@ -284,5 +284,77 @@ window.G = (() => {
     return areas.length ? `${quem} da área de ${lista(areas)}` : quem;
   }
 
-  return { readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // ---------- Movimento e diálogos compartilhados ----------
+  const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Remove um nó com animação de saída (classe .leaving no CSS) e só depois chama done
+  function leave(node, done) {
+    if (!node || node.classList.contains("leaving")) return;
+    if (reduceMotion()) { node.remove(); done?.(); return; }
+    node.classList.add("leaving");
+    let gone = false;
+    const end = () => { if (gone) return; gone = true; node.remove(); done?.(); };
+    node.addEventListener("animationend", (e) => { if (e.target === node) end(); });
+    setTimeout(end, 280);
+  }
+
+  // Mantém o Tab dentro de um diálogo. O retorno devolve o foco para quem abriu.
+  function trapFocus(box) {
+    const prev = document.activeElement;
+    const sel = 'button:not([disabled]), a[href], textarea, input, select, [tabindex]:not([tabindex="-1"])';
+    const onKey = (e) => {
+      if (e.key !== "Tab") return;
+      const f = [...box.querySelectorAll(sel)].filter((n) => n.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    box.addEventListener("keydown", onKey);
+    return () => { box.removeEventListener("keydown", onKey); if (prev && document.contains(prev)) prev.focus(); };
+  }
+
+  function toast(text, bad = false) {
+    const t = el("div", { class: `ktoast${bad ? " bad" : ""}`, role: "status" }, text);
+    document.body.append(t);
+    requestAnimationFrame(() => t.classList.add("on"));
+    setTimeout(() => { t.classList.remove("on"); setTimeout(() => t.remove(), 300); }, bad ? 4200 : 2600);
+  }
+
+  // Confirmação no visual do sistema, no lugar do confirm()/prompt() do navegador.
+  // input: { label, expect?, placeholder? } → resolve com o texto digitado; sem input → true/false.
+  function ask({ title, text = "", okLabel = "Confirmar", danger = false, input = null }) {
+    return new Promise((resolve) => {
+      const field = input ? el("input", { type: "text", placeholder: input.placeholder || "", "aria-label": input.label, autocomplete: "off", spellcheck: "false" }) : null;
+      const ok = el("button", { class: `btn ${danger ? "bad" : "dark"}`, type: "button", disabled: !!input?.expect }, okLabel);
+      const cancel = el("button", { class: "btn ghost", type: "button" }, "Cancelar");
+      const box = el("div", { class: "gdialog", role: "alertdialog", "aria-modal": "true", "aria-labelledby": "gd-t" },
+        el("h3", { id: "gd-t" }, title),
+        text ? el("p", {}, text) : null,
+        input ? el("label", { class: "gd-field" }, el("span", {}, input.label), field) : null,
+        el("div", { class: "gd-row" }, cancel, ok));
+      const shade = el("div", { class: "gshade" }, box);
+      const release = trapFocus(shade);
+      let closed = false;
+      const done = (v) => { if (closed) return; closed = true; document.removeEventListener("keydown", key); release(); leave(shade); resolve(v); };
+      const value = () => (input ? field.value.trim() : true);
+      const key = (e) => {
+        if (e.key === "Escape") done(input ? null : false);
+        if (e.key === "Enter" && !ok.disabled && (input || document.activeElement !== cancel)) { e.preventDefault(); done(value()); }
+      };
+      if (input?.expect) field.addEventListener("input", () => { ok.disabled = field.value.trim() !== input.expect; });
+      ok.addEventListener("click", () => done(value()));
+      cancel.addEventListener("click", () => done(input ? null : false));
+      shade.addEventListener("click", (e) => { if (e.target === shade) done(input ? null : false); });
+      document.addEventListener("keydown", key);
+      document.body.append(shade);
+      (field || (danger ? cancel : ok)).focus();
+    });
+  }
+
+  // Esqueleto de carregamento com o formato do conteúdo
+  const skeleton = (lines = 3) => el("div", { class: "skel", role: "status", "aria-label": "Carregando" },
+    Array.from({ length: lines }, () => el("i")));
+
+  return { leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

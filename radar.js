@@ -57,7 +57,7 @@
     if (motivo && !MOTIVOS[motivo]) return;
     const patch = { status, descarte_motivo: status === "descartado" ? motivo : null };
     const { error } = await sb.from("radar_alerts").update(patch).eq("id", id);
-    if (error) return alert(error.message);
+    if (error) return G.toast(error.message, true);
     const it = alerts.find((x) => x.id === id);
     if (it) Object.assign(it, patch);
     render();
