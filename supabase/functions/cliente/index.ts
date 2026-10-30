@@ -57,7 +57,7 @@ async function authMonth(slug: string | null, token: string | null) {
 
 async function loadState(month: { id: string }) {
   const { data: posts } = await db.from("posts")
-    .select("id, post_date, format, theme, editoria, kind, origin, respond_by, title, objective, direction, checklist, scheduled, sort")
+    .select("id, post_date, format, theme, editoria, kind, origin, respond_by, title, objective, direction, checklist, scheduled, publish_status, sort")
     .eq("month_id", month.id).order("post_date").order("sort");
   const ids = (posts ?? []).map((p) => p.id);
   const [{ data: versions }, { data: decisions }, { data: approvers }, { data: editorias }] = await Promise.all([
