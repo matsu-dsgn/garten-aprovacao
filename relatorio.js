@@ -92,7 +92,7 @@
     for (let i = 1; i <= 6; i++) { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i); opts.add(slugOf(d)); }
     opts.add(cur.slug);
     const select = el("select", { "aria-label": "Mês do relatório", onchange: async (e) => {
-      if (dirty && !confirm("Há alterações não salvas. Trocar de mês mesmo assim?")) { e.target.value = cur.slug; return; }
+      if (dirty && !(await G.ask({ title: "Trocar de mês?", text: "Há alterações não salvas neste relatório.", okLabel: "Trocar mesmo assim", danger: true }))) { e.target.value = cur.slug; return; }
       await open(e.target.value);
     } }, [...opts].sort().reverse().map((s) => {
       const r = reports.find((x) => x.slug === s);
@@ -101,8 +101,8 @@
     ui.out = el("p", { class: "msg rel-out", role: "status" });
     ui.state = el("span", { class: "rel-state" });
 
-    const closeBtn = el("button", { class: "btn", type: "button", onclick: () => {
-      if (cur.status === "publicado" && !confirm("O relatório já está publicado. Recalcular muda os números que o cliente vê. Continuar?")) return;
+    const closeBtn = el("button", { class: "btn", type: "button", onclick: async () => {
+      if (cur.status === "publicado" && !(await G.ask({ title: "Recalcular os números?", text: "O relatório já está publicado. Recalcular muda os números que o cliente vê.", okLabel: "Recalcular" }))) return;
       closeMonth(closeBtn);
     } }, closed ? "Recalcular números" : "Fechar o mês");
 
@@ -113,7 +113,7 @@
       closed ? el("button", { class: "btn", type: "button", onclick: () => { const s = GDeck.build(cur, urls); if (s.length) GDeck.present(s); } }, "Apresentar") : null,
       closed ? (cur.status === "publicado"
         ? el("button", { class: "btn", type: "button", onclick: () => setStatus("rascunho") }, "Despublicar")
-        : el("button", { class: "btn primary", type: "button", onclick: () => { if (confirm(`Publicar o relatório de ${label(cur.slug).toLowerCase()} para o cliente?`)) setStatus("publicado"); } }, "Publicar para o cliente")) : null,
+        : el("button", { class: "btn primary", type: "button", onclick: async () => { if (await G.ask({ title: `Publicar ${label(cur.slug).toLowerCase()}?`, text: "O cliente passa a ver o relatório na hora.", okLabel: "Publicar" })) setStatus("publicado"); } }, "Publicar para o cliente")) : null,
       el("span", { class: "rel-meta" }, closed
         ? `${cur.status === "publicado" ? "Publicado · o cliente já vê" : "Rascunho · só você vê"} · números de ${new Date(cur.closed_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
         : "Mês ainda não fechado"), ui.state);

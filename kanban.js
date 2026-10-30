@@ -214,11 +214,13 @@
     });
   }
 
-  function toast(text, bad = false) {
-    const t = el("div", { class: `ktoast${bad ? " bad" : ""}`, role: "status" }, text);
-    document.body.append(t);
-    requestAnimationFrame(() => t.classList.add("on"));
-    setTimeout(() => { t.classList.remove("on"); setTimeout(() => t.remove(), 300); }, 2600);
+  const toast = G.toast;
+
+  // Fecha o card com animação de saída e devolve o foco ao card no quadro
+  function closeDetail() {
+    const shade = app.querySelector(".kshade"); const id = openPost;
+    const after = () => { openPost = null; render(); app.querySelector(`.kcard[data-id="${id}"]`)?.focus({ preventScroll: true }); };
+    shade ? G.leave(shade, after) : after();
   }
 
   // ---------- Detalhe do card ----------
@@ -279,7 +281,7 @@
       el("div", { class: "kd-top" },
         el("span", { class: `kd-status s-${col}` }, SUB[col].label),
         el("span", { class: "kd-next" }, NEXT[col] || ""),
-        el("button", { class: "lb-close inline", type: "button", "aria-label": "Fechar", onclick: () => { openPost = null; render(); } }, "✕")),
+        el("button", { class: "lb-close inline", type: "button", "aria-label": "Fechar", onclick: closeDetail }, "✕")),
       el("h3", { id: "kd-title" }, p.title),
       el("dl", { class: "kd-facts" },
         fact("Publicação", dateTxt),
@@ -431,10 +433,11 @@
             render();
           } }, "Só os meus"))),
       board(),
-      p ? el("div", { class: `kshade${wasOpen ? " still" : ""}`, onclick: (e) => { if (e.target.classList.contains("kshade")) { openPost = null; render(); } } }, detail(p)) : "");
+      p ? el("div", { class: `kshade${wasOpen ? " still" : ""}`, onclick: (e) => { if (e.target.classList.contains("kshade")) closeDetail(); } }, detail(p)) : "");
     // Foco no card só quando abre (não a cada recarga de dados)
     // Recarga com o card já aberto: sem animar de novo e sem voltar ao topo
     if (p && wasOpen) app.querySelector(".kshade").scrollTop = keepScroll;
+    if (p) G.trapFocus(app.querySelector(".kshade"));
     if (p && !wasOpen) app.querySelector(".kdetail .lb-close")?.focus();
   }
 
@@ -448,7 +451,7 @@
   }
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && openPost) { openPost = null; render(); }
+    if (e.key === "Escape" && openPost) closeDetail();
   });
 
   async function boot() {

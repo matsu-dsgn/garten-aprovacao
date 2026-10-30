@@ -299,8 +299,12 @@
     const img = el("img", { alt: "" });
     const count = el("span", { class: "lb-count" });
     const show = () => { img.src = data.urls[imgs[i]]; img.alt = `Lâmina ${i + 1}`; count.textContent = `${i + 1} / ${imgs.length}`; };
-    const go = (d) => { i = (i + d + imgs.length) % imgs.length; show(); };
-    const close = () => { box.remove(); document.removeEventListener("keydown", key); };
+    const go = (d) => {
+      i = (i + d + imgs.length) % imgs.length; show();
+      img.style.setProperty("--dir", d); img.classList.remove("swap"); void img.offsetWidth; img.classList.add("swap");
+    };
+    let release = null;
+    const close = () => { document.removeEventListener("keydown", key); release?.(); G.leave(box); };
     const key = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") go(1); if (e.key === "ArrowLeft") go(-1); };
     const nav = imgs.length > 1;
     const box = el("div", { class: "lightbox", role: "dialog", "aria-modal": "true", "aria-label": "Arte ampliada",
@@ -315,6 +319,7 @@
     box.addEventListener("touchend", (e) => { if (x0 == null || !nav) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); x0 = null; });
     document.addEventListener("keydown", key);
     document.body.append(box); show();
+    release = G.trapFocus(box);
     box.querySelector(".lb-close").focus();
   }
 
@@ -347,7 +352,15 @@
       ok.disabled = bad.disabled = true; msg.textContent = "Salvando…";
       try {
         data = { ...data, ...(await api("POST", { post_id: post.id, stage, status, actor, note: note.value, slide_notes })) };
+        // Retorno do clique: o botão confirma antes do card trocar de estado
+        const btn = status === "aprovado" ? ok : bad;
+        btn.classList.add("done"); btn.textContent = status === "aprovado" ? "Aprovado ✓" : "Ajuste enviado ✓";
+        msg.textContent = "";
+        if (!reduce) await new Promise((r) => setTimeout(r, 520));
         refresh(post.id);
+        document.querySelector(`#post-${post.id} .decided`)?.classList.add("just");
+        const next = document.querySelector("#dock .btn.dark");
+        if (next && !next.disabled) next.classList.add("nudge");
       } catch (e) { msg.className = "msg err"; msg.textContent = e.message; ok.disabled = bad.disabled = false; }
     }
     ok.addEventListener("click", () => send("aprovado"));
