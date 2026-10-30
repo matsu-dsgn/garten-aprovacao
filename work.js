@@ -305,5 +305,69 @@ window.GWork = (() => {
       el("div", { class: "row" }, save, undo), out);
   }
 
-  return { signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, nameOf, when, schedulePanel, schedLabel };
+  // ---------- Referências do post (links e imagens) ----------
+  const REF_TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+  const { isHttp, refHost } = G;
+
+  async function signRefs(sb, refs) {
+    const paths = (refs || []).filter((r) => r.t === "img").map((r) => r.path);
+    if (!paths.length) return {};
+    const { data } = await sb.storage.from("artes").createSignedUrls(paths, 3600);
+    return Object.fromEntries((data || []).filter((x) => x.signedUrl).map((x) => [x.path, x.signedUrl]));
+  }
+
+  // Editor (painel): adiciona link, sobe imagem, remove. Salva direto no post.
+  function refsEditor(sb, { slug, post, onSaved }) {
+    let refs = Array.isArray(post.refs) ? post.refs.slice() : [];
+    const box = G.el("div", { class: "stack refs-edit" });
+    const out = G.el("p", { class: "msg", role: "status" });
+    const save = async (next, okText) => {
+      const { error } = await sb.from("posts").update({ refs: next }).eq("id", post.id);
+      if (error) { out.className = "msg err"; out.textContent = error.message; return false; }
+      refs = next; post.refs = next; out.className = "msg okk"; out.textContent = okText; draw(); onSaved?.(next); return true;
+    };
+    const url = G.el("input", { type: "url", placeholder: "https://…", "aria-label": "Link de referência", maxlength: "500" });
+    const label = G.el("input", { type: "text", placeholder: "Nome (opcional)", "aria-label": "Nome do link", maxlength: "80" });
+    const addLink = G.el("button", { class: "btn ghost", type: "button" }, "Adicionar link");
+    addLink.addEventListener("click", () => {
+      const u = url.value.trim();
+      if (!isHttp(u)) { out.className = "msg err"; out.textContent = "Cole um link começando com https://"; return; }
+      if (refs.length >= 12) { out.className = "msg err"; out.textContent = "Máximo de 12 referências por post."; return; }
+      save([...refs, { t: "link", url: u, label: label.value.trim() || undefined }], "Link adicionado.").then((ok) => { if (ok) { url.value = ""; label.value = ""; } });
+    });
+    const file = G.el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", multiple: true, "aria-label": "Imagens de referência" });
+    file.addEventListener("change", async () => {
+      const list = [...file.files];
+      file.value = "";
+      if (refs.length + list.length > 12) { out.className = "msg err"; out.textContent = "Máximo de 12 referências por post."; return; }
+      for (const f of list) {
+        if (!REF_TYPES[f.type]) { out.className = "msg err"; out.textContent = `${f.name}: use PNG, JPG ou WEBP.`; return; }
+        if (f.size > 8 * 1024 * 1024) { out.className = "msg err"; out.textContent = `${f.name}: máximo de 8 MB.`; return; }
+      }
+      const added = [];
+      for (const [i, f] of list.entries()) {
+        out.className = "msg"; out.textContent = `Enviando ${i + 1}/${list.length}…`;
+        const path = `${slug}/${post.id}/refs/${Date.now()}-${i}.${REF_TYPES[f.type]}`;
+        const { error } = await sb.storage.from("artes").upload(path, f, { contentType: f.type, upsert: false });
+        if (error) { out.className = "msg err"; out.textContent = error.message; return; }
+        added.push({ t: "img", path });
+      }
+      if (added.length) await save([...refs, ...added], added.length === 1 ? "Imagem adicionada." : `${added.length} imagens adicionadas.`);
+    });
+    const list = G.el("ul", { class: "refs-list" });
+    async function draw() {
+      const urls = await signRefs(sb, refs);
+      list.replaceChildren(...refs.map((r, i) => G.el("li", {},
+        r.t === "img" ? G.el("img", { src: urls[r.path] || "", alt: "" }) : G.el("a", { href: isHttp(r.url) ? r.url : "#", target: "_blank", rel: "noopener noreferrer" }, r.label || refHost(r.url)),
+        G.el("button", { class: "btn-del", type: "button", "aria-label": "Remover referência",
+          onclick: () => save(refs.filter((_, k) => k !== i), "Referência removida.") }, "Remover"))));
+    }
+    draw();
+    box.append(list,
+      G.el("div", { class: "row" }, url, label, addLink),
+      G.el("label", { class: "f" }, "Imagens (PNG, JPG ou WEBP, até 8 MB)", file), out);
+    return box;
+  }
+
+  return { refsView: G.refsView, refsEditor, signRefs, signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, nameOf, when, schedulePanel, schedLabel };
 })();

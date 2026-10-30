@@ -703,6 +703,8 @@
       review,
       contests,
       G.STAGES.map((s) => G.historyList(data, states[s.key].decisions, s.key === "copy" ? "copy" : s.label.toLowerCase())),
+      el("details", {}, el("summary", {}, `Referências para o cliente (${(p.refs || []).length})`),
+        GWork.refsEditor(sb, { slug: m.slug, post: p })),
       el("details", {}, el("summary", {}, `Comentários internos (${data.comments.filter((c) => c.post_id === p.id).length})${p.assignee ? ` · com ${GWork.nameOf(data.team, p.assignee)}` : ""}`),
         GWork.comments(sb, data.comments, data.team, p.id, () => openMonth(m))),
       p.kind === "oportunidade" ? el("div", { class: "row" },

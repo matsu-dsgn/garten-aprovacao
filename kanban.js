@@ -298,13 +298,15 @@
         ? GWork.schedulePanel(sb, p, async (on) => { await load(); render(); toast(on ? "Post agendado" : "Agendamento removido"); }) : null);
 
     // ---------- Briefing (recolhível, aberto enquanto ninguém produziu nada) ----------
-    const hasBrief = p.objective || p.direction || (p.checklist || []).length;
+    const hasBrief = p.objective || p.direction || (p.checklist || []).length || (p.refs || []).length;
+    const refsSlot = el("div");
+    if ((p.refs || []).length) GWork.signRefs(sb, p.refs).then((u) => { const v = G.refsView(p.refs, u); if (v) refsSlot.replaceChildren(v); });
     const brief = hasBrief ? el("details", { class: "kd-block kd-brief", open: !curArte && !curCopy ? "" : null },
       el("summary", {}, el("span", { class: "eyebrow" }, "Briefing")),
       p.objective ? el("p", { class: "objective" }, `Objetivo: ${p.objective}`) : null,
       p.direction ? el("p", { class: "direction" }, p.direction) : null,
       (p.checklist || []).length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
-        el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null) : null;
+        el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null, refsSlot) : null;
 
     // ---------- Envio: um botão só, cada pessoa vê a parte da sua função ----------
     // A função também é checada no banco (políticas de versions e storage).
