@@ -28,7 +28,7 @@
     const nav = GAuth.nav("relatorio.html", true);
     if (nav && !document.querySelector(".topnav")) document.getElementById("top-actions").prepend(nav);
     GAuth.logout(sb);
-    document.body.classList.add("rel-editor");
+    document.body.classList.add("rel-editor", "is-full");
     addEventListener("beforeunload", (e) => { if (dirty) e.preventDefault(); });
     addEventListener("resize", fitStage);
     const want = new URLSearchParams(location.search).get("r");

@@ -81,7 +81,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--ink-2); lin
 button, input, select, textarea { font: inherit; color: inherit; }
 img { max-width: 100%; display: block; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+/* Largura da página: dois modos. Contido (padrão) e cheio (body.is-full: Kanban, editor do relatório).
+   Topo, conteúdo e quadros leem os mesmos tokens, então ficam sempre alinhados. */
+:root { --page-max: 1280px; --page-pad: 16px; }
+body.is-full { --page-max: 1920px; --page-pad: clamp(16px, 3vw, 40px); }
+.wrap { max-width: var(--page-max); margin: 0 auto; padding: 0 var(--page-pad); }
 .eyebrow { font-family: var(--font); font-weight: 600; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
 .eyebrow.neon { color: var(--accent); }
 h1, h2, h3 { font-family: var(--display); text-transform: uppercase; font-weight: 400; letter-spacing: 0; }
@@ -257,7 +261,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--ink-soft); font
 }
 
 /* Admin */
-.admin main { padding: 28px 16px 80px; display: grid; gap: 20px; }
+.admin main { padding: 28px var(--page-pad) 80px; display: grid; gap: 20px; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: grid; gap: 14px; }
 .panel h2 { font-size: 20px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -497,8 +501,8 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
   --k-tint: 13%; --k-card: #0d3a63; --k-av-ink: var(--carbon);
 }
 
-.kanban-page main { padding: 28px 0 72px; }
-.kbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding: 0 clamp(16px, 3vw, 40px); margin-bottom: 24px; }
+.kanban-page main { padding: 28px 0 72px; max-width: var(--page-max); margin-inline: auto; }
+.kbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding: 0 var(--page-pad); margin-bottom: 24px; }
 .kbar-l, .kbar-r { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
 .kbar h2 { font-family: var(--display); font-size: clamp(26px, 3vw, 34px); letter-spacing: -.01em; }
 .kbar select { width: auto; min-width: 170px; }
@@ -506,7 +510,7 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .kfilter:hover { border-color: var(--ink-soft); }
 .kfilter.on { background: var(--neon); color: var(--carbon); border-color: var(--neon); }
 
-.kboard { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); gap: 14px; overflow-x: auto; padding: 4px clamp(16px, 3vw, 40px) 24px; scroll-snap-type: x mandatory; scroll-padding: 0 clamp(16px, 3vw, 40px); }
+.kboard { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); gap: 14px; overflow-x: auto; padding: 4px var(--page-pad) 24px; scroll-snap-type: x mandatory; scroll-padding: 0 var(--page-pad); }
 .kcol { --c: var(--ink-soft); background: color-mix(in srgb, var(--c) var(--k-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 22%, transparent); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 64vh; scroll-snap-align: start; transition: opacity .25s, filter .25s, border-color .2s, box-shadow .2s; }
 .kcol.k-fazer { --c: var(--k-fazer); } .kcol.k-producao { --c: var(--k-producao); } .kcol.k-revisao { --c: var(--k-revisao); }
 .kcol.k-cliente { --c: var(--k-cliente); } .kcol.k-ajuste { --c: var(--k-ajuste); } .kcol.k-pronto { --c: var(--k-pronto); }
@@ -650,7 +654,7 @@ code.link { max-width: 100%; }
   #top-actions { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
   #top-actions small { display: none; }
   .topnav a { padding: 6px 10px; }
-  .admin main { padding: 20px 16px 80px; }
+  .admin main { padding: 20px var(--page-pad) 80px; }
   .panel { padding: 16px; }
 }
 
@@ -1061,7 +1065,6 @@ details.post-row > summary .pill { letter-spacing: normal; }
 @media (max-width: 560px) { .aviso { grid-template-columns: 1fr auto; } .aviso-tag { grid-column: 1 / -1; justify-self: start; } }
 
 /* Relatório mensal — editor (lista | slide | inspetor) e visão do cliente */
-body.rel-editor #app.wrap { max-width: none; padding: 0 20px; }
 .rel-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--line, rgba(127,127,127,.25)); }
 .rel-title { font-family: var(--display); font-size: 20px; text-transform: uppercase; margin-right: 6px; }
 .rel-bar select { width: auto; min-width: 210px; flex: none; }
@@ -1163,8 +1166,3 @@ body.rel-editor #app.wrap { max-width: none; padding: 0 20px; }
 @keyframes btn-done { 40% { transform: scale(1.06); } }
 @keyframes decided-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
 @keyframes nudge { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
-
-/* Barra superior acompanha a largura do conteúdo da página.
-   Kanban e editor do relatório usam a tela inteira, então o topo também. */
-.kanban-page .topbar .wrap { max-width: none; padding-inline: clamp(16px, 3vw, 40px); }
-body.rel-editor .topbar .wrap { max-width: none; padding-inline: 20px; }
