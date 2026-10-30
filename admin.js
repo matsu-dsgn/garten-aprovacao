@@ -712,7 +712,7 @@
           : `por ${p.validated_by || "cliente"}${p.validated_at ? ` em ${new Date(p.validated_at).toLocaleDateString("pt-BR")}` : ""}`) : null,
         p.respond_by ? el("span", { class: "msg" }, `Prazo: ${new Date(p.respond_by).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`) : null,
         dlSel) : null,
-      el("div", { class: "row" }, edSel, linkBtn, sched, G.publishToggle(sb, p, () => openMonth(m, true)), del), out));
+      el("div", { class: "row" }, edSel, linkBtn, sched, G.statusSelect(sb, data, p, () => openMonth(m, true)), del), out));
     row.addEventListener("toggle", () => { row.open ? openPosts.add(p.id) : openPosts.delete(p.id); });
     return row;
   }
