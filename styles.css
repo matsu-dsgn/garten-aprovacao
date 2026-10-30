@@ -150,6 +150,8 @@ section.block { padding-top: 56px; }
 .dot.reprovado, .legend i.reprovado { background: var(--bad); }
 .dot.contestado, .legend i.contestado { background: var(--disc); }
 .dot.publicado, .legend i.publicado { background: var(--pub); }
+.btn.pub { background: var(--pub); color: #fff; }
+.admin-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 12px; font-size: 13px; color: var(--ink-soft); }
 .chip.pub { background: var(--pub-bg); border-color: transparent; color: var(--pub); }
 
 /* Calendário */

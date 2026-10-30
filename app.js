@@ -14,6 +14,21 @@
       G.navLink(`radar-cliente.html?m=${encodeURIComponent(slug)}#k=${encodeURIComponent(token)}`, "Radar", "radar", false),
       G.navLink(`relatorio-cliente.html?m=${encodeURIComponent(slug)}#k=${encodeURIComponent(token)}`, "Relatório", "publicacoes", false)));
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Sessão de admin no mesmo navegador (Rapha logado no painel): libera controles só dele.
+  // O cliente nunca carrega o Supabase; a permissão real é checada no banco.
+  let adminSb = null;
+  async function detectAdmin() {
+    let has = false;
+    try { has = Object.keys(localStorage).some((k) => /^sb-.+-auth-token$/.test(k)); } catch { /* ok */ }
+    if (!has) return;
+    await new Promise((ok, bad) => document.head.append(Object.assign(document.createElement("script"), { src: "vendor/supabase.js", onload: ok, onerror: bad })));
+    const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.publishableKey);
+    const { data } = await sb.rpc("my_role");
+    if (data !== "admin") return;
+    adminSb = sb;
+    data_posts_refresh();
+  }
+  function data_posts_refresh() { for (const p of data?.posts || []) refresh(p.id); }
   const openTab = {};
   let data = null;
   let pillarFocus = null; // pilar escolhido pelo usuário (filtra o calendário)
@@ -416,6 +431,9 @@
         opp && !st.version ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Em produção"), "Estamos finalizando este post. Ele aparece aqui pronto para aprovação.") : stageContent(post, current, st),
         st.last?.status === "contestado" ? el("p", { class: "msg" }, "A agência contestou o ajuste. Veja o argumento no histórico e decida de novo.") : null,
         decideForm(post, current, st),
+        adminSb ? el("div", { class: "admin-strip" }, "Só você vê:", G.publishToggle(adminSb, post, (on) => {
+          post.publish_status = on ? "publicado" : (post.scheduled ? "agendado" : null); refresh(post.id);
+        })) : null,
         G.historyList(data, st.decisions)));
 
     const checklist = post.checklist || [];
@@ -508,6 +526,7 @@
       data = await api("GET");
       document.title = `Garten — ${data.month.title}`;
       render();
+      detectAdmin().catch(() => {});
       const target = params.get("p");
       if (target && /^[0-9a-f-]{36}$/.test(target)) setTimeout(() => goTo(target), 350);
     } catch (e) { gate("Não foi possível abrir", e.message); }
