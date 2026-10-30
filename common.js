@@ -352,9 +352,25 @@ window.G = (() => {
     });
   }
 
+  // Botão de admin para marcar/desmarcar "publicado" à mão. A regra fica no banco (set_published_manual).
+  function publishToggle(sb, post, onDone) {
+    const on = post.publish_status === "publicado";
+    const b = el("button", { class: `btn ${on ? "ghost" : "pub"}`, type: "button" }, on ? "Desmarcar publicado" : "Marcar como publicado");
+    b.addEventListener("click", async () => {
+      if (on && !(await ask({ title: "Desmarcar publicado?", text: "O post volta para o status anterior no calendário.", okLabel: "Desmarcar" }))) return;
+      b.disabled = true;
+      const { error } = await sb.rpc("set_published_manual", { p_post: post.id, p_published: !on });
+      b.disabled = false;
+      if (error) return toast(error.message, true);
+      toast(on ? "Publicado desmarcado" : "Marcado como publicado");
+      onDone?.(!on);
+    });
+    return b;
+  }
+
   // Esqueleto de carregamento com o formato do conteúdo
   const skeleton = (lines = 3) => el("div", { class: "skel", role: "status", "aria-label": "Carregando" },
     Array.from({ length: lines }, () => el("i")));
 
-  return { leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  return { publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();
