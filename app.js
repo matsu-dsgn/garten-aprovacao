@@ -202,32 +202,46 @@
     if (!pils.length || !total) return null;
     const ov = data.month.overview || {};
     const hasIdeal = pils.some((p) => p.ideal != null);
+    // Escala até a próxima dezena acima do maior valor (planejado ou ideal): barras usam a trilha toda
+    const pctOf = (p) => Math.round((p.count / total) * 100);
+    const top = Math.min(100, Math.max(10, Math.ceil(Math.max(...pils.map((p) => Math.max(pctOf(p), p.ideal || 0))) / 10) * 10));
+    const at = (v) => `${(Math.min(v, top) / top) * 100}%`;
     const rows = pils.map((p) => {
-      const pct = Math.round((p.count / total) * 100);
+      const pct = pctOf(p);
       const gap = p.ideal == null ? 0 : pct - p.ideal;
       const flag = p.ideal == null || Math.abs(gap) < 10 ? null : gap > 0 ? "acima do ideal" : "abaixo do ideal";
       const fill = el("div", { class: "mix-fill" });
-      requestAnimationFrame(() => setTimeout(() => { fill.style.width = `${pct}%`; }, 120));
-      const marker = p.ideal != null ? el("div", { class: "mix-ideal", title: `Ideal ${p.ideal}%` }) : null;
-      if (marker) marker.style.left = `${Math.min(100, p.ideal)}%`;
+      // Acima do ideal: o trecho que passa do ideal fica mais claro
+      if (p.ideal != null && pct > p.ideal) fill.style.setProperty("--cut", `${(p.ideal / pct) * 100}%`);
+      requestAnimationFrame(() => setTimeout(() => { fill.style.width = at(pct); }, 120));
+      // Ideal = faixa fantasma por baixo da barra
+      const ghost = p.ideal != null ? el("div", { class: "mix-ideal", title: `Ideal ${p.ideal}%` }) : null;
+      if (ghost) ghost.style.width = at(p.ideal);
       return el("div", { class: "mix-row", "data-ed": p.slug },
         el("div", { class: "mix-name" }, el("b", {}, p.nome), el("span", {}, `${p.count} ${p.count === 1 ? "post" : "posts"}`)),
-        el("div", { class: "mix-track", role: "img", "aria-label": `${p.nome}: ${pct}% planejado${p.ideal != null ? `, ideal ${p.ideal}%` : ""}` }, fill, marker),
+        el("div", { class: "mix-track", role: "img", "aria-label": `${p.nome}: ${pct}% planejado${p.ideal != null ? `, ideal ${p.ideal}%` : ""}` }, ghost, fill),
         el("div", { class: "mix-val" }, el("b", {}, `${pct}%`),
           p.ideal != null ? el("span", {}, `ideal ${p.ideal}%`) : null,
           flag ? el("em", { class: gap > 0 ? "up" : "down" }, flag) : null));
     });
+    // Régua única no rodapé, de 10 em 10
+    const ticks = Array.from({ length: top / 10 + 1 }, (_, i) => i * 10);
+    const axis = el("div", { class: "mix-row mix-axis", "aria-hidden": "true" }, el("span"),
+      el("div", { class: "mix-scale" }, ticks.map((t) => { const s = el("span", {}, `${t}%`); s.style.left = at(t); return s; })), el("span"));
+    const mixBox = el("div", { class: "mix" });
+    mixBox.style.setProperty("--grid", `${100 / (top / 10)}%`);
     return el("section", { class: "block wrap reveal", id: "mix" },
       el("div", { class: "sec-head" },
         el("div", {}, el("div", { class: "eyebrow" }, "O mix do mês"),
           el("h2", {}, hasIdeal ? "Ideal × planejado" : "Posts por editoria")),
         hasIdeal ? el("div", { class: "legend" },
           el("span", {}, el("i", { class: "mix-key-fill" }), "Planejado"),
-          el("span", {}, el("i", { class: "mix-key-ideal" }), "Ideal do mês")) : null),
-      el("div", { class: "mix" },
+          el("span", {}, el("i", { class: "mix-key-ideal" }), "Ideal do mês"),
+          el("span", {}, el("i", { class: "mix-key-over" }), "Acima do ideal")) : null),
+      (mixBox.append(...[
         ov.mix_motivo ? el("p", { class: "mix-why" }, ov.mix_motivo) : null,
-        rows,
-        opps ? el("p", { class: "mix-opps" }, `+ ${opps} ${opps === 1 ? "oportunidade" : "oportunidades"} no mês, fora da conta do planejado`) : null));
+        ...rows, axis,
+        opps ? el("p", { class: "mix-opps" }, `+ ${opps} ${opps === 1 ? "oportunidade" : "oportunidades"} no mês, fora da conta do planejado`) : null].filter(Boolean)), mixBox));
   }
 
   // ---------- Calendário ----------

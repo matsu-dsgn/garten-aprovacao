@@ -297,18 +297,32 @@ textarea.mono { min-height: 140px; font-family: var(--mono); font-size: 13px; }
 .mix-name b { display: block; color: var(--ink); font-weight: 600; }
 .mix-name span, .mix-val span { font-size: 13px; color: var(--ink-soft); }
 .mix-track { position: relative; height: 14px; background: var(--surface-2); border-radius: 99px; }
-.mix-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-ink); border-radius: 99px; transition: width 1s cubic-bezier(.2,.8,.2,1); }
-.mix-ideal { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1.5px; background: var(--ink); border-radius: 2px; }
+/* Linhas-guia a cada 10%, passando um pouco acima e abaixo da trilha */
+.mix-track::before { content: ""; position: absolute; inset: -7px 0; pointer-events: none;
+  background: repeating-linear-gradient(to right, color-mix(in srgb, var(--ink) 12%, transparent) 0 1px, transparent 1px var(--grid, 10%)); }
+.mix-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; transition: width 1s cubic-bezier(.2,.8,.2,1);
+  /* Até o ideal: sólido. O que passa do ideal: listrado ("a mais") */
+  background: linear-gradient(to right, var(--accent-ink) var(--cut, 100%), transparent var(--cut, 100%)),
+    repeating-linear-gradient(135deg, var(--accent-ink) 0 3px, color-mix(in srgb, var(--accent-ink) 30%, var(--surface-2)) 3px 6px); }
+.mix-ideal { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: color-mix(in srgb, var(--accent-ink) 26%, var(--surface-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 40%, transparent); }
+.mix-axis { margin-top: -6px; }
+.mix-scale { position: relative; height: 16px; font-size: 11.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.mix-scale span { position: absolute; top: 0; transform: translateX(-50%); }
+.mix-scale span:first-child { transform: none; }
+.mix-scale span:last-child { transform: translateX(-100%); }
 .mix-val { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .mix-val b { font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--ink); }
 .mix-val em { font-style: normal; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--bad-bg); color: var(--bad); }
 .mix-val em.down { background: var(--pend-bg); color: var(--pend); }
 .legend i.mix-key-fill { width: 16px; height: 8px; border-radius: 99px; background: var(--accent-ink); }
-.legend i.mix-key-ideal { width: 3px; height: 14px; border-radius: 2px; background: var(--ink); }
+.legend i.mix-key-over { width: 16px; height: 8px; border-radius: 99px; background: repeating-linear-gradient(135deg, var(--accent-ink) 0 3px, color-mix(in srgb, var(--accent-ink) 30%, var(--surface-2)) 3px 6px); }
+.legend i.mix-key-ideal { width: 16px; height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--accent-ink) 26%, var(--surface-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 40%, transparent); }
 .chip.ed { background: transparent; border-color: var(--accent-ink); color: var(--accent-ink); }
 @media (max-width: 720px) {
   .mix-row { grid-template-columns: 1fr auto; gap: 6px 12px; }
   .mix-track { grid-column: 1 / -1; grid-row: 2; }
+  .mix-axis > span { display: none; }
+  .mix-axis .mix-scale { grid-column: 1 / -1; }
   .mix-val { justify-content: end; }
 }
 @media (prefers-reduced-motion: reduce) { .mix-fill { transition: none; } }
