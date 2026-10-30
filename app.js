@@ -445,9 +445,9 @@
         opp && !st.version ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Em produção"), "Estamos finalizando este post. Ele aparece aqui pronto para aprovação.") : stageContent(post, current, st),
         st.last?.status === "contestado" ? el("p", { class: "msg" }, "A agência contestou o ajuste. Veja o argumento no histórico e decida de novo.") : null,
         decideForm(post, current, st),
-        adminSb ? el("div", { class: "admin-strip" }, "Só você vê:", G.publishToggle(adminSb, post, (on) => {
-          post.publish_status = on ? "publicado" : (post.scheduled ? "agendado" : null); refresh(post.id);
-        })) : null,
+        adminSb ? G.statusSelect(adminSb, data, post, async () => {
+          data = { ...data, ...(await api("GET")) }; refresh(post.id);
+        }) : null,
         G.historyList(data, st.decisions)));
 
     const checklist = post.checklist || [];

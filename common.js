@@ -368,9 +368,27 @@ window.G = (() => {
     return b;
   }
 
+  // Dropdown de status do post (só admin). A regra fica no banco (set_post_status).
+  const STATUS_OPTS = [["pendente", "Sua vez"], ["aprovado", "Aprovado"], ["reprovado", "Ajuste pedido"], ["contestado", "Em discussão"], ["publicado", "Publicado"]];
+  function statusSelect(sb, data, post, onDone) {
+    const cur = post.publish_status === "publicado" ? "publicado" : postSummary(data, post);
+    const sel = el("select", { class: `status-select s-${cur}`, "aria-label": `Status de ${post.title}` },
+      STATUS_OPTS.map(([v, l]) => el("option", { value: v, selected: v === cur }, l)));
+    sel.addEventListener("change", async () => {
+      const v = sel.value; sel.disabled = true;
+      const { error } = await sb.rpc("set_post_status", { p_post: post.id, p_status: v });
+      sel.disabled = false;
+      if (error) { sel.value = cur; return toast(error.message, true); }
+      sel.className = `status-select s-${v}`;
+      toast(`Status: ${STATUS_OPTS.find((o) => o[0] === v)[1]}`);
+      onDone?.(v);
+    });
+    return sel;
+  }
+
   // Esqueleto de carregamento com o formato do conteúdo
   const skeleton = (lines = 3) => el("div", { class: "skel", role: "status", "aria-label": "Carregando" },
     Array.from({ length: lines }, () => el("i")));
 
-  return { publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  return { statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

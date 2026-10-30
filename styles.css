@@ -151,6 +151,12 @@ section.block { padding-top: 56px; }
 .dot.contestado, .legend i.contestado { background: var(--disc); }
 .dot.publicado, .legend i.publicado { background: var(--pub); }
 .btn.pub { background: var(--pub); color: #fff; }
+.status-select { justify-self: start; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 30px 7px 12px; border-radius: 99px; cursor: pointer;
+  border: 1px solid var(--c, var(--line)); color: var(--c, var(--ink-2)); background-color: var(--surface); appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 14px center, right 9px center; background-size: 5px 5px; background-repeat: no-repeat; }
+.status-select.s-aprovado { --c: var(--ok); } .status-select.s-reprovado { --c: var(--bad); }
+.status-select.s-contestado { --c: var(--disc); } .status-select.s-publicado { --c: var(--pub); } .status-select.s-pendente { --c: var(--pend); }
 .admin-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 12px; font-size: 13px; color: var(--ink-soft); }
 .chip.pub { background: var(--pub-bg); border-color: transparent; color: var(--pub); }
 
