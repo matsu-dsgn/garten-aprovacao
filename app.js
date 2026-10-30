@@ -217,7 +217,7 @@
 
   // ---------- Calendário ----------
   function calPost(p) {
-    const s = G.postSummary(data, p);
+    const s = p.publish_status === "publicado" ? "publicado" : G.postSummary(data, p);
     return el("button", {
       class: "cal-post", type: "button", "data-ed": p.editoria || "",
       onclick: () => goTo(p.id),
@@ -259,6 +259,7 @@
           el("span", {}, el("i", { class: "aprovado" }), "Aprovado"),
           el("span", {}, el("i", { class: "reprovado" }), "Ajuste"),
           el("span", {}, el("i", { class: "contestado" }), "Em discussão"),
+          el("span", {}, el("i", { class: "publicado" }), "Publicado"),
           el("span", {}, el("i", {}), "Sua vez"))),
       el("div", { class: "cal" },
         el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells),
@@ -429,7 +430,8 @@
             el("span", { class: "chip" }, G.FORMATS[post.format] || post.format),
             post.editoria ? el("span", { class: "chip ed" }, edName(post.editoria)) : null,
             post.theme ? el("span", {}, post.theme) : null,
-            post.scheduled ? el("span", { class: "chip lock" }, "Agendado") : null),
+            post.publish_status === "publicado" ? el("span", { class: "chip pub" }, "Publicado")
+              : post.scheduled ? el("span", { class: "chip lock" }, "Agendado") : null),
           post.objective ? el("p", { class: "objective" }, `Objetivo: ${post.objective}`) : null,
           post.direction ? el("p", { class: "direction" }, post.direction) : null,
           checklist.length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),

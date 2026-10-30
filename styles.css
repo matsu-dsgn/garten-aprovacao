@@ -46,7 +46,8 @@
   /* Status (funcionais). Ajuste usa âmbar: exceção fora da paleta, só para alerta de UI */
   --ok: #00703d; --ok-bg: #cdeedb;
   --bad: #9a4507; --bad-bg: #fbe8cf;
-  --disc: var(--deep); --disc-bg: var(--powder);
+  --disc: #6a3fc8; --disc-bg: #e6dcfa;        /* roxo: em discussão */
+  --pub: #0057d9; --pub-bg: #d5e5fd;          /* azul vivo: publicado (separado do azul profundo da marca) */
   --pend: var(--charcoal); --pend-bg: #d3dce8;
   --shadow: 0 1px 2px rgba(0,42,80,.06), 0 8px 24px rgba(0,42,80,.07);
   color-scheme: light;
@@ -60,7 +61,7 @@
     --accent-ink: var(--neon); --hero-bg: #00223f;
     --ok: var(--neon); --ok-bg: rgba(154,255,87,.14); --bad: #f5b14c; --bad-bg: rgba(245,177,76,.14);
     --cta-bg: var(--neon); --cta-ink: var(--carbon); --cta-hover: #b6ff86;
-    --disc: var(--powder); --disc-bg: rgba(162,189,210,.16); --pend: var(--powder); --pend-bg: rgba(162,189,210,.1);
+    --disc: #b99cff; --disc-bg: rgba(185,156,255,.16); --pub: #5fa8ff; --pub-bg: rgba(95,168,255,.16); --pend: var(--powder); --pend-bg: rgba(162,189,210,.1);
     --shadow: none; color-scheme: dark;
   }
 }
@@ -70,7 +71,7 @@
   --accent-ink: var(--neon); --hero-bg: #00223f;
   --ok: var(--neon); --ok-bg: rgba(154,255,87,.14); --bad: #f5b14c; --bad-bg: rgba(245,177,76,.14);
   --cta-bg: var(--neon); --cta-ink: var(--carbon); --cta-hover: #b6ff86;
-  --disc: var(--powder); --disc-bg: rgba(162,189,210,.16); --pend: var(--powder); --pend-bg: rgba(162,189,210,.1);
+  --disc: #b99cff; --disc-bg: rgba(185,156,255,.16); --pub: #5fa8ff; --pub-bg: rgba(95,168,255,.16); --pend: var(--powder); --pend-bg: rgba(162,189,210,.1);
   --shadow: none; color-scheme: dark;
 }
 
@@ -148,6 +149,8 @@ section.block { padding-top: 56px; }
 .dot.aprovado, .legend i.aprovado { background: var(--ok); }
 .dot.reprovado, .legend i.reprovado { background: var(--bad); }
 .dot.contestado, .legend i.contestado { background: var(--disc); }
+.dot.publicado, .legend i.publicado { background: var(--pub); }
+.chip.pub { background: var(--pub-bg); border-color: transparent; color: var(--pub); }
 
 /* Calendário */
 .cal { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
@@ -192,6 +195,7 @@ section.block { padding-top: 56px; }
 .pill.aprovado { background: var(--ok-bg); color: var(--ok); }
 .pill.reprovado { background: var(--bad-bg); color: var(--bad); }
 .pill.contestado { background: var(--disc-bg); color: var(--disc); }
+.pill.publicado { background: var(--pub-bg); color: var(--pub); }
 .stage-body { padding: 20px; display: grid; gap: 16px; }
 .content-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; white-space: pre-wrap; font-size: 15px; color: var(--ink-2); }
 .content-box .eyebrow { display: block; margin-bottom: 8px; white-space: normal; }
