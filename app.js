@@ -297,8 +297,10 @@
 
   // ---------- Cards ----------
   function stageContent(post, stage, st) {
-    if (stage === "pauta") return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Pauta"),
-      st.status === "aprovado" ? "Pauta aprovada. Texto e arte aparecem aqui quando a Garten subir." : "Aprove o tema e o direcional ao lado. Texto e arte vêm nas próximas etapas.");
+    if (stage === "pauta") return el("div", { class: "stack-0" },
+      el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Pauta"),
+        st.status === "aprovado" ? "Pauta aprovada. Texto e arte aparecem aqui quando a Garten subir." : "Aprove o tema e o direcional ao lado. Texto e arte vêm nas próximas etapas."),
+      G.refsView(post.refs, data.urls, (paths, i) => lightbox(paths, i)));
     if (!st.version) return null;
     // Copy = texto da arte · Legenda = texto do post. Aprovados juntos.
     if (stage === "copy") return el("div", { class: "stack-0" },

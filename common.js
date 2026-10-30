@@ -386,9 +386,28 @@ window.G = (() => {
     return sel;
   }
 
+  // ---------- Referências do post ----------
+  const isHttp = (u) => { try { const x = new URL(u); return x.protocol === "https:" || x.protocol === "http:"; } catch { return false; } };
+  const refHost = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
+  // Grade de miniaturas + lista de links. urls = { path: signedUrl }
+  function refsView(refs, urls, onZoom) {
+    const imgs = (refs || []).filter((r) => r.t === "img" && urls[r.path]);
+    const links = (refs || []).filter((r) => r.t === "link" && isHttp(r.url));
+    if (!imgs.length && !links.length) return null;
+    return el("div", { class: "refs" },
+      el("span", { class: "eyebrow" }, "Referências"),
+      imgs.length ? el("div", { class: "refs-grid" }, imgs.map((r, i) => el("button", { class: "ref-thumb", type: "button", "aria-label": `Ampliar referência ${i + 1}`,
+        onclick: () => (onZoom ? onZoom(imgs.map((x) => x.path), i) : window.open(urls[r.path], "_blank", "noopener")) },
+        el("img", { src: urls[r.path], alt: "", loading: "lazy" })))) : null,
+      links.length ? el("ul", { class: "refs-links" }, links.map((r) => el("li", {},
+        el("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, r.label || refHost(r.url)),
+        r.label ? el("span", {}, refHost(r.url)) : null))) : null);
+  }
+
+
   // Esqueleto de carregamento com o formato do conteúdo
   const skeleton = (lines = 3) => el("div", { class: "skel", role: "status", "aria-label": "Carregando" },
     Array.from({ length: lines }, () => el("i")));
 
-  return { statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  return { refsView, isHttp, refHost, statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

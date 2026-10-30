@@ -55,9 +55,9 @@ async function authMonth(slug: string | null, token: string | null) {
   return safeEqual(await sha256(token), data.token_hash) ? data : null;
 }
 
-async function loadState(month: { id: string }) {
+async function loadState(month: { id: string; slug: string }) {
   const { data: posts } = await db.from("posts")
-    .select("id, post_date, format, theme, editoria, kind, origin, respond_by, title, objective, direction, checklist, scheduled, publish_status, sort")
+    .select("id, post_date, format, theme, editoria, kind, origin, respond_by, title, objective, direction, checklist, scheduled, publish_status, refs, sort")
     .eq("month_id", month.id).order("post_date").order("sort");
   const ids = (posts ?? []).map((p) => p.id);
   const [{ data: versions }, { data: decisions }, { data: approvers }, { data: editorias }] = await Promise.all([
@@ -75,6 +75,12 @@ async function loadState(month: { id: string }) {
 
   // URLs assinadas (1h) só para arquivos deste mês
   const paths = (versions ?? []).flatMap((v) => v.asset_paths ?? []);
+  // Imagens de referência: só as que estão na pasta do próprio post deste mês
+  for (const p of posts ?? []) {
+    for (const r of (Array.isArray(p.refs) ? p.refs : [])) {
+      if (r?.t === "img" && typeof r.path === "string" && r.path.startsWith(`${month.slug}/${p.id}/refs/`) && !r.path.includes("..")) paths.push(r.path);
+    }
+  }
   const urls: Record<string, string> = {};
   if (paths.length) {
     const { data: signed } = await db.storage.from("artes").createSignedUrls(paths, 3600);
@@ -83,7 +89,7 @@ async function loadState(month: { id: string }) {
   return { posts, versions, decisions, approvers, editorias, urls };
 }
 
-async function decide(req: Request, month: { id: string }) {
+async function decide(req: Request, month: { id: string; slug: string }) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json(req, { error: "JSON inválido" }, 400); }
 
