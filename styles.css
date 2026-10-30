@@ -1163,3 +1163,8 @@ body.rel-editor #app.wrap { max-width: none; padding: 0 20px; }
 @keyframes btn-done { 40% { transform: scale(1.06); } }
 @keyframes decided-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
 @keyframes nudge { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+
+/* Barra superior acompanha a largura do conteúdo da página.
+   Kanban e editor do relatório usam a tela inteira, então o topo também. */
+.kanban-page .topbar .wrap { max-width: none; padding-inline: clamp(16px, 3vw, 40px); }
+body.rel-editor .topbar .wrap { max-width: none; padding-inline: 20px; }
