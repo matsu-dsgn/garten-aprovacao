@@ -103,7 +103,7 @@ window.GartenIso = (() => {
   function build(items, counts) {
     if (raf) cancelAnimationFrame(raf);
     const total = counts.reduce((a, b) => a + b, 0) || 1;
-    const svg = node("svg", { class: "iso iso-tower", viewBox: "-190 -330 380 400", role: "img", "aria-label": "Ilustração: uma torre com um andar por editoria do mês" });
+    const svg = node("svg", { class: "iso iso-tower", viewBox: "-200 -290 400 360", role: "img", "aria-label": "Ilustração: uma torre com um andar por editoria do mês" });
     const ground = node("g", {}, svg);
     poly(ground, "base-side", [[-1.6, 1.6, 0], [1.6, 1.6, 0], [1.6, 1.6, -0.3], [-1.6, 1.6, -0.3]]);
     poly(ground, "base-side r", [[1.6, -1.6, 0], [1.6, 1.6, 0], [1.6, 1.6, -0.3], [1.6, -1.6, -0.3]]);
@@ -136,9 +136,9 @@ window.GartenIso = (() => {
       let z = 0.2;
       items.forEach((_, i) => {
         const [th, e] = st[i], h = heights[i];
-        const ang = i * 1.9 + 0.6, ox = Math.cos(ang) * e * 1.1, oy = Math.sin(ang) * e * 1.1;
-        const zz = z + e * 0.4 * (i + 1);
-        list.push({ b: CORE, th: 0, ox: 0, oy: 0, z0: z + e * 0.4 * i, z1: zz + h, core: true });
+        const ang = i * 1.9 + 0.6, ox = Math.cos(ang) * e * 1.35, oy = Math.sin(ang) * e * 1.35;
+        const zz = z + e * 0.12 * (i + 1);
+        list.push({ b: CORE, th: 0, ox: 0, oy: 0, z0: z + e * 0.12 * i, z1: zz + h, core: true });
         SETS[i % SETS.length].forEach((b) => list.push({ b, th, ox, oy, z0: zz + h * b[4], z1: zz + h * b[5], idx: i }));
         z += h + GAP;
       });
