@@ -1213,3 +1213,4 @@ details.post-row > summary .pill { letter-spacing: normal; }
 .iso-tower .block .core.l, .iso-tower .block.on .core.l { fill: var(--f-l); }
 .iso-tower .block .core.r, .iso-tower .block.on .core.r { fill: var(--f-r); }
 .iso-tower .block.plinth { cursor: default; }
+.iso-tower .blend { stroke: none; }

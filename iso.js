@@ -37,12 +37,18 @@ window.GartenIso = (() => {
       const a = c[k], e = c[(k + 1) % 4];
       const dx = e[0] - a[0], dy = e[1] - a[1], nx = dy, ny = -dx;
       if (nx + ny <= 0.001) continue;
-      const side = ny >= nx ? "l" : "r";
-      poly(g, `${side} ${cls}`, [[...a, z0], [...e, z0], [...e, z1], [...a, z1]]);
+      // Tom da face varia suave com o ângulo: face clara (l) + face escura (r) por cima com opacidade
+      const rw = Math.min(1, Math.max(0, 1 - Math.atan2(ny, nx) / (Math.PI / 2)));
+      const quad = [[...a, z0], [...e, z0], [...e, z1], [...a, z1]];
+      const layer = (cl, arr) => {
+        if (rw < 0.99) poly(g, `${cl === "f" ? "l" : "win wl"} ${cls}`, arr);
+        if (rw > 0.01) { const p = poly(g, `${cl === "f" ? "r" : "win wr"} ${cls}${rw < 0.99 ? " blend" : ""}`, arr); if (rw < 0.99) p.style.opacity = rw.toFixed(3); }
+      };
+      layer("f", quad);
       if (win && z1 - z0 > 0.4) {
         const m = (u, v) => [a[0] + dx * u, a[1] + dy * u, v];
         const za = z0 + (z1 - z0) * 0.4, zb = z0 + (z1 - z0) * 0.62;
-        poly(g, `win w${side}`, [m(0.14, za), m(0.86, za), m(0.86, zb), m(0.14, zb)]);
+        layer("w", [m(0.14, za), m(0.86, za), m(0.86, zb), m(0.14, zb)]);
       }
     }
     poly(g, `t ${cls}`, c.map((p) => [...p, z1]));
