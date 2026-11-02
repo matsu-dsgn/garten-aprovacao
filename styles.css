@@ -1206,3 +1206,10 @@ details.post-row > summary .pill { letter-spacing: normal; }
 .refs-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .refs-list img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
 .refs-edit input[type=url], .refs-edit input[type=text] { flex: 1; min-width: 160px; }
+
+/* Torre por andares: núcleo e base ficam em concreto, o andar ativo não flutua */
+.iso-tower .block.floor.on, .iso-tower .block.plinth { transform: none; animation: none; }
+.iso-tower .block .core.t, .iso-tower .block.on .core.t { fill: var(--f-top); }
+.iso-tower .block .core.l, .iso-tower .block.on .core.l { fill: var(--f-l); }
+.iso-tower .block .core.r, .iso-tower .block.on .core.r { fill: var(--f-r); }
+.iso-tower .block.plinth { cursor: default; }

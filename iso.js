@@ -1,5 +1,7 @@
-// Ilustração isométrica em traço (preto e branco + Green Yellow no ativo).
-// Um prédio brutalista por editoria; a altura acompanha o peso da editoria no mês.
+// Ilustração isométrica: uma torre brutalista escultural, um andar por editoria.
+// A altura de cada andar acompanha o peso da editoria no mês. Cores vêm do styles.css
+// (mesmas classes .t/.l/.r/.wl/.wr e .on de antes). Loop: monta, gira andar a andar,
+// explode e remonta.
 window.GartenIso = (() => {
   const NS = "http://www.w3.org/2000/svg";
   const S = 34;
@@ -14,266 +16,112 @@ window.GartenIso = (() => {
     return n;
   }
   const poly = (g, cls, arr) => node("polygon", { class: cls, points: pts(arr) }, g);
-  const line = (g, cls, a, b) => { const [x1, y1] = P(...a), [x2, y2] = P(...b); return node("line", { class: cls, x1, y1, x2, y2 }, g); };
 
-  // Caixa com faces: l = frente-esquerda (clara), r = frente-direita (escura), t = topo
-  function box(g, x, y, w, d, h, z = 0, o = {}) {
-    poly(g, "l", [[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]]);
-    poly(g, "r", [[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]]);
-    poly(g, o.topCls || "t", [[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]]);
-    if (o.win) windows(g, x, y, w, d, h, z, o.win);
-    if (o.bands) bands(g, x, y, w, d, h, z, o.bands);
-  }
+  // Peças de cada andar: [x, y, largura, profundidade, início, fim] (início/fim em fração da altura do andar)
+  const SETS = [
+    [[-1.2, -0.47, 1, 0.87, 0, 1], [-0.27, 0.13, 0.73, 1.07, 0, 0.7], [0.4, -0.8, 0.8, 0.47, 0.3, 1], [-0.67, -1.13, 0.47, 0.67, 0.5, 1], [0.47, 0.33, 0.67, 0.47, 0, 0.45]],
+    [[-0.33, -1.2, 0.67, 1, 0, 1], [-1.13, -0.2, 0.87, 0.6, 0.2, 1], [0.13, -0.07, 1.07, 0.53, 0, 0.75], [-0.2, 0.47, 0.47, 0.8, 0.3, 1]],
+    [[-1.27, -0.67, 1, 0.93, 0, 1], [-0.07, 0.2, 1.2, 0.6, 0, 0.8], [0.33, -0.93, 0.47, 0.73, 0.4, 1], [-0.47, 0.33, 0.4, 0.87, 0.15, 0.85]],
+    [[-0.6, -1.07, 1.33, 0.67, 0, 1], [-0.27, -0.2, 0.47, 1.27, 0.2, 1], [-1.13, 0.07, 0.67, 0.47, 0, 0.6]],
+    [[-1, -0.4, 1.47, 0.73, 0, 1], [0.2, -0.93, 0.53, 0.6, 0.3, 1], [-0.13, 0.33, 0.4, 0.67, 0, 0.7]],
+  ];
+  const CORE = [-0.27, -0.27, 0.54, 0.54];
+  const H = 5.2, MIN = 0.55, GAP = 0.1, T = 11;
 
-  // Grade de janelas nas duas faces visíveis
-  let winCount = 0;
-  function windows(g, x, y, w, d, h, z, { cols = 3, colsR = cols, rows, mx = 0.12, mz = 0.12, gap = 0.08 }) {
-    rows = rows || Math.max(1, Math.round(h / 0.32));
-    const face = (len, n, place) => {
-      const cw = (len - 2 * mx - gap * (n - 1)) / n;
-      const ch = (h - 2 * mz - gap * (rows - 1)) / rows;
-      if (cw <= 0.03 || ch <= 0.03) return;
-      for (let r = 0; r < rows; r++) for (let c = 0; c < n; c++) {
-        const u = mx + c * (cw + gap), v = z + mz + r * (ch + gap);
-        const p = place(u, v, cw, ch);
-        p.style.animationDelay = `${((winCount++ * 137) % 1900) / 1000}s`;
+  // Prisma girado em torno do núcleo; só as faces viradas para quem olha
+  function solid(g, b, th, ox, oy, z0, z1, cls = "", win = false) {
+    const cs = Math.cos(th), sn = Math.sin(th);
+    const [x, y, w, d] = b;
+    const c = [[x, y], [x + w, y], [x + w, y + d], [x, y + d]].map(([a, e]) => [a * cs - e * sn + ox, a * sn + e * cs + oy]);
+    for (let k = 0; k < 4; k++) {
+      const a = c[k], e = c[(k + 1) % 4];
+      const dx = e[0] - a[0], dy = e[1] - a[1], nx = dy, ny = -dx;
+      if (nx + ny <= 0.001) continue;
+      const side = ny >= nx ? "l" : "r";
+      poly(g, `${side} ${cls}`, [[...a, z0], [...e, z0], [...e, z1], [...a, z1]]);
+      if (win && z1 - z0 > 0.4) {
+        const m = (u, v) => [a[0] + dx * u, a[1] + dy * u, v];
+        const za = z0 + (z1 - z0) * 0.4, zb = z0 + (z1 - z0) * 0.62;
+        poly(g, `win w${side}`, [m(0.14, za), m(0.86, za), m(0.86, zb), m(0.14, zb)]);
       }
-    };
-    face(w, cols, (u, v, cw, ch) => poly(g, "win wl", [[x + u, y + d, v], [x + u + cw, y + d, v], [x + u + cw, y + d, v + ch], [x + u, y + d, v + ch]]));
-    face(d, colsR, (u, v, cw, ch) => poly(g, "win wr", [[x + w, y + u, v], [x + w, y + u + cw, v], [x + w, y + u + cw, v + ch], [x + w, y + u, v + ch]]));
-  }
-
-  // Janelas recuadas: vão escuro + peitoril claro (profundidade)
-  function coffers(g, x, y, w, d, h, z, { cols = 3, colsR = cols, rows, m = 0.1, gap = 0.07 }) {
-    rows = rows || Math.max(1, Math.round(h / 0.3));
-    const ch = (h - 2 * m - gap * (rows - 1)) / rows;
-    const left = (u, v, cw) => {
-      const a = poly(g, "win wl", [[x + u, y + d, v], [x + u + cw, y + d, v], [x + u + cw, y + d, v + ch], [x + u, y + d, v + ch]]);
-      poly(g, "sill", [[x + u, y + d, v], [x + u + cw, y + d, v], [x + u + cw - cw * 0.18, y + d, v + ch * 0.22], [x + u + cw * 0.18, y + d, v + ch * 0.22]]);
-      a.style.animationDelay = `${((winCount++ * 137) % 1900) / 1000}s`;
-    };
-    const right = (u, v, cw) => {
-      const a = poly(g, "win wr", [[x + w, y + u, v], [x + w, y + u + cw, v], [x + w, y + u + cw, v + ch], [x + w, y + u, v + ch]]);
-      poly(g, "sill r", [[x + w, y + u, v], [x + w, y + u + cw, v], [x + w, y + u + cw - cw * 0.18, v + ch * 0.22], [x + w, y + u + cw * 0.18, v + ch * 0.22]]);
-      a.style.animationDelay = `${((winCount++ * 137) % 1900) / 1000}s`;
-    };
-    const run = (len, n, fn) => {
-      const cw = (len - 2 * m - gap * (n - 1)) / n;
-      if (cw <= 0.03 || ch <= 0.03) return;
-      for (let r = 0; r < rows; r++) for (let c = 0; c < n; c++) fn(m + c * (cw + gap), z + m + r * (ch + gap), cw);
-    };
-    run(w, cols, left); run(d, colsR, right);
-  }
-
-  // Textura de fôrma de tábua nas faces
-  function boards(g, x, y, w, d, h, z, step = 0.22) {
-    for (let v = z + step; v < z + h - 0.02; v += step) {
-      line(g, "board", [x, y + d, v], [x + w, y + d, v]);
-      line(g, "board", [x + w, y, v], [x + w, y + d, v]);
     }
+    poly(g, `t ${cls}`, c.map((p) => [...p, z1]));
   }
 
-  // Sombra projetada na face esquerda de um corpo, logo abaixo de um balanço
-  function shade(g, x, y, w, d, ztop, depth = 0.35) {
-    poly(g, "shade", [[x, y + d, ztop - depth], [x + w, y + d, ztop - depth * 0.6], [x + w, y + d, ztop], [x, y + d, ztop]]);
-    poly(g, "shade", [[x + w, y, ztop - depth * 0.6], [x + w, y + d, ztop - depth * 0.6], [x + w, y + d, ztop], [x + w, y, ztop]]);
+  const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+  // Estado de cada andar no tempo t do loop: rotação e explosão (0 = encaixado)
+  function stateAt(t, i) {
+    const base = (i % 2 ? 1 : -1) * Math.PI / 2;
+    if (t < 1.8) { const k = ease(t / 1.8 - i * 0.06); return [base * (1 - k), 1 - k]; }
+    if (t < 4) return [0, 0];
+    if (t < 6.5) return [base * ease((t - 4 - i * 0.25) / 1.2), 0];
+    if (t < 8) return [base, 0];
+    if (t < 10) return [base, ease((t - 8 - i * 0.08) / 1.6)];
+    return [base, 1];
   }
 
-  // Cilindro isométrico (tambor)
-  function drum(g, cx, cy, r, h, z = 0, cls = "") {
-    const rx = r * C * S * Math.SQRT2, ry = r * 0.5 * S * Math.SQRT2;
-    const [bx, by] = P(cx, cy, z), [tx, ty] = P(cx, cy, z + h);
-    node("path", { class: `drum-side ${cls}`, d: `M${tx - rx},${ty} L${bx - rx},${by} A${rx},${ry} 0 0 0 ${bx + rx},${by} L${tx + rx},${ty} Z` }, g);
-    node("ellipse", { class: `drum-top ${cls}`, cx: tx, cy: ty, rx, ry }, g);
-    return [rx, ry, tx, ty, bx, by];
-  }
-
-  // Faixas horizontais (janela em fita), típicas do brutalismo
-  function bands(g, x, y, w, d, h, z, { n = 2, t = 0.14 }) {
-    for (let i = 0; i < n; i++) {
-      const v = z + (h / (n + 1)) * (i + 1) - t / 2;
-      const s = poly(g, "win wl", [[x + 0.08, y + d, v], [x + w - 0.08, y + d, v], [x + w - 0.08, y + d, v + t], [x + 0.08, y + d, v + t]]);
-      const r = poly(g, "win wr", [[x + w, y + 0.08, v], [x + w, y + d - 0.08, v], [x + w, y + d - 0.08, v + t], [x + w, y + 0.08, v + t]]);
-      s.style.animationDelay = r.style.animationDelay = `${(i * 0.35).toFixed(2)}s`;
-    }
-  }
-
-  function tree(g, x, y, z = 0, s = 1) {
-    const [bx, by] = P(x, y, z);
-    node("ellipse", { class: "shadow", cx: bx + 3 * s, cy: by + 1, rx: 8 * s, ry: 4 * s }, g);
-    line(g, "trunk", [x, y, z], [x, y, z + 0.42 * s]);
-    const [cx, cy] = P(x, y, z + 0.62 * s);
-    node("circle", { class: "canopy", cx: cx - 3 * s, cy: cy + 2 * s, r: 7 * s }, g);
-    node("circle", { class: "canopy", cx: cx + 3.5 * s, cy: cy + 1.5 * s, r: 6.5 * s }, g);
-    node("circle", { class: "canopy", cx, cy: cy - 4 * s, r: 7.5 * s }, g);
-  }
-
-  // Símbolo da Garten flutuando sobre o prédio ativo: plano e de frente (sem distorção)
-  const SYMBOL = "M478.4,108.9V25.9c0-14.3-11.6-25.9-25.9-25.9h-83c-6.9,0-13.4,2.7-18.3,7.6l-104.4,104.4c-4.9,4.9-7.6,11.4-7.6,18.3v27.9c0,7.8-9.4,11.7-15,6.2l-97.1-97.1c-4.9-4.9-11.4-7.6-18.3-7.6H25.9c-14.3,0-25.9,11.6-25.9,25.9v83c0,6.9,2.7,13.4,7.6,18.3l89.2,89.2,6.7,6.7c5.5,5.5,1.9,16-5.9,16H25.9c-14.3,0-25.9,11.6-25.9,25.9v83c0,6.9,2.7,13.4,7.6,18.3l104.4,104.4c4.9,4.9,11.4,7.6,18.3,7.6h83c14.3,0,25.9-11.6,25.9-25.9v-33.9h108.9c6.9,0,13.4-2.7,18.3-7.6l104.4-104.4c4.9-4.9,7.6-11.4,7.6-18.3v-83c0-14.3-11.6-25.9-25.9-25.9h-71c-7.8,0-12.7-10-7.2-15.5l96.5-96.5c4.9-4.9,7.6-11.4,7.6-18.3v.2ZM342.8,255.2l-96,96c-4.9,4.9-7.6,11.4-7.6,18.3v26.4c0,7.8-10,12.7-15.5,7.2l-81.3-81.3-7.3-7.3c-5.7-5.7-1.7-15.5,6.4-15.5h71.8c14.3,0,25.9-11.6,25.9-25.9v-12.6c0-11.8,9.5-21.3,21.3-21.3h75.6c8.4,0,12.6,10.1,6.6,16h.1Z";
-  function sprout(g, cx, cy, top) {
-    const [sx, sy] = P(cx, cy, top);
-    const hgt = 30, sc = hgt / 538, wid = 478.4 * sc;
-    const stem = 22;
-    const s = node("g", { class: "sprout" }, g);
-    node("path", { class: "stem", d: `M${sx},${sy} C${sx - 4},${sy - stem * 0.4} ${sx + 4},${sy - stem * 0.7} ${sx},${sy - stem}` }, s);
-    node("path", { class: "leaflet", d: `M${sx + 1},${sy - stem * 0.45} q9,-3 12,-11 q-9,0 -12,11 z` }, s);
-    const inner = node("g", { class: "sprout-float" }, s);
-    const spin = node("g", { class: "sprout-spin" }, inner);
-    node("path", { class: "symbol", d: SYMBOL, transform: `translate(${(sx - wid / 2).toFixed(1)},${(sy - stem - hgt).toFixed(1)}) scale(${sc.toFixed(4)})` }, spin);
-  }
-
-  // Pulso no chão do lote ativo
-  function pulse(g, x, y) {
-    const p = poly(g, "pulse", [[x - 0.05, y - 0.05, 0.02], [x + 1.85, y - 0.05, 0.02], [x + 1.85, y + 1.85, 0.02], [x - 0.05, y + 1.85, 0.02]]);
-    const [cx, cy] = P(x + 0.9, y + 0.9, 0);
-    p.style.transformOrigin = `${cx}px ${cy}px`;
-  }
-
-  // ---------- Os prédios ----------
-  const SHAPES = {
-    // Prazo certo: torre de blocos encaixados e deslocados
-    torre(g, x, y, k) {
-      const levels = 3 + Math.round(3 * k), mh = 0.52;
-      box(g, x + 0.3, y + 0.3, 1.2, 1.2, 0.14);
-      box(g, x + 0.65, y + 0.65, 0.5, 0.5, levels * mh, 0.14);
-      boards(g, x + 0.65, y + 0.65, 0.5, 0.5, levels * mh, 0.14, 0.26);
-      let top = 0.14;
-      for (let i = 0; i < levels; i++) {
-        const z = 0.14 + i * mh + 0.08;
-        const a = i % 2 === 0;
-        const bx = a ? x + 0.35 : x + 0.75, by = a ? y + 0.75 : y + 0.35;
-        const bw = a ? 1.0 : 0.62, bd = a ? 0.62 : 1.0;
-        box(g, bx, by, bw, bd, mh - 0.12, z);
-        boards(g, bx, by, bw, bd, mh - 0.12, z, 0.13);
-        if (i > 0) shade(g, bx, by, bw, bd, z, 0.12);
-        top = z + mh - 0.12;
-      }
-      return [x + 0.9, y + 0.9, top];
-    },
-    // Imposto em mapa: pirâmide invertida com grelha profunda (Boston City Hall)
-    degraus(g, x, y, k) {
-      const h1 = 0.7 * k + 0.35, h2 = 0.45, h3 = 0.55 + 0.5 * k;
-      box(g, x + 0.45, y + 0.45, 0.35, 0.9, h1);
-      box(g, x + 1.0, y + 0.45, 0.35, 0.9, h1);
-      poly(g, "door", [[x + 0.8, y + 1.35, 0], [x + 1.0, y + 1.35, 0], [x + 1.0, y + 1.35, h1 * 0.8], [x + 0.8, y + 1.35, h1 * 0.8]]);
-      box(g, x + 0.3, y + 0.3, 1.2, 1.2, h2, h1, { });
-      coffers(g, x + 0.3, y + 0.3, 1.2, 1.2, h2, h1, { cols: 4, rows: 1 });
-      shade(g, x + 0.45, y + 0.45, 0.9, 0.9, h1, 0.2);
-      box(g, x + 0.08, y + 0.08, 1.64, 1.64, h3, h1 + h2);
-      coffers(g, x + 0.08, y + 0.08, 1.64, 1.64, h3, h1 + h2, { cols: 6, rows: Math.max(2, Math.round(h3 / 0.26)), gap: 0.05, m: 0.07 });
-      shade(g, x + 0.3, y + 0.3, 1.2, 1.2, h1 + h2, 0.18);
-      box(g, x + 0.04, y + 0.04, 1.72, 1.72, 0.12, h1 + h2 + h3);
-      return [x + 0.9, y + 0.9, h1 + h2 + h3 + 0.12];
-    },
-    // Próximo passo: torre com cabeça em balanço e janelas em fita
-    balanco(g, x, y, k) {
-      const h = 1.6 + 1.6 * k, head = 0.95;
-      box(g, x + 0.05, y + 0.9, 1.2, 0.8, 0.7, 0, { bands: { n: 2, t: 0.1 } });
-      box(g, x + 0.2, y + 0.3, 0.75, 0.9, h - head, 0);
-      coffers(g, x + 0.2, y + 0.3, 0.75, 0.9, h - head, 0, { cols: 2, colsR: 3 });
-      boards(g, x + 0.2, y + 0.3, 0.75, 0.9, h - head, 0, 0.3);
-      box(g, x + 0.1, y + 0.2, 1.75, 1.15, head, h - head, { bands: { n: 3, t: 0.12 } });
-      boards(g, x + 0.1, y + 0.2, 1.75, 1.15, head, h - head, 0.08);
-      shade(g, x + 0.2, y + 0.3, 0.75, 0.9, h - head, 0.4);
-      return [x + 1.2, y + 0.8, h];
-    },
-    // Do zero ao CNPJ: duas torres sobre pilotis ligadas por pontes (Casa dos Sovietes)
-    pilotis(g, x, y, k) {
-      const c = 0.55, h = 1.3 + 1.5 * k;
-      poly(g, "pave", [[x + 0.05, y + 0.05, 0.01], [x + 1.75, y + 0.05, 0.01], [x + 1.75, y + 1.5, 0.01], [x + 0.05, y + 1.5, 0.01]]);
-      for (const [dx, dy] of [[0.15, 0.6], [0.55, 0.6], [0.15, 1.2], [0.55, 1.2], [1.1, 0.15], [1.5, 0.15], [1.1, 0.55], [1.5, 0.55]]) box(g, x + dx, y + dy, 0.1, 0.1, c);
-      box(g, x + 1.05, y + 0.1, 0.65, 0.65, h, c);
-      coffers(g, x + 1.05, y + 0.1, 0.65, 0.65, h, c, { cols: 3 });
-      box(g, x + 0.72, y + 0.6, 0.35, 0.3, 0.22, c + h * 0.45);
-      box(g, x + 0.72, y + 0.6, 0.35, 0.3, 0.22, c + h * 0.8);
-      box(g, x + 0.1, y + 0.55, 0.65, 0.85, h * 0.92, c);
-      coffers(g, x + 0.1, y + 0.55, 0.65, 0.85, h * 0.92, c, { cols: 3, colsR: 4 });
-      return [x + 0.42, y + 0.97, c + h * 0.92];
-    },
-    // Com o Gabriel: tambor baixo com duas lâminas verticais
-    pavilhao(g, x, y, k) {
-      const dh = 0.45, bh = 1.0 + 1.4 * k;
-      drum(g, x + 0.95, y + 0.95, 0.78, dh);
-      drum(g, x + 0.95, y + 0.95, 0.62, 0.1, dh, "ring");
-      box(g, x + 0.55, y + 0.35, 0.16, 0.85, bh);
-      boards(g, x + 0.55, y + 0.35, 0.16, 0.85, bh, 0, 0.2);
-      box(g, x + 1.1, y + 0.75, 0.75, 0.16, bh * 0.82);
-      poly(g, "win wl", [[x + 1.42, y + 0.91, 0.25], [x + 1.52, y + 0.91, 0.25], [x + 1.52, y + 0.91, bh * 0.75], [x + 1.42, y + 0.91, bh * 0.75]]);
-      line(g, "detail", [x + 1.47, y + 0.91, bh * 0.4], [x + 1.47, y + 0.91, bh * 0.55]);
-      tree(g, x + 0.15, y + 1.7, 0, 0.6);
-      return [x + 0.63, y + 0.77, bh];
-    },
-    // 13º e fim de ano: monumento de lâminas abertas
-    portal(g, x, y, k) {
-      const cx = x + 0.9, cy = y + 0.9, h = 1.6 + 1.4 * k;
-      box(g, x + 0.3, y + 0.3, 1.2, 1.2, 0.18);
-      const blade = (ang, reach, tip, side) => {
-        const dx = Math.cos(ang), dy = Math.sin(ang);
-        const b1 = [cx - dy * 0.08, cy + dx * 0.08, 0.18], b2 = [cx + dy * 0.08, cy - dx * 0.08, 0.18];
-        const t = [cx + dx * reach, cy + dy * reach, tip];
-        const m = [cx + dx * reach * 0.35, cy + dy * reach * 0.35, tip * 0.55];
-        poly(g, side ? "l" : "r", [b1, m, t]); poly(g, side ? "r" : "l", [b2, m, t]);
-      };
-      [[-2.4, 0.55, h * 0.75, 1], [-0.8, 0.55, h * 0.75, 0], [0.8, 0.85, h * 0.6, 1], [2.4, 0.85, h * 0.6, 0], [-1.6, 0.25, h, 0], [1.6, 0.3, h * 0.95, 1], [0, 0.95, h * 0.5, 0], [3.14, 0.95, h * 0.5, 1]]
-        .sort((a, b) => Math.sin(a[0]) + Math.cos(a[0]) - (Math.sin(b[0]) + Math.cos(b[0])))
-        .forEach(([a, r, t, s]) => blade(a, r, t, s));
-      return [cx, cy, h * 0.6];
-    },
-  };
-
-  // Lote vazio vira praça
-  function plaza(g, x, y, seed) {
-    poly(g, "pave", [[x + 0.15, y + 0.15, 0.01], [x + 1.65, y + 0.15, 0.01], [x + 1.65, y + 1.65, 0.01], [x + 0.15, y + 1.65, 0.01]]);
-    if (seed % 2) {
-      for (const [dx, dy] of [[0.45, 0.45], [1.35, 0.45], [0.45, 1.35], [1.35, 1.35]]) tree(g, x + dx, y + dy, 0, 0.7);
-    } else {
-      box(g, x + 0.55, y + 0.55, 0.7, 0.7, 0.25);
-      tree(g, x + 0.35, y + 1.4, 0, 0.7); tree(g, x + 1.45, y + 0.35, 0, 0.7);
-    }
-  }
-
-  const LOTS = [[0, 0], [2.2, 0], [4.4, 0], [0, 2.2], [2.2, 2.2], [4.4, 2.2], [0, 4.4], [2.2, 4.4], [4.4, 4.4]];
-
+  let raf = null;
   function build(items, counts) {
-    winCount = 0;
-    const svg = node("svg", { class: "iso", viewBox: "-250 -135 500 385", role: "img", "aria-label": "Ilustração: um prédio por editoria do mês" });
-    const n = Math.min(items.length, 9);
-    const max = Math.max(1, ...counts);
+    if (raf) cancelAnimationFrame(raf);
+    const n = items.length;
+    const total = counts.reduce((a, b) => a + b, 0) || 1;
+    const svg = node("svg", { class: "iso iso-tower", viewBox: "-190 -340 380 410", role: "img", "aria-label": "Ilustração: uma torre com um andar por editoria do mês" });
+    const ground = node("g", {}, svg);
+    poly(ground, "base-side", [[-1.6, 1.6, 0], [1.6, 1.6, 0], [1.6, 1.6, -0.3], [-1.6, 1.6, -0.3]]);
+    poly(ground, "base-side r", [[1.6, -1.6, 0], [1.6, 1.6, 0], [1.6, 1.6, -0.3], [1.6, -1.6, -0.3]]);
+    poly(ground, "base-top", [[-1.6, -1.6, 0], [1.6, -1.6, 0], [1.6, 1.6, 0], [-1.6, 1.6, 0]]);
+    const plinth = node("g", { class: "block plinth" }, svg);
+    solid(plinth, [-0.8, -0.8, 1.6, 1.6], 0, 0, 0, 0, 0.2, "core");
 
-    // Terreno com ruas
-    const B = 6.6, base = 0.35;
-    poly(svg, "base-side", [[-0.4, B, 0], [B, B, 0], [B, B, -base], [-0.4, B, -base]]);
-    poly(svg, "base-side r", [[B, -0.4, 0], [B, B, 0], [B, B, -base], [B, -0.4, -base]]);
-    poly(svg, "base-top", [[-0.4, -0.4, 0], [B, -0.4, 0], [B, B, 0], [-0.4, B, 0]]);
-    for (const t of [1.82, 4.02]) {
-      poly(svg, "road", [[t, -0.4, 0], [t + 0.36, -0.4, 0], [t + 0.36, B, 0], [t, B, 0]]);
-      poly(svg, "road", [[-0.4, t, 0], [B, t, 0], [B, t + 0.36, 0], [-0.4, t + 0.36, 0]]);
-      line(svg, "lane", [t + 0.18, -0.4, 0], [t + 0.18, B, 0]);
-      line(svg, "lane", [-0.4, t + 0.18, 0], [B, t + 0.18, 0]);
+    const heights = counts.map((c) => Math.max(MIN, (c / total) * H));
+    const groups = items.map((it, i) => {
+      const g = node("g", { class: "block floor" + (counts[i] ? "" : " zero") }, svg);
+      g.dataset.idx = String(i);
+      return g;
+    });
+    const cap = node("g", { class: "block plinth" }, svg);
+
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let last = "";
+    function render(t) {
+      const st = items.map((_, i) => stateAt(t, i));
+      const sig = st.map(([a, e]) => a.toFixed(3) + "/" + e.toFixed(3)).join("|");
+      if (sig === last) return; // parado: não redesenha e deixa as animações CSS rodarem
+      last = sig;
+      let z = 0.2;
+      groups.forEach((g, i) => {
+        g.replaceChildren();
+        const [th, e] = st[i], h = heights[i];
+        const ang = i * 1.9 + 0.6, ox = Math.cos(ang) * e * 1.1, oy = Math.sin(ang) * e * 1.1;
+        const zz = z + e * 0.4 * (i + 1);
+        const cs = Math.cos(th), sn = Math.sin(th);
+        const list = SETS[i % SETS.length].map((b) => ({ b }));
+        list.push({ b: [...CORE, 0, 1], core: true });
+        list.map((it) => {
+          const cx = it.b[0] + it.b[2] / 2, cy = it.b[1] + it.b[3] / 2;
+          return { ...it, d: (cx * cs - cy * sn) + (cx * sn + cy * cs) + it.b[4] * 0.01 };
+        }).sort((a, b) => a.d - b.d).forEach((it) => {
+          if (it.core) solid(g, it.b, 0, 0, 0, z + e * 0.4 * i, zz + h, "core");
+          else solid(g, it.b, th, ox, oy, zz + h * it.b[4], zz + h * it.b[5], "", true);
+        });
+        z += h + GAP;
+      });
+      cap.replaceChildren();
+      solid(cap, CORE, 0, 0, 0, z, z + 0.35, "core");
     }
 
-    // Mais altos ao fundo, mais baixos na frente: nada fica escondido
-    const RANK = { torre: 0, balanco: 1, pilotis: 2, portal: 3, degraus: 4, pavilhao: 5 };
-    const LOT_ORDER = [0, 1, 3, 2, 6, 4, 5, 7, 8];
-    const byHeight = items.slice(0, n).map((it, i) => i).sort((a, b) => (RANK[items[a].shape] ?? 9) - (RANK[items[b].shape] ?? 9));
-    const assign = new Array(9).fill(-1);
-    byHeight.forEach((idx, pos) => { assign[LOT_ORDER[pos]] = idx; });
-    const groups = [];
-    const drawOrder = LOTS.map((p, i) => i).sort((a, b) => (LOTS[a][0] + LOTS[a][1]) - (LOTS[b][0] + LOTS[b][1]));
-    drawOrder.forEach((lot) => {
-      const [x, y] = LOTS[lot];
-      const idx = assign[lot];
-      const g = node("g", { class: idx >= 0 ? "block" : "block filler" }, svg);
-      if (idx < 0) { plaza(g, x, y, lot); return; }
-      pulse(g, x, y);
-      const k = 0.3 + 0.45 * (counts[idx] / max);
-      const draw = SHAPES[items[idx].shape] || SHAPES.torre;
-      const [cx, cy, top] = draw(g, x, y, k);
-      sprout(g, cx, cy, top);
-      if (!counts[idx]) g.classList.add("zero");
-      g.dataset.idx = String(idx);
-      groups[idx] = g;
-    });
+    if (reduce) render(3);
+    else {
+      const t0 = performance.now();
+      const tick = (now) => {
+        if (!svg.isConnected && now - t0 > 1000) { raf = null; return; }
+        render(((now - t0) / 1000) % T);
+        raf = requestAnimationFrame(tick);
+      };
+      render(0);
+      raf = requestAnimationFrame(tick);
+    }
     return { svg, groups };
   }
 
