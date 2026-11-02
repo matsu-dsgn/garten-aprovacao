@@ -61,26 +61,63 @@ window.GartenIso = (() => {
     return [base, 1];
   }
 
+  // Caixa envolvente (já girada) de uma peça, para ordenar quem fica na frente
+  function bounds(b, th, ox, oy, z0, z1) {
+    const cs = Math.cos(th), sn = Math.sin(th), [x, y, w, d] = b;
+    const c = [[x, y], [x + w, y], [x + w, y + d], [x, y + d]].map(([a, e]) => [a * cs - e * sn + ox, a * sn + e * cs + oy]);
+    const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]);
+    const r = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0, z1 };
+    const sx = [r.x0 - r.y1, r.x1 - r.y0], sy = [(r.x0 + r.y0) / 2 - z1, (r.x1 + r.y1) / 2 - z0];
+    return { ...r, sx, sy, dep: (r.x0 + r.x1 + r.y0 + r.y1) / 2 + (z0 + z1) * 0.5 };
+  }
+  const E = 0.001;
+  const behind = (a, b) => a.x1 <= b.x0 + E || a.y1 <= b.y0 + E || a.z1 <= b.z0 + E;
+  const overlap = (a, b) => a.sx[0] < b.sx[1] && b.sx[0] < a.sx[1] && a.sy[0] < b.sy[1] && b.sy[0] < a.sy[1];
+  // Ordenação topológica: desenha primeiro o que está atrás
+  function order(list) {
+    const n = list.length, inn = new Array(n).fill(0), out = list.map(() => []);
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const A = list[i].bb, B = list[j].bb;
+      if (!overlap(A, B)) continue;
+      const ab = behind(A, B), ba = behind(B, A);
+      if (ab && !ba) { out[i].push(j); inn[j]++; } else if (ba && !ab) { out[j].push(i); inn[i]++; }
+    }
+    const done = new Array(n).fill(false), res = [];
+    while (res.length < n) {
+      let pick = -1;
+      for (let i = 0; i < n; i++) if (!done[i] && !inn[i] && (pick < 0 || list[i].bb.dep < list[pick].bb.dep)) pick = i;
+      if (pick < 0) for (let i = 0; i < n; i++) if (!done[i] && (pick < 0 || list[i].bb.dep < list[pick].bb.dep)) pick = i;
+      done[pick] = true; res.push(list[pick]);
+      out[pick].forEach((j) => inn[j]--);
+    }
+    return res;
+  }
+
   let raf = null;
   function build(items, counts) {
     if (raf) cancelAnimationFrame(raf);
-    const n = items.length;
     const total = counts.reduce((a, b) => a + b, 0) || 1;
-    const svg = node("svg", { class: "iso iso-tower", viewBox: "-190 -340 380 410", role: "img", "aria-label": "Ilustração: uma torre com um andar por editoria do mês" });
+    const svg = node("svg", { class: "iso iso-tower", viewBox: "-190 -330 380 400", role: "img", "aria-label": "Ilustração: uma torre com um andar por editoria do mês" });
     const ground = node("g", {}, svg);
     poly(ground, "base-side", [[-1.6, 1.6, 0], [1.6, 1.6, 0], [1.6, 1.6, -0.3], [-1.6, 1.6, -0.3]]);
     poly(ground, "base-side r", [[1.6, -1.6, 0], [1.6, 1.6, 0], [1.6, 1.6, -0.3], [1.6, -1.6, -0.3]]);
     poly(ground, "base-top", [[-1.6, -1.6, 0], [1.6, -1.6, 0], [1.6, 1.6, 0], [-1.6, 1.6, 0]]);
-    const plinth = node("g", { class: "block plinth" }, svg);
-    solid(plinth, [-0.8, -0.8, 1.6, 1.6], 0, 0, 0, 0, 0.2, "core");
+    const stage = node("g", {}, svg);
 
     const heights = counts.map((c) => Math.max(MIN, (c / total) * H));
-    const groups = items.map((it, i) => {
-      const g = node("g", { class: "block floor" + (counts[i] ? "" : " zero") }, svg);
-      g.dataset.idx = String(i);
-      return g;
+    // Cada peça vira um <g class="block floor">; "groups" repassa .on e clique para as peças do andar
+    const on = new Set(), clicks = [];
+    const groups = items.map((_, i) => ({
+      classList: { toggle(c, v) { if (c !== "on") return; (v ?? !on.has(i)) ? on.add(i) : on.delete(i); paint(); } },
+      addEventListener(type, fn) { if (type === "click") clicks[i] = fn; },
+    }));
+    svg.addEventListener("click", (ev) => {
+      const g = ev.target.closest("[data-idx]");
+      if (g && clicks[+g.dataset.idx]) clicks[+g.dataset.idx](ev);
     });
-    const cap = node("g", { class: "block plinth" }, svg);
+    function paint() {
+      stage.querySelectorAll("[data-idx]").forEach((g) => g.classList.toggle("on", on.has(+g.dataset.idx)));
+    }
 
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     let last = "";
@@ -89,26 +126,25 @@ window.GartenIso = (() => {
       const sig = st.map(([a, e]) => a.toFixed(3) + "/" + e.toFixed(3)).join("|");
       if (sig === last) return; // parado: não redesenha e deixa as animações CSS rodarem
       last = sig;
+      const list = [{ b: [-0.8, -0.8, 1.6, 1.6], th: 0, ox: 0, oy: 0, z0: 0, z1: 0.2, core: true }];
       let z = 0.2;
-      groups.forEach((g, i) => {
-        g.replaceChildren();
+      items.forEach((_, i) => {
         const [th, e] = st[i], h = heights[i];
         const ang = i * 1.9 + 0.6, ox = Math.cos(ang) * e * 1.1, oy = Math.sin(ang) * e * 1.1;
         const zz = z + e * 0.4 * (i + 1);
-        const cs = Math.cos(th), sn = Math.sin(th);
-        const list = SETS[i % SETS.length].map((b) => ({ b }));
-        list.push({ b: [...CORE, 0, 1], core: true });
-        list.map((it) => {
-          const cx = it.b[0] + it.b[2] / 2, cy = it.b[1] + it.b[3] / 2;
-          return { ...it, d: (cx * cs - cy * sn) + (cx * sn + cy * cs) + it.b[4] * 0.01 };
-        }).sort((a, b) => a.d - b.d).forEach((it) => {
-          if (it.core) solid(g, it.b, 0, 0, 0, z + e * 0.4 * i, zz + h, "core");
-          else solid(g, it.b, th, ox, oy, zz + h * it.b[4], zz + h * it.b[5], "", true);
-        });
+        list.push({ b: CORE, th: 0, ox: 0, oy: 0, z0: z + e * 0.4 * i, z1: zz + h, core: true });
+        SETS[i % SETS.length].forEach((b) => list.push({ b, th, ox, oy, z0: zz + h * b[4], z1: zz + h * b[5], idx: i }));
         z += h + GAP;
       });
-      cap.replaceChildren();
-      solid(cap, CORE, 0, 0, 0, z, z + 0.35, "core");
+      list.push({ b: CORE, th: 0, ox: 0, oy: 0, z0: z, z1: z + 0.35, core: true });
+      list.forEach((it) => { it.bb = bounds(it.b, it.th, it.ox, it.oy, it.z0, it.z1); });
+      stage.replaceChildren();
+      order(list).forEach((it) => {
+        if (it.core) { solid(node("g", { class: "block plinth" }, stage), it.b, 0, 0, 0, it.z0, it.z1, "core"); return; }
+        const g = node("g", { class: "block floor" + (counts[it.idx] ? "" : " zero") + (on.has(it.idx) ? " on" : "") }, stage);
+        g.dataset.idx = String(it.idx);
+        solid(g, it.b, it.th, it.ox, it.oy, it.z0, it.z1, "", true);
+      });
     }
 
     if (reduce) render(3);
