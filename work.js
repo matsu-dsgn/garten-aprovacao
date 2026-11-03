@@ -228,20 +228,31 @@ window.GWork = (() => {
           : el("div", {}, ask, form));
     };
 
-    // Só fica verde quando dá para enviar; antes disso, contorno + selo com a pendência
-    const send = el("button", { class: r.ok ? "btn ok" : "btn ghost", type: "button", disabled: !r.ok }, "Enviar ao cliente");
-    const why = r.falta.length ? `Falta: ${r.falta.join(", ")}`
-      : r.ajuste ? "Tem ajuste interno pedido: espere a nova versão." : "";
-    send.addEventListener("click", async () => {
-      send.disabled = true;
-      const { error } = await sb.rpc("send_post", { p_post: post.id });
-      if (error) { send.disabled = false; return say(error.message, "err"); }
-      opts.onChange?.("Enviado ao cliente ✓");
-    });
+    // Envio por parte: copy, arte ou os dois. Verde só o que dá para enviar agora.
+    const P = r.parts;
+    const sendBtn = (parts, label, ok) => {
+      const b = el("button", { class: ok ? "btn ok" : "btn ghost", type: "button", disabled: !ok }, label);
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: parts });
+        if (error) { b.disabled = false; return say(error.message, "err"); }
+        opts.onChange?.(parts === "ambos" ? "Copy e arte enviadas ao cliente ✓" : parts === "copy" ? "Copy enviada ao cliente ✓" : "Arte enviada ao cliente ✓");
+      });
+      return b;
+    };
+    const hasNew = (k) => drafts.some((v) => v.stage === k);
+    const btns = [
+      hasNew("copy") && hasNew("arte") ? sendBtn("ambos", "Enviar os dois", P.copy.ok && P.arte.ok) : null,
+      hasNew("copy") ? sendBtn("copy", "Enviar só copy", P.copy.ok) : null,
+      hasNew("arte") ? sendBtn("arte", "Enviar só arte", P.arte.ok) : null,
+    ].filter(Boolean);
+    const pend = ["copy", "arte"].filter((k) => hasNew(k)).flatMap((k) =>
+      P[k].ajuste ? [`${k === "copy" ? "copy" : "arte"} com ajuste interno pedido`] : P[k].falta);
+    const why = pend.length ? `Falta: ${[...new Set(pend)].join(", ")}` : "";
     return el("div", { class: "review" },
       el("div", { class: "eyebrow" }, "Revisão interna"),
       drafts.map(item),
-      el("div", { class: "cmp-actions" }, send, why ? el("span", { class: r.falta.length ? "chip pend-chip" : "msg" }, why) : null), out);
+      el("div", { class: "cmp-actions" }, ...btns, why ? el("span", { class: "chip pend-chip" }, why) : null), out);
   }
 
   // ---------- Agendamento (regra validada no banco: só arte aprovada, só admin) ----------

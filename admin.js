@@ -636,9 +636,9 @@
       // Salva como versão nova e já tenta mandar ao cliente; se o post não estiver completo, fica salvo
       showCopy: true, showArte: true, sent: false, sendLabel: "Enviar ao cliente", draftNote: "",
       onDone: async () => {
-        const { error } = await sb.rpc("send_post", { p_post: p.id });
+        const { data: foi, error } = await sb.rpc("send_post", { p_post: p.id, p_parts: "pronto" });
         flash = error ? { id: p.id, kind: "err", text: `Salvo ✓, mas ainda não foi ao cliente. ${error.message}` }
-          : { id: p.id, kind: "okk", text: "Enviado ao cliente ✓" };
+          : { id: p.id, kind: "okk", text: ({ ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" })[foi] || "Enviado ao cliente ✓" };
         openPosts.add(p.id); openComposers.add(p.id); await openMonth(m, true);
       },
     });

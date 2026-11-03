@@ -240,7 +240,12 @@ window.G = (() => {
     }
     const ajuste = [copy, arte].some((v) => v && !v.sent && v.review_note);
     const novo = (copy?.number || 0) > sentMax("copy") || (arte?.number || 0) > sentMax("arte");
-    return { ok: !falta.length && !ajuste && novo, falta, ajuste, novo };
+    // Por parte: copy e arte podem ir ao cliente separadas
+    const part = (stage, v, missing) => ({ ok: !missing.length && !!v && !(v.sent === false && v.review_note) && (v?.number || 0) > sentMax(stage), falta: missing, ajuste: !!(v && !v.sent && v.review_note), novo: (v?.number || 0) > sentMax(stage) });
+    const copyFalta = falta.filter((f) => f !== "arte");
+    if (p.format === "stories" && (!copy || !(copy.copy_text || "").trim())) copyFalta.push("texto da arte");
+    const parts = { copy: part("copy", copy, copyFalta), arte: part("arte", arte, falta.filter((f) => f === "arte")) };
+    return { ok: !falta.length && !ajuste && novo, falta, ajuste, novo, parts };
   }
 
   // Agrupa itens por quando entraram no radar: Hoje, Ontem, Esta semana, depois por mês

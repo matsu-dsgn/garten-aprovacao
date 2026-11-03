@@ -323,9 +323,9 @@
       draftNote: isAdmin ? "" : undefined,
       onDone: async (t) => {
         if (!isAdmin) { await reload(); return toast(t); }
-        const { error } = await sb.rpc("send_post", { p_post: p.id });
+        const { data: foi, error } = await sb.rpc("send_post", { p_post: p.id, p_parts: "pronto" });
         await reload();
-        toast(error ? `Salvo. Ainda não foi ao cliente: ${error.message}` : "Enviado ao cliente ✓", !!error);
+        toast(error ? `Salvo. Ainda não foi ao cliente: ${error.message}` : (({ ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" })[foi] || "Enviado ao cliente ✓"), !!error);
       },
     }) : null;
     const review = isAdmin ? GWork.reviewPanel({ sb, post: p, all: d.all, urls: d.urls, team: d.team,
