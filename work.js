@@ -184,7 +184,7 @@ window.GWork = (() => {
         const msgOk = `Enviado ✓ ${done.join(" + ")}${sent ? " · já está com o cliente" : opts.draftNote || " · foi para aprovação do Rapha"}`;
         say(msgOk, "okk");
         btn.disabled = false;
-        await opts.onDone?.(msgOk);
+        await opts.onDone?.(msgOk, sendCopy && sendArte ? "ambos" : sendCopy ? "copy" : "arte");
       } catch (e) {
         // O que já subiu fica registrado; o resto pode ser reenviado
         say(`${done.length ? `Enviou ${done.join(" + ")}, mas ` : ""}${e.message || e}`, "err");
@@ -236,13 +236,13 @@ window.GWork = (() => {
     const why1 = (k) => (k === "ambos" ? ["copy", "arte"] : [k]).flatMap((x) => P[x].ajuste ? ["ajuste interno"] : P[x].falta).join(", ");
     const avail = OPTS.filter(([k]) => k === "ambos" ? hasNew("copy") && hasNew("arte") : hasNew(k));
     const best = avail.find(([k]) => okOf(k))?.[0] || avail[0]?.[0];
-    const LBL = { ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" };
+    const LBL = { ambos: "Copy e arte aprovadas e enviadas ao cliente ✓", copy: "Copy aprovada e enviada ao cliente ✓", arte: "Arte aprovada e enviada ao cliente ✓" };
     // Lista só aparece quando há escolha; abre na opção mais completa que dá para enviar
-    const sel = avail.length > 1 ? el("select", { class: "send-sel", "aria-label": "O que enviar ao cliente" },
+    const sel = avail.length > 1 ? el("select", { class: "send-sel", "aria-label": "O que aprovar e enviar ao cliente" },
       avail.map(([k, l]) => el("option", { value: k, disabled: !okOf(k), selected: k === best }, okOf(k) ? l : `${l} (falta ${why1(k)})`))) : null;
     const pick = () => sel ? sel.value : best;
-    const single = { copy: "Enviar copy ao cliente", arte: "Enviar arte ao cliente", ambos: "Enviar ao cliente" };
-    const send = el("button", { type: "button" }, sel ? "Enviar ao cliente" : single[best] || "Enviar ao cliente");
+    const single = { copy: "Aprovar copy e enviar", arte: "Aprovar arte e enviar", ambos: "Aprovar e enviar ao cliente" };
+    const send = el("button", { type: "button" }, sel ? "Aprovar e enviar ao cliente" : single[best] || "Enviar ao cliente");
     const paint = () => { const ok = okOf(pick()); send.className = ok ? "btn ok" : "btn ghost"; send.disabled = !ok; };
     sel?.addEventListener("change", paint); paint();
     send.addEventListener("click", async () => {
