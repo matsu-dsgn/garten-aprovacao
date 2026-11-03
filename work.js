@@ -232,7 +232,7 @@ window.GWork = (() => {
         el("div", { class: "msg" }, `${label} v${v.number} · por ${nameOf(opts.team, v.author_email)} · ${when(v.created_at)}`),
         preview(v, opts.urls),
         v.review_note ? el("div", { class: "content-box alert" }, el("span", { class: "eyebrow" }, "Ajuste pedido"), v.review_note)
-          : v.internal_ok ? el("div", { class: "row" }, el("span", { class: "chip ok-chip" }, "OK interno ✓ · liberada para o time"), ask, form)
+          : v.internal_ok ? el("div", { class: "row" }, el("span", { class: "chip ok-chip" }, "OK interno ✓"), ask, form)
           : el("div", { class: "row" }, okBtn(v), ask, form));
     };
 
@@ -242,41 +242,29 @@ window.GWork = (() => {
     const OPTS = [["ambos", "Copy e arte"], ["copy", "Só copy"], ["arte", "Só arte"]];
     const okOf = (k) => k === "ambos" ? P.copy.ok && P.arte.ok : P[k].ok;
     const why1 = (k) => (k === "ambos" ? ["copy", "arte"] : [k]).flatMap((x) => P[x].ajuste ? ["ajuste interno"] : P[x].falta).join(", ");
-    const avail = OPTS.filter(([k]) => k === "ambos" ? hasNew("copy") && hasNew("arte") : hasNew(k));
-    const best = avail.find(([k]) => okOf(k))?.[0] || avail[0]?.[0];
-    const LBL = { ambos: "Copy e arte aprovadas e enviadas ao cliente ✓", copy: "Copy aprovada e enviada ao cliente ✓", arte: "Arte aprovada e enviada ao cliente ✓" };
-    // Lista só aparece quando há escolha; abre na opção mais completa que dá para enviar
-    const sel = avail.length > 1 ? el("select", { class: "send-sel", "aria-label": "O que aprovar e enviar ao cliente" },
-      avail.map(([k, l]) => el("option", { value: k, disabled: !okOf(k), selected: k === best }, okOf(k) ? l : `${l} (falta ${why1(k)})`))) : null;
-    const pick = () => sel ? sel.value : best;
-    const single = { copy: "Aprovar copy e enviar", arte: "Aprovar arte e enviar", ambos: "Aprovar e enviar ao cliente" };
-    const send = el("button", { type: "button" }, sel ? "Aprovar e enviar ao cliente" : single[best] || "Enviar ao cliente");
-    // Já aprovado internamente não precisa "aprovar" de novo: o botão só envia
-    const allOk = (k) => (k === "ambos" ? ["copy", "arte"] : [k]).every((x) => drafts.find((v) => v.stage === x)?.internal_ok);
-    // Copy com OK interno e sem arte: o normal é esperar a arte; enviar só a copy fica discreto (posts complexos)
-    const copyOnlyWait = !sel && best === "copy" && allOk("copy");
-    if (copyOnlyWait) send.textContent = "Enviar só a copy ao cliente";
-    else if (!sel && allOk(best)) send.textContent = { copy: "Enviar copy ao cliente", arte: "Enviar arte ao cliente", ambos: "Enviar ao cliente" }[best];
-    const paint = () => {
-      const k = pick(), ok = okOf(k);
-      if (sel) send.textContent = allOk(k) ? "Enviar ao cliente" : "Aprovar e enviar ao cliente";
-      send.className = ok && !copyOnlyWait ? "btn ok" : "btn ghost"; send.disabled = !ok;
-    };
-    sel?.addEventListener("change", paint); paint();
+    // Sempre o mesmo controle: lista fixa + "Enviar ao cliente". Enviar já vale como aprovação.
+    const why0 = (k) => why1(k) || "nada novo";
+    const sel = el("select", { class: "send-sel", "aria-label": "O que enviar ao cliente" },
+      OPTS.map(([k, l]) => el("option", { value: k, disabled: !okOf(k), selected: k === "ambos" }, okOf(k) ? l : `${l} (${why0(k)})`)));
+    sel.value = "ambos";
+    const LBL = { ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" };
+    const send = el("button", { type: "button" }, "Enviar ao cliente");
+    const paint = () => { const ok = okOf(sel.value); send.className = ok ? "btn ok" : "btn ghost"; send.disabled = !ok; };
+    sel.addEventListener("change", paint); paint();
     send.addEventListener("click", async () => {
-      const parts = pick(); send.disabled = true;
+      const parts = sel.value; send.disabled = true;
       const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: parts });
       if (error) { paint(); return say(error.message, "err"); }
-      opts.onChange?.(allOk(parts) ? LBL[parts].replace(" aprovadas e", "").replace(" aprovada e", "") : LBL[parts]);
+      opts.onChange?.(LBL[parts]);
     });
-    const btns = [sel, send, copyOnlyWait ? el("span", { class: "msg" }, "Normal é esperar a arte e enviar os dois juntos. Use só em post complexo.") : null].filter(Boolean);
+    const btns = [sel, send];
     const pend = ["copy", "arte"].filter((k) => hasNew(k)).flatMap((k) =>
       P[k].ajuste ? [`${k === "copy" ? "copy" : "arte"} com ajuste interno pedido`] : P[k].falta);
     const why = pend.length ? `Falta: ${[...new Set(pend)].join(", ")}` : "";
     return el("div", { class: "review" },
       el("div", { class: "eyebrow" }, "Revisão interna"),
       drafts.map(item),
-      el("div", { class: "cmp-actions" }, ...btns, why ? el("span", { class: "chip pend-chip" }, why) : null), out);
+      el("div", { class: "cmp-actions" }, ...btns), out);
   }
 
   // ---------- Agendamento (regra validada no banco: só arte aprovada, só admin) ----------
