@@ -1240,3 +1240,6 @@ details.post-row[open] > summary { position: sticky; top: 0; z-index: 3; backgro
 details.post-row[open] > summary .stage-pills { display: none; }
 
 .send-sel { width: auto; min-width: 170px; }
+
+/* hidden sempre vence o display das classes (ex.: .stack-0) */
+[hidden] { display: none !important; }

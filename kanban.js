@@ -316,13 +316,16 @@
     const month = months.find((m) => m.id === monthId);
     const isAdmin = me.role === "admin";
     // Tudo nasce como versão para aprovação; o admin já tenta mandar o post completo ao cliente
+    const sentMaxK = (st) => Math.max(0, ...d.all.filter((v) => v.post_id === p.id && v.stage === st && v.sent).map((v) => v.number));
+    const pendingDraft = d.all.some((v) => v.post_id === p.id && !v.sent && v.number > sentMaxK(v.stage));
     const cmp = mayCopy || mayArte ? GWork.composer({
       sb, post: p, slug: month.slug, getVersions: () => d.all, prefill: curCopy,
       showCopy: mayCopy, showArte: mayArte, sent: false,
-      sendLabel: isAdmin ? "Enviar ao cliente" : "Enviar para aprovação",
+      // Com rascunho em revisão, o envio fica só na revisão interna; aqui só salva versão nova
+      sendLabel: isAdmin ? (pendingDraft ? "Salvar nova versão" : "Enviar ao cliente") : "Enviar para aprovação",
       draftNote: isAdmin ? "" : undefined,
       onDone: async (t) => {
-        if (!isAdmin) { await reload(); return toast(t); }
+        if (!isAdmin || pendingDraft) { await reload(); return toast(t); }
         const { data: foi, error } = await sb.rpc("send_post", { p_post: p.id, p_parts: "pronto" });
         await reload();
         toast(error ? `Salvo. Ainda não foi ao cliente: ${error.message}` : (({ ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" })[foi] || "Enviado ao cliente ✓"), !!error);

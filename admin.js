@@ -630,12 +630,15 @@
     const fail = (e) => { out.className = "msg err"; out.textContent = e.message || String(e); };
     const states = Object.fromEntries(G.STAGES.map((s) => [s.key, G.stageState(data, p, s.key)]));
 
+    const sentMaxA = (st) => Math.max(0, ...data.allVersions.filter((v) => v.post_id === p.id && v.stage === st && v.sent).map((v) => v.number));
+    const pendingDraft = data.allVersions.some((v) => v.post_id === p.id && !v.sent && v.number > sentMaxA(v.stage));
     // Bloco de envio: texto, legenda e artes num botão só; o painel atualiza no lugar
     const cmp = GWork.composer({
       sb, post: p, slug: m.slug, getVersions: () => data.allVersions,
       // Salva como versão nova e já tenta mandar ao cliente; se o post não estiver completo, fica salvo
-      showCopy: true, showArte: true, sent: false, sendLabel: "Enviar ao cliente", draftNote: "",
+      showCopy: true, showArte: true, sent: false, sendLabel: pendingDraft ? "Salvar nova versão" : "Enviar ao cliente", draftNote: "",
       onDone: async () => {
+        if (pendingDraft) { flash = { id: p.id, kind: "okk", text: "Nova versão salva ✓" }; openPosts.add(p.id); openComposers.add(p.id); return openMonth(m, true); }
         const { data: foi, error } = await sb.rpc("send_post", { p_post: p.id, p_parts: "pronto" });
         flash = error ? { id: p.id, kind: "err", text: `Salvo ✓, mas ainda não foi ao cliente. ${error.message}` }
           : { id: p.id, kind: "okk", text: ({ ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" })[foi] || "Enviado ao cliente ✓" };
