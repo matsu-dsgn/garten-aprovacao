@@ -181,7 +181,7 @@ window.GWork = (() => {
           done.push(`${files.length} ${files.length === 1 ? "arte" : "artes"}`);
           files.forEach((f) => URL.revokeObjectURL(f.url)); files = []; paintThumbs();
         }
-        const msgOk = `Enviado ✓ ${done.join(" + ")}${sent ? " · já está com o cliente" : opts.draftNote || " · foi para aprovação do Rapha"}`;
+        const msgOk = `Enviado ✓ ${done.join(" + ")}${sent ? " · já está com o cliente" : opts.draftNote ?? " · foi para aprovação do Rapha"}`;
         say(msgOk, "okk");
         btn.disabled = false;
         await opts.onDone?.(msgOk, sendCopy && sendArte ? "ambos" : sendCopy ? "copy" : "arte");
@@ -208,6 +208,13 @@ window.GWork = (() => {
     const r = G.readiness(all, post);
     if (!drafts.length) return null;
 
+    // OK interno sem mandar ao cliente: a copy libera a arte para o DA
+    const okBtn = (v) => el("button", { class: "btn ghost", type: "button", onclick: async (e) => {
+      e.target.disabled = true;
+      const { error } = await sb.rpc("approve_internal", { p_version: v.id });
+      if (error) { e.target.disabled = false; return say(error.message, "err"); }
+      opts.onChange?.(v.stage === "copy" ? "Copy aprovada internamente ✓ · liberada para a arte" : "Arte aprovada internamente ✓");
+    } }, "Aprovar internamente");
     const item = (v) => {
       const label = v.stage === "copy" ? (post.format === "stories" ? "Texto" : "Texto e legenda") : "Arte";
       const note = el("textarea", { maxlength: "1500", rows: "3", placeholder: `O que ajustar ${v.stage === "copy" ? "no texto/legenda" : "na arte"}?` });
@@ -225,7 +232,8 @@ window.GWork = (() => {
         el("div", { class: "msg" }, `${label} v${v.number} · por ${nameOf(opts.team, v.author_email)} · ${when(v.created_at)}`),
         preview(v, opts.urls),
         v.review_note ? el("div", { class: "content-box alert" }, el("span", { class: "eyebrow" }, "Ajuste pedido"), v.review_note)
-          : el("div", {}, ask, form));
+          : v.internal_ok ? el("div", { class: "row" }, el("span", { class: "chip ok-chip" }, "OK interno ✓ · liberada para o time"), ask, form)
+          : el("div", { class: "row" }, okBtn(v), ask, form));
     };
 
     // Envio por parte: copy, arte ou os dois. Verde só o que dá para enviar agora.

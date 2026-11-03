@@ -319,16 +319,10 @@
     const cmp = mayCopy || mayArte ? GWork.composer({
       sb, post: p, slug: month.slug, getVersions: () => d.all, prefill: curCopy,
       showCopy: mayCopy, showArte: mayArte, sent: false,
-      // Com rascunho em revisão, o envio fica só na revisão interna; aqui só salva versão nova
-      // Versão do Rapha já sai aprovada: vai direto ao cliente, só a parte que ele subiu
-      sendLabel: isAdmin ? "Enviar ao cliente" : "Enviar para aprovação",
-      draftNote: isAdmin ? "" : undefined,
-      onDone: async (t, parts) => {
-        if (!isAdmin) { await reload(); return toast(t); }
-        const { data: foi, error } = await sb.rpc("send_post", { p_post: p.id, p_parts: parts });
-        await reload();
-        toast(error ? `Salvo. Ainda não foi ao cliente: ${error.message}` : (({ ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" })[foi] || "Enviado ao cliente ✓"), !!error);
-      },
+      // Versão do Rapha nasce com OK interno (no banco) e libera o time; envio ao cliente é na revisão
+      sendLabel: isAdmin ? "Salvar" : "Enviar para aprovação",
+      draftNote: isAdmin ? " · OK interno, liberado para o time" : undefined,
+      onDone: async (t) => { await reload(); toast(t); },
     }) : null;
     const review = isAdmin ? GWork.reviewPanel({ sb, post: p, all: d.all, urls: d.urls, team: d.team,
       onChange: async (t) => { await reload(); toast(t); } }) : null;

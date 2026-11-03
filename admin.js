@@ -634,13 +634,9 @@
     const cmp = GWork.composer({
       sb, post: p, slug: m.slug, getVersions: () => data.allVersions,
       // Salva como versão nova e já tenta mandar ao cliente; se o post não estiver completo, fica salvo
-      showCopy: true, showArte: true, sent: false, sendLabel: "Enviar ao cliente", draftNote: "",
-      onDone: async (_t, parts) => {
-        const { data: foi, error } = await sb.rpc("send_post", { p_post: p.id, p_parts: parts });
-        flash = error ? { id: p.id, kind: "err", text: `Salvo ✓, mas ainda não foi ao cliente. ${error.message}` }
-          : { id: p.id, kind: "okk", text: ({ ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" })[foi] || "Enviado ao cliente ✓" };
-        openPosts.add(p.id); openComposers.add(p.id); await openMonth(m, true);
-      },
+      showCopy: true, showArte: true, sent: false, sendLabel: "Salvar", draftNote: " · OK interno, liberado para o time. Envie ao cliente na revisão abaixo",
+      // Versão do Rapha nasce com OK interno (no banco); o envio ao cliente é na revisão
+      onDone: async (t) => { flash = { id: p.id, kind: "okk", text: t }; openPosts.add(p.id); openComposers.add(p.id); return openMonth(m, true); },
     });
     if (flash?.id === p.id && !flash.field && openComposers.has(p.id)) { cmp.say(flash.text, flash.kind || "okk"); flash = null; }
     // O que está com o cliente agora, para conferir sem abrir a visão dele

@@ -1243,3 +1243,5 @@ details.post-row[open] > summary .stage-pills { display: none; }
 
 /* hidden sempre vence o display das classes (ex.: .stack-0) */
 [hidden] { display: none !important; }
+
+.ok-chip { color: var(--ok); border-color: var(--ok); }

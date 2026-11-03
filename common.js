@@ -204,7 +204,10 @@ window.G = (() => {
     // Ajuste interno pedido pelo Rapha num rascunho volta o card para Ajuste
     const internal = [newCopy, newArte].find((v) => v?.review_note);
     if (internal) return { col: "ajuste", stage: internal.stage, internal: internal };
-    if (newArte || newCopy) return { col: "revisao", stage: newArte && newCopy ? "ambos" : newArte ? "arte" : "copy" };
+    // Copy com OK interno do Rapha libera a arte para o DA (o cliente ainda não viu)
+    const copyPend = newCopy && !newCopy.internal_ok ? newCopy : null;
+    if (newArte || copyPend) return { col: "revisao", stage: newArte && copyPend ? "ambos" : newArte ? "arte" : "copy" };
+    if (newCopy?.internal_ok && !sentArte) return { col: p.assignee ? "producao" : "fazer", stage: "arte", copyOk: true };
     if (sentArte) {
       const s = lastDecision(p.id, "arte", sentArte.id)?.status;
       if (s === "aprovado") return { col: "aprovado" };
