@@ -1214,3 +1214,15 @@ details.post-row > summary .pill { letter-spacing: normal; }
 .iso-tower .block .core.r, .iso-tower .block.on .core.r { fill: var(--f-r); }
 .iso-tower .block.plinth { cursor: default; }
 .iso-tower .blend { stroke: none; }
+
+/* Card do post (admin): faixa de dados + faixa de ações */
+.post-meta { display: grid; grid-template-columns: minmax(150px, 190px) minmax(180px, 1fr) minmax(150px, 220px); gap: 12px; align-items: end; padding: 14px 0 12px; border-top: 1px solid var(--line); margin-top: 4px; }
+.meta-f { display: grid; gap: 6px; min-width: 0; }
+.meta-k { font-size: 12px; letter-spacing: .04em; color: var(--ink-3, var(--ink-2)); display: flex; gap: 8px; align-items: baseline; }
+.meta-f .status-select { width: 100%; justify-self: stretch; }
+.meta-saved { color: var(--ok); font-size: 12px; opacity: 0; transition: opacity .25s; }
+.meta-saved.on { opacity: 1; }
+.post-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); }
+.post-actions .grow { flex: 1; }
+@media (max-width: 720px) { .post-meta { grid-template-columns: 1fr 1fr; } .post-meta > :nth-child(2) { grid-column: 1 / -1; order: 3; } }
+@media (prefers-reduced-motion: reduce) { .meta-saved { transition: none; } }

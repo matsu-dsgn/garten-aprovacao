@@ -623,7 +623,7 @@
         openPosts.add(p.id); openComposers.add(p.id); await openMonth(m, true);
       },
     });
-    if (flash?.id === p.id && openComposers.has(p.id)) { cmp.say(flash.text, flash.kind || "okk"); flash = null; }
+    if (flash?.id === p.id && !flash.field && openComposers.has(p.id)) { cmp.say(flash.text, flash.kind || "okk"); flash = null; }
     // O que está com o cliente agora, para conferir sem abrir a visão dele
     const curCopy = G.latestVersion(data.versions, p.id, "copy");
     const curArte = G.latestVersion(data.versions, p.id, "arte");
@@ -638,13 +638,18 @@
       el("div", { class: "stack" }, current, cmp.el));
     composerBox.addEventListener("toggle", () => { composerBox.open ? openComposers.add(p.id) : openComposers.delete(p.id); });
 
+    // Retorno colado no campo alterado; some sozinho
+    const tagEl = () => el("span", { class: "meta-saved", "aria-live": "polite" });
+    const dateTag = tagEl(), edTag = tagEl();
+    const saved = (tag, text) => { tag.textContent = `✓ ${text}`; tag.classList.add("on"); clearTimeout(tag._t); tag._t = setTimeout(() => tag.classList.remove("on"), 3500); };
+    const metaF = (label, input, tag) => el("label", { class: "meta-f" }, el("span", { class: "meta-k" }, label, tag || null), input);
     const edSel = el("select", { "aria-label": "Editoria" },
       el("option", { value: "" }, "Sem editoria"),
       editorias.map((e) => el("option", { value: e.slug }, e.name)));
     edSel.value = p.editoria || "";
     edSel.addEventListener("change", async () => {
       const { error } = await sb.from("posts").update({ editoria: edSel.value || null }).eq("id", p.id);
-      error ? fail(error) : (out.className = "msg okk", out.textContent = "Editoria salva.");
+      error ? fail(error) : saved(edTag, "Editoria salva");
     });
     const linkBtn = el("button", { class: "btn ghost" }, "Copiar link do post");
     linkBtn.addEventListener("click", async () => {
@@ -683,7 +688,7 @@
         note = r.error ? `Data alterada, mas o agendamento não mudou: ${r.error.message}`
           : `Data alterada e agendamento movido para ${at.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.`;
       }
-      flash = { id: p.id, kind: "okk", text: note }; openPosts.add(p.id); await openMonth(m, true);
+      flash = { id: p.id, kind: "okk", text: note, field: "date" }; openPosts.add(p.id); await openMonth(m, true);
     });
     const sched = el("button", { class: "btn ghost" }, p.scheduled ? GWork.schedLabel(p) : "Agendar…");
     sched.addEventListener("click", () => {
@@ -714,6 +719,7 @@
     // Revisão interna: pedir ajuste em cada parte e enviar o post completo ao cliente
     const review = GWork.reviewPanel({ sb, post: p, all: data.allVersions, urls: data.draftUrls, team: data.team,
       onChange: async (text) => { flash = { id: p.id, kind: "okk", text }; openPosts.add(p.id); await openMonth(m, true); } });
+    if (flash?.id === p.id && flash.field === "date") { saved(dateTag, "Salvo"); out.className = "msg okk"; out.textContent = flash.text; flash = null; }
     if (flash?.id === p.id) { out.className = `msg ${flash.kind || "okk"}`; out.textContent = flash.text; flash = null; }
 
     // Recolhido por padrão: a linha mostra data, título e status; o resto abre no clique.
@@ -739,7 +745,10 @@
           : `por ${p.validated_by || "cliente"}${p.validated_at ? ` em ${new Date(p.validated_at).toLocaleDateString("pt-BR")}` : ""}`) : null,
         p.respond_by ? el("span", { class: "msg" }, `Prazo: ${new Date(p.respond_by).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`) : null,
         dlSel) : null,
-      el("div", { class: "row" }, dateIn, edSel, linkBtn, sched, G.statusSelect(sb, data, p, () => openMonth(m, true)), del), out));
+      el("div", { class: "post-meta" },
+        metaF("Data", dateIn, dateTag), metaF("Editoria", edSel, edTag),
+        metaF("Status", G.statusSelect(sb, data, p, () => openMonth(m, true)))),
+      el("div", { class: "post-actions" }, sched, linkBtn, el("span", { class: "grow" }), del), out));
     row.addEventListener("toggle", () => { row.open ? openPosts.add(p.id) : openPosts.delete(p.id); });
     return row;
   }
