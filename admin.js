@@ -660,6 +660,31 @@
         error ? fail(error) : (out.className = "msg okk", out.textContent = "Prazo atualizado.");
       });
     }
+    // Mudar a data do post: o calendário do cliente lê posts.post_date, então muda junto.
+    // Fica preso ao mês do link (slug AAAA-MM) para o post não sumir do calendário.
+    const ym = /^(\d{4})-(\d{2})$/.exec(m.slug || "");
+    const lastDay = ym ? new Date(+ym[1], +ym[2], 0).getDate() : 0;
+    const dateIn = el("input", { type: "date", value: p.post_date, "aria-label": "Data de postagem",
+      ...(ym ? { min: `${m.slug}-01`, max: `${m.slug}-${String(lastDay).padStart(2, "0")}` } : {}) });
+    const locked = p.publish_status === "publicado" || p.publish_status === "publicando";
+    if (locked) dateIn.disabled = true;
+    dateIn.addEventListener("change", async () => {
+      const nd = dateIn.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nd) || nd === p.post_date) return;
+      if (ym && !nd.startsWith(`${m.slug}-`)) { dateIn.value = p.post_date; return fail(new Error("Escolha um dia dentro deste mês.")); }
+      const { error } = await sb.from("posts").update({ post_date: nd }).eq("id", p.id);
+      if (error) { dateIn.value = p.post_date; return fail(error); }
+      // Se já estava agendado, leva o agendamento para o novo dia mantendo o horário
+      let note = "Data alterada. O calendário do cliente já mostra o novo dia.";
+      if (p.scheduled && p.scheduled_at) {
+        const old = new Date(p.scheduled_at); const [y, mo, d] = nd.split("-").map(Number);
+        const at = new Date(y, mo - 1, d, old.getHours(), old.getMinutes());
+        const r = await sb.rpc("schedule_post", { p_post: p.id, p_at: at.toISOString() });
+        note = r.error ? `Data alterada, mas o agendamento não mudou: ${r.error.message}`
+          : `Data alterada e agendamento movido para ${at.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.`;
+      }
+      flash = { id: p.id, kind: "okk", text: note }; openPosts.add(p.id); await openMonth(m, true);
+    });
     const sched = el("button", { class: "btn ghost" }, p.scheduled ? GWork.schedLabel(p) : "Agendar…");
     sched.addEventListener("click", () => {
       sched.replaceWith(GWork.schedulePanel(sb, p, () => openMonth(m)));
@@ -714,7 +739,7 @@
           : `por ${p.validated_by || "cliente"}${p.validated_at ? ` em ${new Date(p.validated_at).toLocaleDateString("pt-BR")}` : ""}`) : null,
         p.respond_by ? el("span", { class: "msg" }, `Prazo: ${new Date(p.respond_by).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`) : null,
         dlSel) : null,
-      el("div", { class: "row" }, edSel, linkBtn, sched, G.statusSelect(sb, data, p, () => openMonth(m, true)), del), out));
+      el("div", { class: "row" }, dateIn, edSel, linkBtn, sched, G.statusSelect(sb, data, p, () => openMonth(m, true)), del), out));
     row.addEventListener("toggle", () => { row.open ? openPosts.add(p.id) : openPosts.delete(p.id); });
     return row;
   }
