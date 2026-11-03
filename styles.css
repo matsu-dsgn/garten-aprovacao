@@ -1226,3 +1226,15 @@ details.post-row > summary .pill { letter-spacing: normal; }
 .post-actions .grow { flex: 1; }
 @media (max-width: 720px) { .post-meta { grid-template-columns: 1fr 1fr; } .post-meta > :nth-child(2) { grid-column: 1 / -1; order: 3; } }
 @media (prefers-reduced-motion: reduce) { .meta-saved { transition: none; } }
+
+/* Selo de pendência ao lado do "Enviar ao cliente" */
+.pend-chip { color: var(--bad); border-color: var(--bad); background: var(--bad-bg, transparent); }
+/* Abas: Histórico | Referências | Comentários */
+.ptabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ptab { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.ptab[aria-selected="true"] { border-color: var(--ok); color: var(--ink); }
+.ptab-n { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); }
+.ptab-panel { padding-top: 12px; }
+/* Card aberto: cabeçalho fixo com data e título; selos por etapa só com o card fechado */
+details.post-row[open] > summary { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--line); border-radius: 12px 12px 0 0; }
+details.post-row[open] > summary .stage-pills { display: none; }

@@ -228,8 +228,9 @@ window.GWork = (() => {
           : el("div", {}, ask, form));
     };
 
-    const send = el("button", { class: "btn ok", type: "button", disabled: !r.ok }, "Enviar ao cliente");
-    const why = r.falta.length ? `Para enviar ao cliente falta: ${r.falta.join(", ")}.`
+    // Só fica verde quando dá para enviar; antes disso, contorno + selo com a pendência
+    const send = el("button", { class: r.ok ? "btn ok" : "btn ghost", type: "button", disabled: !r.ok }, "Enviar ao cliente");
+    const why = r.falta.length ? `Falta: ${r.falta.join(", ")}`
       : r.ajuste ? "Tem ajuste interno pedido: espere a nova versão." : "";
     send.addEventListener("click", async () => {
       send.disabled = true;
@@ -240,7 +241,7 @@ window.GWork = (() => {
     return el("div", { class: "review" },
       el("div", { class: "eyebrow" }, "Revisão interna"),
       drafts.map(item),
-      el("div", { class: "cmp-actions" }, send, why ? el("span", { class: "msg" }, why) : null), out);
+      el("div", { class: "cmp-actions" }, send, why ? el("span", { class: r.falta.length ? "chip pend-chip" : "msg" }, why) : null), out);
   }
 
   // ---------- Agendamento (regra validada no banco: só arte aprovada, só admin) ----------

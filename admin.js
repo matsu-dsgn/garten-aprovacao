@@ -606,6 +606,25 @@
       el("p", {}, "Cole o JSON que montamos no planejamento. Os posts são adicionados ao mês."), ta, el("div", { class: "row" }, go), out);
   }
 
+  // Abas compactas no lugar de três blocos recolhidos; lembra a aba aberta entre re-renders
+  const openTabs = new Map();
+  function postTabs(p, tabs) {
+    const panel = el("div", { class: "ptab-panel" });
+    const bar = el("div", { class: "ptabs", role: "tablist" });
+    const show = (key) => {
+      const cur = openTabs.get(p.id) === key ? null : key;
+      cur ? openTabs.set(p.id, cur) : openTabs.delete(p.id);
+      bar.querySelectorAll("button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.k === cur)));
+      panel.replaceChildren(); panel.hidden = !cur;
+      if (cur) panel.append(tabs.find((t) => t.key === cur).body() || el("p", { class: "msg" }, "Nada por aqui ainda."));
+    };
+    tabs.forEach((t) => bar.append(el("button", { class: "ptab", type: "button", role: "tab", "data-k": t.key, "aria-selected": "false",
+      onclick: () => show(t.key) }, t.label, el("span", { class: "ptab-n" }, String(t.count)))));
+    const prev = openTabs.get(p.id); panel.hidden = true;
+    if (prev) { openTabs.delete(p.id); show(prev); }
+    return el("div", { class: "ptabs-wrap" }, bar, panel);
+  }
+
   function postRow(m, p) {
     const out = msg("");
     const fail = (e) => { out.className = "msg err"; out.textContent = e.message || String(e); };
@@ -727,17 +746,22 @@
     const row = el("details", { class: "post-row", id: `row-${p.id}`, open: openPosts.has(p.id) },
       el("summary", { class: "row between" },
         el("h4", {}, `${p.post_date.split("-").reverse().join("/")} · ${p.title}`),
-        el("div", { class: "row" }, G.STAGES.map((s) =>
+        el("div", { class: "row stage-pills" }, G.STAGES.map((s) =>
           el("span", { class: `pill ${states[s.key].status}` }, `${s.label}: ${G.STATUS_LABEL[states[s.key].status]}`)))),
       el("div", { class: "post-body" },
       composerBox,
       review,
       contests,
-      G.STAGES.map((s) => G.historyList(data, states[s.key].decisions, s.key === "copy" ? "copy" : s.label.toLowerCase())),
-      el("details", {}, el("summary", {}, `Referências para o cliente (${(p.refs || []).length})`),
-        GWork.refsEditor(sb, { slug: m.slug, post: p })),
-      el("details", {}, el("summary", {}, `Comentários internos (${data.comments.filter((c) => c.post_id === p.id).length})${p.assignee ? ` · com ${GWork.nameOf(data.team, p.assignee)}` : ""}`),
-        GWork.comments(sb, data.comments, data.team, p.id, () => openMonth(m))),
+      postTabs(p, [
+        { key: "hist", label: "Histórico", count: G.STAGES.reduce((n, s) => n + states[s.key].decisions.length, 0),
+          body: () => el("div", { class: "stack" }, G.STAGES.map((s) => {
+            const h = G.historyList(data, states[s.key].decisions, s.key === "copy" ? "copy" : s.label.toLowerCase());
+            if (h) h.open = true; return h; })) },
+        { key: "refs", label: "Referências", count: (p.refs || []).length, body: () => GWork.refsEditor(sb, { slug: m.slug, post: p }) },
+        { key: "com", label: p.assignee ? `Comentários · com ${GWork.nameOf(data.team, p.assignee)}` : "Comentários",
+          count: data.comments.filter((c) => c.post_id === p.id).length,
+          body: () => GWork.comments(sb, data.comments, data.team, p.id, () => openMonth(m)) },
+      ]),
       p.kind === "oportunidade" ? el("div", { class: "row" },
         el("span", { class: "chip opp" }, p.origin === "cliente" ? "Oportunidade · pedido do cliente" : p.origin === "radar" ? "Validado pelo cliente · Radar" : "Oportunidade"),
         p.origin === "radar" ? el("span", { class: `msg${p.validation_withdrawn ? " err" : ""}` }, p.validation_withdrawn
