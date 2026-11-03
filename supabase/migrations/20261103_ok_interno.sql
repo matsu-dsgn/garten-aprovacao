@@ -26,3 +26,9 @@ grant execute on function public.approve_internal(uuid) to authenticated;
 -- Rascunhos do admin que já existem ganham o OK interno
 update public.versions set internal_ok = true
 where sent = false and author_email = 'raphael.takamatsu@gmail.com';
+
+-- Post de 04/11: a copy foi ao cliente por engano (antes do OK interno existir) e ainda não tem resposta.
+-- Volta para rascunho com OK interno, para o card ir ao DA.
+update public.versions set sent = false, sent_at = null, internal_ok = true
+where id = 'ff33dfcb-6b15-48d4-b53b-8cf6e45647f9' and sent
+  and not exists (select 1 from public.decisions d where d.version_id = 'ff33dfcb-6b15-48d4-b53b-8cf6e45647f9');
