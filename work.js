@@ -251,15 +251,25 @@ window.GWork = (() => {
     const pick = () => sel ? sel.value : best;
     const single = { copy: "Aprovar copy e enviar", arte: "Aprovar arte e enviar", ambos: "Aprovar e enviar ao cliente" };
     const send = el("button", { type: "button" }, sel ? "Aprovar e enviar ao cliente" : single[best] || "Enviar ao cliente");
-    const paint = () => { const ok = okOf(pick()); send.className = ok ? "btn ok" : "btn ghost"; send.disabled = !ok; };
+    // Já aprovado internamente não precisa "aprovar" de novo: o botão só envia
+    const allOk = (k) => (k === "ambos" ? ["copy", "arte"] : [k]).every((x) => drafts.find((v) => v.stage === x)?.internal_ok);
+    // Copy com OK interno e sem arte: o normal é esperar a arte; enviar só a copy fica discreto (posts complexos)
+    const copyOnlyWait = !sel && best === "copy" && allOk("copy");
+    if (copyOnlyWait) send.textContent = "Enviar só a copy ao cliente";
+    else if (!sel && allOk(best)) send.textContent = { copy: "Enviar copy ao cliente", arte: "Enviar arte ao cliente", ambos: "Enviar ao cliente" }[best];
+    const paint = () => {
+      const k = pick(), ok = okOf(k);
+      if (sel) send.textContent = allOk(k) ? "Enviar ao cliente" : "Aprovar e enviar ao cliente";
+      send.className = ok && !copyOnlyWait ? "btn ok" : "btn ghost"; send.disabled = !ok;
+    };
     sel?.addEventListener("change", paint); paint();
     send.addEventListener("click", async () => {
       const parts = pick(); send.disabled = true;
       const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: parts });
       if (error) { paint(); return say(error.message, "err"); }
-      opts.onChange?.(LBL[parts]);
+      opts.onChange?.(allOk(parts) ? LBL[parts].replace(" aprovadas e", "").replace(" aprovada e", "") : LBL[parts]);
     });
-    const btns = [sel, send].filter(Boolean);
+    const btns = [sel, send, copyOnlyWait ? el("span", { class: "msg" }, "Normal é esperar a arte e enviar os dois juntos. Use só em post complexo.") : null].filter(Boolean);
     const pend = ["copy", "arte"].filter((k) => hasNew(k)).flatMap((k) =>
       P[k].ajuste ? [`${k === "copy" ? "copy" : "arte"} com ajuste interno pedido`] : P[k].falta);
     const why = pend.length ? `Falta: ${[...new Set(pend)].join(", ")}` : "";
