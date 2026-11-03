@@ -230,22 +230,28 @@ window.GWork = (() => {
 
     // Envio por parte: copy, arte ou os dois. Verde só o que dá para enviar agora.
     const P = r.parts;
-    const sendBtn = (parts, label, ok) => {
-      const b = el("button", { class: ok ? "btn ok" : "btn ghost", type: "button", disabled: !ok }, label);
-      b.addEventListener("click", async () => {
-        b.disabled = true;
-        const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: parts });
-        if (error) { b.disabled = false; return say(error.message, "err"); }
-        opts.onChange?.(parts === "ambos" ? "Copy e arte enviadas ao cliente ✓" : parts === "copy" ? "Copy enviada ao cliente ✓" : "Arte enviada ao cliente ✓");
-      });
-      return b;
-    };
     const hasNew = (k) => drafts.some((v) => v.stage === k);
-    const btns = [
-      hasNew("copy") && hasNew("arte") ? sendBtn("ambos", "Enviar os dois", P.copy.ok && P.arte.ok) : null,
-      hasNew("copy") ? sendBtn("copy", "Enviar só copy", P.copy.ok) : null,
-      hasNew("arte") ? sendBtn("arte", "Enviar só arte", P.arte.ok) : null,
-    ].filter(Boolean);
+    const OPTS = [["ambos", "Copy e arte"], ["copy", "Só copy"], ["arte", "Só arte"]];
+    const okOf = (k) => k === "ambos" ? P.copy.ok && P.arte.ok : P[k].ok;
+    const why1 = (k) => (k === "ambos" ? ["copy", "arte"] : [k]).flatMap((x) => P[x].ajuste ? ["ajuste interno"] : P[x].falta).join(", ");
+    const avail = OPTS.filter(([k]) => k === "ambos" ? hasNew("copy") && hasNew("arte") : hasNew(k));
+    const best = avail.find(([k]) => okOf(k))?.[0] || avail[0]?.[0];
+    const LBL = { ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" };
+    // Lista só aparece quando há escolha; abre na opção mais completa que dá para enviar
+    const sel = avail.length > 1 ? el("select", { class: "send-sel", "aria-label": "O que enviar ao cliente" },
+      avail.map(([k, l]) => el("option", { value: k, disabled: !okOf(k), selected: k === best }, okOf(k) ? l : `${l} (falta ${why1(k)})`))) : null;
+    const pick = () => sel ? sel.value : best;
+    const single = { copy: "Enviar copy ao cliente", arte: "Enviar arte ao cliente", ambos: "Enviar ao cliente" };
+    const send = el("button", { type: "button" }, sel ? "Enviar ao cliente" : single[best] || "Enviar ao cliente");
+    const paint = () => { const ok = okOf(pick()); send.className = ok ? "btn ok" : "btn ghost"; send.disabled = !ok; };
+    sel?.addEventListener("change", paint); paint();
+    send.addEventListener("click", async () => {
+      const parts = pick(); send.disabled = true;
+      const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: parts });
+      if (error) { paint(); return say(error.message, "err"); }
+      opts.onChange?.(LBL[parts]);
+    });
+    const btns = [sel, send].filter(Boolean);
     const pend = ["copy", "arte"].filter((k) => hasNew(k)).flatMap((k) =>
       P[k].ajuste ? [`${k === "copy" ? "copy" : "arte"} com ajuste interno pedido`] : P[k].falta);
     const why = pend.length ? `Falta: ${[...new Set(pend)].join(", ")}` : "";
