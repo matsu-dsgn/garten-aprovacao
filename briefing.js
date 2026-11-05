@@ -11,7 +11,6 @@
 
   const token = new URLSearchParams(location.hash.slice(1)).get("k") || "";
   const MAX = 4000;
-  const CONTACT = "raphael.takamatsu@gmail.com";
 
   // Etapa 1 (respondida)
   const STEP1 = [
@@ -176,8 +175,7 @@
       el("header", { class: "bf-head" },
         el("p", { class: "bf-kicker" }, "Painel de controle · etapa 2"),
         el("h1", {}, "Obrigado pelas respostas. Agora, os próximos passos."),
-        el("p", { class: "bf-lede" }, "Ficou claro que o centro do painel é não deixar nenhuma apuração passar. Abaixo tem uma prévia de como ele vai ficar, o que precisamos receber e alguns combinados. Tudo salva sozinho."),
-        el("p", { class: "bf-note" }, `Os arquivos não vão por aqui. Mande para ${CONTACT} e marque o item como enviado.`)),
+        el("p", { class: "bf-lede" }, "Ficou claro que o centro do painel é não deixar nenhuma apuração passar. Abaixo tem uma prévia de como ele vai ficar, o que precisamos receber e alguns combinados. Tudo salva sozinho.")),
 
       section("Prévia", "Como o painel vai funcionar", "Dados ilustrativos. A tela abre mostrando o que falta apurar no mês.", preview()),
 
