@@ -1,0 +1,16 @@
+/* Página de perguntas do painel (briefing.html) */
+.bf { max-width: 720px; padding-block: 48px 96px; }
+.bf-head { margin-bottom: 40px; }
+.bf-kicker { font: 600 .8rem/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 16px; }
+.bf-head h1 { font: 700 clamp(1.6rem, 4vw, 2.3rem)/1.15 var(--display); color: var(--ink); margin: 0 0 16px; }
+.bf-lede { color: var(--ink-2); line-height: 1.55; margin: 0 0 16px; }
+.bf-note { font-size: .92rem; color: var(--bad); background: var(--bad-bg); border-radius: var(--radius-sm); padding: 12px 16px; margin: 0; }
+.bf-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.bf-item { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+.bf-item label { display: flex; gap: 12px; font-weight: 500; color: var(--ink); line-height: 1.45; margin-bottom: 12px; }
+.bf-num { font: 400 1.1rem/1.3 var(--highlight); color: var(--accent-ink); flex: none; }
+.bf-item textarea { width: 100%; box-sizing: border-box; min-height: 84px; resize: none; overflow: hidden; font: 400 1rem/1.5 var(--font); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+.bf-item textarea:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.bf-status { display: block; min-height: 1.2em; margin-top: 8px; font-size: .82rem; color: var(--ink-soft); }
+.bf-status.ok { color: var(--ok); }
+.bf-status.err { color: var(--bad); }
