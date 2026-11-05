@@ -21,6 +21,7 @@
     ["q6", "Que prazos você acompanha hoje (DAS, DASN-SIMEI, DCTFWeb, folha etc.)? Algum já foi perdido por falta de lembrete?"],
     ["q7", "Quem mais da equipe precisaria acessar o painel? Todos podem ver todos os clientes, ou o acesso precisa ser separado?"],
     ["q8", "Qual é a primeira coisa que você confere quando abre a planilha de manhã?"],
+    ["q9", "Dos clientes PJ, quantos sócios também são atendidos por vocês como pessoa física (imposto de renda, carnê-leão etc.)?"],
   ];
 
   const gate = (title, text) => app.replaceChildren(el("div", { class: "gate wrap" }, el("h1", {}, title), el("p", {}, text)));
