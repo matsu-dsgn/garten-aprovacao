@@ -256,6 +256,24 @@ window.GWork = (() => {
       el("div", { class: "cmp-actions" }, ...btns), why ? el("p", { class: "msg" }, why) : null, out);
   }
 
+  // ---------- Envio forçado (só admin): manda ao cliente mesmo com ajuste pedido ----------
+  function forceSendPanel(sb, post, onDone) {
+    const out = el("p", { class: "msg", role: "status", "aria-live": "polite" });
+    const btn = el("button", { class: "btn ghost", type: "button" }, "Enviar ao cliente mesmo assim");
+    btn.addEventListener("click", async () => {
+      const ok = await G.ask({ title: "Enviar ao cliente mesmo assim?",
+        text: "Este post está com ajuste pedido. Ele volta para o cliente como está, e o pedido de ajuste fica só no histórico.",
+        okLabel: "Enviar ao cliente", danger: true });
+      if (!ok) return;
+      btn.disabled = true;
+      const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: "post", p_force: true });
+      btn.disabled = false;
+      if (error) { out.className = "msg err"; out.textContent = error.message; return; }
+      onDone?.("Post enviado ao cliente ✓");
+    });
+    return el("div", { class: "row" }, btn, out);
+  }
+
   // ---------- Tirar da aprovação (só admin): volta o post para a produção ----------
   function recallPanel(sb, post, onDone) {
     const out = el("p", { class: "msg", role: "status", "aria-live": "polite" });
@@ -401,5 +419,5 @@ window.GWork = (() => {
     return box;
   }
 
-  return { refsView: G.refsView, refsEditor, signRefs, signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, recallPanel, nameOf, when, schedulePanel, schedLabel };
+  return { refsView: G.refsView, refsEditor, signRefs, signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, recallPanel, forceSendPanel, nameOf, when, schedulePanel, schedLabel };
 })();
