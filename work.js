@@ -259,7 +259,7 @@ window.GWork = (() => {
   // ---------- Envio forçado (só admin): manda ao cliente mesmo com ajuste pedido ----------
   function forceSendPanel(sb, post, onDone) {
     const out = el("p", { class: "msg", role: "status", "aria-live": "polite" });
-    const btn = el("button", { class: "btn ghost", type: "button" }, "Enviar ao cliente mesmo assim");
+    const btn = el("button", { class: "btn ok", type: "button" }, "Enviar ao cliente mesmo assim");
     btn.addEventListener("click", async () => {
       const ok = await G.ask({ title: "Enviar ao cliente mesmo assim?",
         text: "Este post está com ajuste pedido. Ele volta para o cliente como está, e o pedido de ajuste fica só no histórico.",
@@ -278,9 +278,9 @@ window.GWork = (() => {
   function recallPanel(sb, post, onDone) {
     const out = el("p", { class: "msg", role: "status", "aria-live": "polite" });
     const note = el("textarea", { maxlength: "1500", rows: "2", placeholder: "Motivo (opcional). Com motivo, o card vai para Ajuste e o time vê o pedido." });
-    const open = el("button", { class: "btn ghost", type: "button" }, "Tirar da aprovação");
+    const open = el("button", { class: "btn ok", type: "button" }, "Tirar da aprovação");
     const form = el("div", { class: "stack-0", hidden: true }, note, el("div", { class: "row" },
-      el("button", { class: "btn bad", type: "button", onclick: async (e) => {
+      el("button", { class: "btn ok", type: "button", onclick: async (e) => {
         e.target.disabled = true;
         const { error } = await sb.rpc("recall_post", { p_post: post.id, p_note: note.value || null });
         e.target.disabled = false;
