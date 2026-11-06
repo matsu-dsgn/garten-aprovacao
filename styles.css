@@ -1261,3 +1261,5 @@ details.post-row[open] > summary .stage-pills { display: none; }
 .admin-cal .cal-post.dragging { opacity: .4; }
 .admin-cal .cal-post.locked { cursor: default; opacity: .75; }
 @media (max-width: 760px) { .admin-cal .cal-grid { display: grid; } .admin-cal .cal-day { min-height: 70px; } }
+.admin-cal .cal-post.tight { border-color: #e0a100; box-shadow: inset 3px 0 0 #e0a100; }
+.admin-cal .cal-warn { color: #b07d00; }

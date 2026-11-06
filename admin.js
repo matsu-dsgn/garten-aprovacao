@@ -459,14 +459,21 @@
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const out = msg("");
     let dragId = null;
+    // Agendados do mesmo dia com menos de 3h entre si: um rouba o alcance do outro
+    const GAP = 3 * 3600 * 1000;
+    const tight = new Set();
+    for (const list of Object.values(byDay)) {
+      const sc = list.filter((p) => p.scheduled && p.scheduled_at).sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+      for (let i = 1; i < sc.length; i++) if (new Date(sc[i].scheduled_at) - new Date(sc[i - 1].scheduled_at) < GAP) { tight.add(sc[i].id); tight.add(sc[i - 1].id); }
+    }
 
     const chip = (p) => {
       const locked = p.publish_status === "publicado" || p.publish_status === "publicando";
       let s = "pendente"; try { s = p.publish_status === "publicado" ? "publicado" : G.postSummary(data, p); } catch { /* ok */ }
-      const b = el("div", { class: `cal-post${locked ? " locked" : ""}`, draggable: locked ? "false" : "true", "data-id": p.id, tabindex: "0",
+      const b = el("div", { class: `cal-post${locked ? " locked" : ""}${tight.has(p.id) ? " tight" : ""}`, draggable: locked ? "false" : "true", "data-id": p.id, tabindex: "0",
         title: locked ? "Publicado: não dá para mover" : "Arraste para outro dia · clique para abrir" },
         el("b", {}, el("i", { class: `dot ${s}` }), p.title),
-        el("span", {}, [G.FORMATS[p.format], edName(p.editoria), p.scheduled && p.scheduled_at ? `⏱ ${new Date(p.scheduled_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : null].filter(Boolean).join(" · ")));
+        el("span", {}, [G.FORMATS[p.format], edName(p.editoria), p.scheduled && p.scheduled_at ? `${tight.has(p.id) ? "⚠" : "⏱"} ${new Date(p.scheduled_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : null].filter(Boolean).join(" · ")));
       b.addEventListener("click", () => { const r = document.getElementById(`row-${p.id}`); if (r) { r.open = true; openPosts.add(p.id); r.scrollIntoView({ behavior: "smooth", block: "start" }); } });
       b.addEventListener("dragstart", (e) => { dragId = p.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", p.id); b.classList.add("dragging"); });
       b.addEventListener("dragend", () => { b.classList.remove("dragging"); document.querySelectorAll(".cal-day.drop").forEach((x) => x.classList.remove("drop")); });
@@ -512,12 +519,13 @@
       });
       cells.push(cell);
     }
+    const warn = tight.size ? el("p", { class: "msg cal-warn" }, `⚠ ${tight.size} posts agendados com menos de 3h de diferença no mesmo dia. Clique num deles e ajuste o horário em "Agendar…".`) : null;
     if (flash?.id === "cal") { out.className = `msg ${flash.kind}`; out.textContent = flash.text; flash = null; }
 
     return el("section", { class: "panel admin-cal", id: "admin-cal" },
       el("div", { class: "row between" }, el("h2", {}, "Calendário"),
         el("span", { class: "msg" }, "Arraste um post para outro dia ou reordene dentro do dia. Agendados levam o horário junto.")),
-      out,
+      out, warn,
       el("div", { class: "cal" }, el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells)));
   }
 
