@@ -271,7 +271,7 @@ window.GWork = (() => {
       if (error) { out.className = "msg err"; out.textContent = error.message; return; }
       onDone?.("Post enviado ao cliente ✓");
     });
-    return el("div", { class: "row" }, btn, out);
+    return el("div", { class: "row kd-action-row" }, btn, out);
   }
 
   // ---------- Tirar da aprovação (só admin): volta o post para a produção ----------
@@ -289,7 +289,7 @@ window.GWork = (() => {
       } }, "Confirmar"),
       el("button", { class: "btn ghost", type: "button", onclick: () => { form.hidden = true; open.hidden = false; } }, "Cancelar")));
     open.addEventListener("click", () => { form.hidden = false; open.hidden = true; note.focus(); });
-    return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Com o cliente"),
+    return el("div", { class: "content-box kd-action" }, el("span", { class: "eyebrow" }, "Com o cliente"),
       el("p", { class: "msg" }, "O cliente deixa de ver esta versão até você enviar de novo."), open, form, out);
   }
 

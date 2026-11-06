@@ -1245,3 +1245,9 @@ details.post-row[open] > summary .stage-pills { display: none; }
 [hidden] { display: none !important; }
 
 .ok-chip { color: var(--ok); border-color: var(--ok); }
+
+/* Ações do card: texto e botão com respiro */
+.content-box.kd-action { display: grid; gap: 14px; justify-items: start; white-space: normal; }
+.content-box.kd-action .eyebrow, .content-box.kd-action .msg { margin: 0; }
+.content-box.kd-action .stack-0 { width: 100%; }
+.kd-action-row { margin-top: 4px; }
