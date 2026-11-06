@@ -126,13 +126,67 @@
   // A coluna é consequência do estado real. Soltar só dispara ações que existem:
   // A fazer → Em produção = pegar · Em produção → A fazer = soltar ·
   // Aprovado → Pronto (agendar) só admin · demais destinos abrem o card na ação.
+  // Admin: soltar em Com o cliente / Ajuste / Revisão / Pronto executa a ação real (com confirmação).
   function dropAction(p, to) {
     const from = column(p); const sk = sub(p);
     if (from === to) return null;
     if (from === "fazer" && to === "producao" && sk !== "espera") return { kind: "claim", take: true };
     if (from === "producao" && to === "fazer" && p.assignee === me.email) return { kind: "claim", take: false };
+    if (me.role === "admin" && sk !== "agendado" && !p.scheduled) {
+      const hasArte = d.all.some((v) => v.post_id === p.id && v.stage === "arte");
+      const sentArte = d.sent.some((v) => v.post_id === p.id && v.stage === "arte");
+      const hasDraft = d.drafts.some((v) => v.post_id === p.id);
+      if (to === "cliente" && hasArte && ["revisao", "ajuste", "producao", "fazer"].includes(from)) return { kind: "send", force: from === "ajuste" };
+      if (to === "revisao" && from === "cliente") return { kind: "recall", note: false };
+      if (to === "ajuste" && from === "cliente") return { kind: "recall", note: true };
+      if (to === "ajuste" && from === "revisao" && hasDraft) return { kind: "adjust" };
+      if (to === "pronto" && sentArte && ["cliente", "ajuste"].includes(from)) return { kind: "approve" };
+    }
     if (to === "revisao" && ["producao", "ajuste", "fazer"].includes(from) && sk !== "espera") return { kind: "open" };
-    if (to === "cliente" && from === "revisao" && me.role === "admin") return { kind: "open" };
+    return null;
+  }
+
+  // Executa a ação do arrastar. Retorna a mensagem de sucesso, null se cancelou, ou lança erro.
+  async function runDrop(act, p) {
+    const rpc = async (fn, args) => { const { error } = await sb.rpc(fn, args); if (error) throw error; };
+    const note = (title, text) => G.ask({ title, text, okLabel: "Confirmar", input: { label: "Motivo", placeholder: "O que precisa ajustar?" } });
+    if (act.kind === "send") {
+      if (act.force) {
+        if (!(await G.ask({ title: "Enviar ao cliente mesmo assim?", danger: true, okLabel: "Enviar ao cliente",
+          text: "Este post está com ajuste pedido. Ele volta para o cliente como está, e o pedido fica só no histórico." }))) return null;
+        await rpc("send_post", { p_post: p.id, p_parts: "post", p_force: true });
+      } else {
+        if (!(await G.ask({ title: "Enviar o post ao cliente?", text: "Wilker e Letícia passam a ver arte e legenda para aprovar.", okLabel: "Enviar ao cliente" }))) return null;
+        await rpc("send_post", { p_post: p.id, p_parts: "post" });
+      }
+      return "Post enviado ao cliente ✓";
+    }
+    if (act.kind === "recall") {
+      if (act.note) {
+        const n = await note("Tirar da aprovação e pedir ajuste?", "O cliente deixa de ver o post e o time vê o motivo.");
+        if (!n) return null;
+        await rpc("recall_post", { p_post: p.id, p_note: n });
+        return "Post voltou para a produção com ajuste ✓";
+      }
+      if (!(await G.ask({ title: "Tirar da aprovação?", text: "O cliente deixa de ver esta versão até você enviar de novo.", okLabel: "Tirar da aprovação" }))) return null;
+      await rpc("recall_post", { p_post: p.id, p_note: null });
+      return "Post tirado da aprovação ✓";
+    }
+    if (act.kind === "adjust") {
+      const n = await note("Pedir ajuste interno?", "O ajuste vale para a versão mais nova em revisão.");
+      if (!n) return null;
+      const drafts = d.drafts.filter((v) => v.post_id === p.id && !v.review_note).sort((a, b) => b.number - a.number);
+      const target = drafts.find((v) => v.stage === "arte") || drafts[0];
+      if (!target) throw new Error("Nada em revisão para pedir ajuste");
+      await rpc("request_internal_adjust", { p_version: target.id, p_note: n });
+      return "Ajuste pedido ✓";
+    }
+    if (act.kind === "approve") {
+      if (!(await G.ask({ title: "Marcar como aprovado?", danger: true, okLabel: "Marcar aprovado",
+        text: "Fica registrado como aprovado pela agência, no lugar do cliente. Se a data permitir, o post é agendado sozinho." }))) return null;
+      await rpc("set_post_status", { p_post: p.id, p_status: "aprovado" });
+      return "Post marcado como aprovado ✓";
+    }
     return null;
   }
 
@@ -183,6 +237,13 @@
         if (error) return toast(error.message, true), render();
         await load(); render(); toast(act.take ? "Card é seu agora" : "Card voltou para A fazer");
       } else if (act?.kind === "open") { openPost = post.id; render(); }
+      else if (act) {
+        try {
+          const ok = await runDrop(act, post);
+          await load(); render();
+          if (ok) toast(ok);
+        } catch (e) { toast(e.message || String(e), true); await load(); render(); }
+      }
       else if (over && over !== column(post)) toast("Essa etapa depende de outra ação");
       cleanup(true);
     };
