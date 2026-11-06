@@ -92,14 +92,14 @@
   const edName = (slug) => ((data.editorias || []).find((e) => e.slug === slug) || {}).name || "";
   // Rótulos na voz de quem aprova: deixa claro de quem é a vez
   const LABEL = { aprovado: "Aprovado", reprovado: "Ajuste pedido", contestado: "Em discussão", pendente: "Sua vez", aguardando: "Garten produzindo" };
-  const STAGE_NAME = { pauta: "pauta", copy: "texto e legenda", arte: "arte" };
+  const STAGE_NAME = { pauta: "pauta", arte: "post" };
 
   // O que espera resposta deles: a etapa mais avançada do post sem decisão
   function waiting() {
     const out = [];
     for (const p of data.posts) {
       if (p.scheduled) continue;
-      const stage = ["arte", "copy", "pauta"].find((k) => G.stageState(data, p, k).status !== "aguardando");
+      const stage = ["arte", "pauta"].find((k) => G.stageState(data, p, k).status !== "aguardando");
       if (!stage) continue;
       const stt = G.stageState(data, p, stage);
       if (stt.status === "pendente" || stt.status === "contestado") out.push({ post: p, stage });
@@ -299,7 +299,7 @@
   function stageContent(post, stage, st) {
     if (stage === "pauta") return el("div", { class: "stack-0" },
       el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Pauta"),
-        st.status === "aprovado" ? "Pauta aprovada. Texto e arte aparecem aqui quando a Garten subir." : "Aprove o tema e o direcional ao lado. Texto e arte vêm nas próximas etapas."),
+        st.status === "aprovado" ? "Pauta aprovada. O post com a legenda aparece aqui quando estiver pronto." : "Aprove o tema e o direcional ao lado. Depois vem o post pronto, com a legenda."),
       G.refsView(post.refs, data.urls, (paths, i) => lightbox(paths, i)));
     if (!st.version) return null;
     // Copy = texto da arte · Legenda = texto do post. Aprovados juntos.
@@ -310,8 +310,8 @@
     // A copy mais recente aparece junto da arte, para o cliente avaliar a peça completa
     const cp = G.latestVersion(data.versions, post.id, "copy");
     return el("div", { class: "stack-0" },
-      cp?.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Legenda · texto v${cp.number}`), cp.caption_text) : null,
-      el("div", { class: "eyebrow" }, isOpp(post) ? `Post pronto · versão ${st.version.number}` : `Arte · versão ${st.version.number}`),
+      cp?.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Legenda do post"), cp.caption_text) : null,
+      el("div", { class: "eyebrow" }, isOpp(post) ? `Post pronto · versão ${st.version.number}` : `Post · versão ${st.version.number}`),
       paths.length > 1 ? el("div", { class: "slides-hint" }, `${paths.length} lâminas · arraste para o lado · toque para ampliar`) : el("div", { class: "slides-hint" }, "Toque para ampliar"),
       el("div", { class: `slides${paths.length > 1 ? " multi" : ""}` }, paths.map((p, i) => {
         const url = data.urls[p];
@@ -428,17 +428,17 @@
     const d = G.fmtDate(post.post_date);
     const states = Object.fromEntries(G.STAGES.map((s) => [s.key, G.stageState(data, post, s.key)]));
     const opp = isOpp(post);
-    const current = opp ? "arte" : (openTab[post.id] || ["arte", "copy"].find((k) => states[k].version) || "pauta");
+    const current = opp ? "arte" : (openTab[post.id] === "pauta" ? "pauta" : states.arte.version ? "arte" : "pauta");
     const st = states[current];
     const longDate = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
     const tabs = opp
       ? [el("div", { class: "stage-tab", "aria-selected": "true" }, "Post pronto", el("span", { class: `pill ${states.arte.status}` }, LABEL[states.arte.status]))]
-      : G.STAGES.map((s) => el("button", {
+      : G.STAGES.filter((s) => s.key !== "copy").map((s) => el("button", {
       class: "stage-tab", type: "button", role: "tab", "aria-selected": String(s.key === current),
       disabled: s.key !== "pauta" && !states[s.key].version,
       onclick: () => { openTab[post.id] = s.key; refresh(post.id); },
-    }, s.label === "Copy" ? "Texto" : s.label, el("span", { class: `pill ${states[s.key].status}` }, LABEL[states[s.key].status])));
+    }, s.key === "arte" ? "Post" : s.label, el("span", { class: `pill ${states[s.key].status}` }, LABEL[states[s.key].status])));
 
     const decided = st.last && ["aprovado", "reprovado"].includes(st.last.status) && !post.scheduled;
     const side = el("div", { class: `card-side${decided ? " is-decided" : ""}` },

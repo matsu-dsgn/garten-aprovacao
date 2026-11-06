@@ -294,6 +294,8 @@
         adjDec.note || "", st.stage === "arte" && Object.keys(adjDec.slide_notes || {}).length ? el("div", { class: "msg" }, "Os ajustes de cada lâmina aparecem junto dela, na arte.") : null) : null,
       st.internal ? el("div", { class: "content-box alert" },
         el("span", { class: "eyebrow" }, `Ajuste pedido pelo Rapha · ${st.stage === "copy" ? "texto e legenda" : "arte"}`), st.internal.review_note) : null,
+      me.role === "admin" && col === "cliente"
+        ? GWork.recallPanel(sb, p, async (t) => { await reload(); toast(t); }) : null,
       me.role === "admin" && ["aprovado", "agendado"].includes(col)
         ? GWork.schedulePanel(sb, p, async (on) => { await load(); render(); toast(on ? "Post agendado" : "Agendamento removido"); }) : null);
 

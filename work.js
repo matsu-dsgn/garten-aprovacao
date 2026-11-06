@@ -236,35 +236,43 @@ window.GWork = (() => {
           : el("div", { class: "row" }, okBtn(v), ask, form));
     };
 
-    // Envio por parte: copy, arte ou os dois. Verde só o que dá para enviar agora.
+    // O cliente aprova o post inteiro (arte + legenda): um envio só, sempre completo.
     const P = r.parts;
     const hasNew = (k) => drafts.some((v) => v.stage === k);
-    const OPTS = [["ambos", "Copy e arte"], ["copy", "Só copy"], ["arte", "Só arte"]];
-    const okOf = (k) => k === "ambos" ? P.copy.ok && P.arte.ok : P[k].ok;
-    const why1 = (k) => (k === "ambos" ? ["copy", "arte"] : [k]).flatMap((x) => P[x].ajuste ? ["ajuste interno"] : P[x].falta).join(", ");
-    // Sempre o mesmo controle: lista fixa + "Enviar ao cliente". Enviar já vale como aprovação.
-    const why0 = (k) => why1(k) || "nada novo";
-    const sel = el("select", { class: "send-sel", "aria-label": "O que enviar ao cliente" },
-      OPTS.map(([k, l]) => el("option", { value: k, disabled: !okOf(k), selected: k === "ambos" }, okOf(k) ? l : `${l} (${why0(k)})`)));
-    sel.value = "ambos";
-    const LBL = { ambos: "Copy e arte enviadas ao cliente ✓", copy: "Copy enviada ao cliente ✓", arte: "Arte enviada ao cliente ✓" };
-    const send = el("button", { type: "button" }, "Enviar ao cliente");
-    const paint = () => { const ok = okOf(sel.value); send.className = ok ? "btn ok" : "btn ghost"; send.disabled = !ok; };
-    sel.addEventListener("change", paint); paint();
+    const faltaAll = [...new Set(["copy", "arte"].flatMap((x) => P[x].ajuste ? ["ajuste interno"] : P[x].falta))];
+    const canSend = !faltaAll.length && (P.copy.novo || P.arte.novo);
+    const send = el("button", { type: "button", class: canSend ? "btn ok" : "btn ghost", disabled: !canSend }, "Enviar post ao cliente");
     send.addEventListener("click", async () => {
-      const parts = sel.value; send.disabled = true;
-      const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: parts });
-      if (error) { paint(); return say(error.message, "err"); }
-      opts.onChange?.(LBL[parts]);
+      send.disabled = true;
+      const { error } = await sb.rpc("send_post", { p_post: post.id, p_parts: "post" });
+      if (error) { send.disabled = false; return say(error.message, "err"); }
+      opts.onChange?.("Post enviado ao cliente ✓");
     });
-    const btns = [sel, send];
-    const pend = ["copy", "arte"].filter((k) => hasNew(k)).flatMap((k) =>
-      P[k].ajuste ? [`${k === "copy" ? "copy" : "arte"} com ajuste interno pedido`] : P[k].falta);
-    const why = pend.length ? `Falta: ${[...new Set(pend)].join(", ")}` : "";
+    const btns = [send];
+    const why = faltaAll.length ? `Para enviar falta: ${faltaAll.join(", ")}` : (canSend ? "" : "Nada novo para enviar");
     return el("div", { class: "review" },
       el("div", { class: "eyebrow" }, "Revisão interna"),
       drafts.map(item),
-      el("div", { class: "cmp-actions" }, ...btns), out);
+      el("div", { class: "cmp-actions" }, ...btns), why ? el("p", { class: "msg" }, why) : null, out);
+  }
+
+  // ---------- Tirar da aprovação (só admin): volta o post para a produção ----------
+  function recallPanel(sb, post, onDone) {
+    const out = el("p", { class: "msg", role: "status", "aria-live": "polite" });
+    const note = el("textarea", { maxlength: "1500", rows: "2", placeholder: "Motivo (opcional). Com motivo, o card vai para Ajuste e o time vê o pedido." });
+    const open = el("button", { class: "btn ghost", type: "button" }, "Tirar da aprovação");
+    const form = el("div", { class: "stack-0", hidden: true }, note, el("div", { class: "row" },
+      el("button", { class: "btn bad", type: "button", onclick: async (e) => {
+        e.target.disabled = true;
+        const { error } = await sb.rpc("recall_post", { p_post: post.id, p_note: note.value || null });
+        e.target.disabled = false;
+        if (error) { out.className = "msg err"; out.textContent = error.message; return; }
+        onDone?.(note.value.trim() ? "Post voltou para a produção com ajuste ✓" : "Post tirado da aprovação ✓ · voltou para a revisão interna");
+      } }, "Confirmar"),
+      el("button", { class: "btn ghost", type: "button", onclick: () => { form.hidden = true; open.hidden = false; } }, "Cancelar")));
+    open.addEventListener("click", () => { form.hidden = false; open.hidden = true; note.focus(); });
+    return el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Com o cliente"),
+      el("p", { class: "msg" }, "O cliente deixa de ver esta versão até você enviar de novo."), open, form, out);
   }
 
   // ---------- Agendamento (regra validada no banco: só arte aprovada, só admin) ----------
@@ -393,5 +401,5 @@ window.GWork = (() => {
     return box;
   }
 
-  return { refsView: G.refsView, refsEditor, signRefs, signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, nameOf, when, schedulePanel, schedLabel };
+  return { refsView: G.refsView, refsEditor, signRefs, signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, recallPanel, nameOf, when, schedulePanel, schedLabel };
 })();
