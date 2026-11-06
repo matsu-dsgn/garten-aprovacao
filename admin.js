@@ -425,6 +425,102 @@
     return { posts, allVersions: all, versions: sentAll, drafts, draftUrls, decisions: d.data || [], approvers: a.data || [], comments: c.data || [], team: t.data || [] };
   }
 
+
+  // ---------- Mover post de dia (campo de data e calendário usam a mesma regra) ----------
+  // Agenda primeiro, data depois: se o agendamento falhar, nada muda e o banco não fica pela metade.
+  async function movePost(m, p, nd, sortVal) {
+    const ym = /^(\d{4})-(\d{2})$/.exec(m.slug || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nd)) return { ok: false, text: "Data inválida." };
+    if (ym && !nd.startsWith(`${m.slug}-`)) return { ok: false, text: "Escolha um dia dentro deste mês." };
+    if (p.publish_status === "publicado" || p.publish_status === "publicando") return { ok: false, text: "Post já publicado não muda de dia." };
+    let note = "Data alterada. O calendário do cliente já mostra o novo dia.";
+    if (p.scheduled && p.scheduled_at && nd !== p.post_date) {
+      const old = new Date(p.scheduled_at); const [y, mo, d] = nd.split("-").map(Number);
+      const at = new Date(y, mo - 1, d, old.getHours(), old.getMinutes());
+      if (at.getTime() < Date.now() + 5 * 60 * 1000) return { ok: false, text: "Esse dia/horário já passou. Desagende ou mude o horário antes de mover." };
+      const r = await sb.rpc("schedule_post", { p_post: p.id, p_at: at.toISOString() });
+      if (r.error) return { ok: false, text: `Não movi: o agendamento recusou (${r.error.message}).` };
+      note = `Movido e agendamento levado para ${at.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.`;
+    }
+    const patch = { post_date: nd }; if (sortVal != null) patch.sort = sortVal;
+    const { error } = await sb.from("posts").update(patch).eq("id", p.id);
+    if (error) return { ok: false, text: error.message };
+    return { ok: true, text: note };
+  }
+
+  // ---------- Calendário do mês (arrastar e soltar) ----------
+  function adminCalendar(m) {
+    const ym = /^(\d{4})-(\d{2})$/.exec(m.slug || "");
+    if (!ym || !data.posts.length) return null;
+    const Y = +ym[1], M = +ym[2] - 1, last = new Date(Y, M + 1, 0).getDate();
+    const key = (d) => `${m.slug}-${String(d).padStart(2, "0")}`;
+    const byDay = {}; for (const p of data.posts) (byDay[p.post_date] ||= []).push(p);
+    const edName = (slug) => (editorias.find((e) => e.slug === slug) || {}).name || "";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const out = msg("");
+    let dragId = null;
+
+    const chip = (p) => {
+      const locked = p.publish_status === "publicado" || p.publish_status === "publicando";
+      let s = "pendente"; try { s = p.publish_status === "publicado" ? "publicado" : G.postSummary(data, p); } catch { /* ok */ }
+      const b = el("div", { class: `cal-post${locked ? " locked" : ""}`, draggable: locked ? "false" : "true", "data-id": p.id, tabindex: "0",
+        title: locked ? "Publicado: não dá para mover" : "Arraste para outro dia · clique para abrir" },
+        el("b", {}, el("i", { class: `dot ${s}` }), p.title),
+        el("span", {}, [G.FORMATS[p.format], edName(p.editoria), p.scheduled && p.scheduled_at ? `⏱ ${new Date(p.scheduled_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : null].filter(Boolean).join(" · ")));
+      b.addEventListener("click", () => { const r = document.getElementById(`row-${p.id}`); if (r) { r.open = true; openPosts.add(p.id); r.scrollIntoView({ behavior: "smooth", block: "start" }); } });
+      b.addEventListener("dragstart", (e) => { dragId = p.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", p.id); b.classList.add("dragging"); });
+      b.addEventListener("dragend", () => { b.classList.remove("dragging"); document.querySelectorAll(".cal-day.drop").forEach((x) => x.classList.remove("drop")); });
+      return b;
+    };
+
+    async function drop(day, beforeId) {
+      const p = data.posts.find((x) => x.id === dragId); dragId = null; if (!p) return;
+      // ordem nova do dia: posts do destino (sem o arrastado), com o arrastado no ponto de soltura
+      const list = (byDay[day] || []).filter((x) => x.id !== p.id);
+      const i = beforeId ? list.findIndex((x) => x.id === beforeId) : -1;
+      list.splice(i < 0 ? list.length : i, 0, p);
+      if (day === p.post_date && list.map((x) => x.id).join() === (byDay[day] || []).map((x) => x.id).join()) return;
+      out.className = "msg"; out.textContent = "Salvando…";
+      const r = await movePost(m, p, day, list.indexOf(p));
+      if (!r.ok) { out.className = "msg err"; out.textContent = r.text; return; }
+      const others = list.map((x, n) => [x, n]).filter(([x, n]) => x.id !== p.id && x.sort !== n);
+      await Promise.all(others.map(([x, n]) => sb.from("posts").update({ sort: n }).eq("id", x.id)));
+      flash = { id: "cal", kind: "okk", text: `"${p.title}" → dia ${+day.slice(8)}. ${r.text}` };
+      await openMonth(m, true);
+    }
+
+    const start = new Date(Y, M, 1);
+    const cells = [];
+    for (let i = 0; i < start.getDay(); i++) cells.push(el("div", { class: "cal-day out" }));
+    for (let d = 1; d <= last; d++) {
+      const k = key(d), posts = byDay[k] || [];
+      const past = new Date(Y, M, d) < today;
+      const cell = el("div", { class: `cal-day ${posts.length ? "has" : ""} ${past ? "past" : ""}`, "data-day": k },
+        el("div", { class: "cal-num" }, el("b", {}, d)), posts.map(chip));
+      cell.addEventListener("dragover", (e) => { if (!dragId) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; cell.classList.add("drop"); });
+      cell.addEventListener("dragleave", (e) => { if (!cell.contains(e.relatedTarget)) cell.classList.remove("drop"); });
+      cell.addEventListener("drop", (e) => {
+        e.preventDefault(); cell.classList.remove("drop");
+        const over = e.target.closest(".cal-post");
+        let before = null;
+        if (over && over.dataset.id !== dragId) {
+          const r = over.getBoundingClientRect();
+          if (e.clientY < r.top + r.height / 2) before = over.dataset.id;
+          else { const nx = over.nextElementSibling; before = nx?.dataset?.id || null; }
+        }
+        drop(k, before);
+      });
+      cells.push(cell);
+    }
+    if (flash?.id === "cal") { out.className = `msg ${flash.kind}`; out.textContent = flash.text; flash = null; }
+
+    return el("section", { class: "panel admin-cal", id: "admin-cal" },
+      el("div", { class: "row between" }, el("h2", {}, "Calendário"),
+        el("span", { class: "msg" }, "Arraste um post para outro dia ou reordene dentro do dia. Agendados levam o horário junto.")),
+      out,
+      el("div", { class: "cal" }, el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells)));
+  }
+
   const openPosts = new Set(); // posts abertos no mês (sobrevive ao re-render)
   const openComposers = new Set(); // bloco "Copy e arte" aberto (sobrevive ao re-render)
   let flash = null; // { id, text } mensagem de sucesso que sobrevive ao re-render
@@ -441,6 +537,7 @@
         el("button", { class: "btn ghost", onclick: () => exportJson(m) }, "Exportar JSON"),
         el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban deste mês")),
       data.posts.length ? "" : importPanel(m),
+      adminCalendar(m) || "",
       el("section", { class: "panel" },
         el("div", { class: "row between" }, el("h2", {}, `Posts (${data.posts.length})`),
           data.posts.length ? el("button", { class: "btn ghost", type: "button", onclick: (e) => {
@@ -691,19 +788,9 @@
     dateIn.addEventListener("change", async () => {
       const nd = dateIn.value;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(nd) || nd === p.post_date) return;
-      if (ym && !nd.startsWith(`${m.slug}-`)) { dateIn.value = p.post_date; return fail(new Error("Escolha um dia dentro deste mês.")); }
-      const { error } = await sb.from("posts").update({ post_date: nd }).eq("id", p.id);
-      if (error) { dateIn.value = p.post_date; return fail(error); }
-      // Se já estava agendado, leva o agendamento para o novo dia mantendo o horário
-      let note = "Data alterada. O calendário do cliente já mostra o novo dia.";
-      if (p.scheduled && p.scheduled_at) {
-        const old = new Date(p.scheduled_at); const [y, mo, d] = nd.split("-").map(Number);
-        const at = new Date(y, mo - 1, d, old.getHours(), old.getMinutes());
-        const r = await sb.rpc("schedule_post", { p_post: p.id, p_at: at.toISOString() });
-        note = r.error ? `Data alterada, mas o agendamento não mudou: ${r.error.message}`
-          : `Data alterada e agendamento movido para ${at.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.`;
-      }
-      flash = { id: p.id, kind: "okk", text: note, field: "date" }; openPosts.add(p.id); await openMonth(m, true);
+      const r = await movePost(m, p, nd);
+      if (!r.ok) { dateIn.value = p.post_date; return fail(new Error(r.text)); }
+      flash = { id: p.id, kind: "okk", text: r.text, field: "date" }; openPosts.add(p.id); await openMonth(m, true);
     });
     const sched = el("button", { class: "btn ghost" }, p.scheduled ? GWork.schedLabel(p) : "Agendar…");
     sched.addEventListener("click", () => {

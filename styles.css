@@ -1251,3 +1251,13 @@ details.post-row[open] > summary .stage-pills { display: none; }
 .content-box.kd-action .eyebrow, .content-box.kd-action .msg { margin: 0; }
 .content-box.kd-action .stack-0 { width: 100%; }
 .kd-action-row { margin-top: 4px; }
+
+/* Calendário do admin: arrastar e soltar */
+.admin-cal .cal-day { min-height: 110px; transition: background .15s, box-shadow .15s; }
+.admin-cal .cal-day.past { opacity: .6; }
+.admin-cal .cal-day.drop { box-shadow: inset 0 0 0 2px var(--accent); background: var(--surface); }
+.admin-cal .cal-post { cursor: grab; }
+.admin-cal .cal-post:active { cursor: grabbing; }
+.admin-cal .cal-post.dragging { opacity: .4; }
+.admin-cal .cal-post.locked { cursor: default; opacity: .75; }
+@media (max-width: 760px) { .admin-cal .cal-grid { display: grid; } .admin-cal .cal-day { min-height: 70px; } }
