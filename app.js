@@ -454,7 +454,7 @@
     const open = post.id in openCards ? openCards[post.id] : ["pendente", "contestado"].includes(summ);
     const cs = G.calStatus(data, post);
     const toggle = el("button", { class: "card-toggle", type: "button", "aria-expanded": String(open), "aria-controls": `post-${post.id}`,
-      onclick: () => { openCards[post.id] = !open; refresh(post.id); } },
+      onclick: () => toggleCard(post.id, !open) },
       el("span", { class: `pill ${cs}` }, cs === "agendado" ? "Agendado" : cs === "publicado" ? "Publicado" : LABEL[summ] || summ),
       el("span", { class: "card-toggle-txt" }, open ? "Recolher" : "Ver post"), el("i", { "aria-hidden": "true" }, "⌄"));
     return el("article", { class: `card reveal${opp ? " is-opp" : ""}${open ? "" : " is-closed"}`, id: `post-${post.id}`, "data-status": G.postSummary(data, post), "data-opp": opp ? "1" : null },
@@ -478,8 +478,31 @@
   }
 
   // ---------- Barra fixa ----------
+  // Abre/fecha com animação de altura; ao abrir, a tela acompanha e centraliza o card
+  function toggleCard(id, open, { follow = true } = {}) {
+    const old = document.getElementById(`post-${id}`);
+    const fromH = old?.querySelector(".card-body")?.offsetHeight || 0;
+    openCards[id] = open; refresh(id);
+    const n = document.getElementById(`post-${id}`); if (!n) return;
+    const body = n.querySelector(".card-body"); const toH = body.offsetHeight;
+    if (!reduce && fromH) {
+      const ease = "cubic-bezier(.22,.8,.24,1)";
+      body.animate([{ height: `${fromH}px` }, { height: `${toH}px` }], { duration: 420, easing: ease });
+      n.querySelector(".card-toggle i")?.animate([{ transform: open ? "none" : "rotate(180deg)" }, { transform: open ? "rotate(180deg)" : "none" }], { duration: 300, easing: ease });
+      if (open) n.querySelectorAll(".card-side, .objective, .direction, .must").forEach((x, i) =>
+        x.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 140 + i * 40, easing: ease, fill: "backwards" }));
+    }
+    if (!open || !follow) return;
+    // posição final (sem a animação): centraliza se cabe na tela, senão alinha o topo
+    const top = n.getBoundingClientRect().top + window.scrollY - (body.offsetHeight - toH);
+    const h = n.offsetHeight + (toH - body.offsetHeight);
+    const vh = window.innerHeight;
+    const y = h < vh - 40 ? top - (vh - h) / 2 : top - 20;
+    window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" });
+  }
+
   function goTo(id) {
-    if (openCards[id] === false || document.getElementById(`post-${id}`)?.classList.contains("is-closed")) { openCards[id] = true; refresh(id); }
+    if (document.getElementById(`post-${id}`)?.classList.contains("is-closed")) { toggleCard(id, true); return; }
     document.getElementById(`post-${id}`)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   }
   function dock() {
