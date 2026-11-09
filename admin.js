@@ -469,7 +469,7 @@
 
     const chip = (p) => {
       const locked = p.publish_status === "publicado" || p.publish_status === "publicando";
-      let s = "pendente"; try { s = p.publish_status === "publicado" ? "publicado" : G.postSummary(data, p); } catch { /* ok */ }
+      const s = G.calStatus(data, p);
       const b = el("div", { class: `cal-post${locked ? " locked" : ""}${tight.has(p.id) ? " tight" : ""}`, draggable: locked ? "false" : "true", "data-id": p.id, tabindex: "0",
         title: locked ? "Publicado: não dá para mover" : "Arraste para outro dia · clique para abrir" },
         el("b", {}, el("i", { class: `dot ${s}` }), p.title),
@@ -519,14 +519,23 @@
       });
       cells.push(cell);
     }
+    // Mobile: mesma lista por dia do painel do cliente (arrastar não funciona no toque; reordenar fica no desktop)
+    const list = Object.keys(byDay).sort().map((k) => {
+      const d = G.fmtDate(k);
+      return el("div", { class: "row-day" },
+        el("div", {}, el("b", {}, d.getDate()), G.DOW[d.getDay()]),
+        el("div", { class: "posts" }, byDay[k].map((p) => { const c = chip(p); c.draggable = false; return c; })));
+    });
     const warn = tight.size ? el("p", { class: "msg cal-warn" }, `⚠ ${tight.size} posts agendados com menos de 3h de diferença no mesmo dia. Clique num deles e ajuste o horário em "Agendar…".`) : null;
     if (flash?.id === "cal") { out.className = `msg ${flash.kind}`; out.textContent = flash.text; flash = null; }
 
     return el("section", { class: "panel admin-cal", id: "admin-cal" },
       el("div", { class: "row between" }, el("h2", {}, "Calendário"),
-        el("span", { class: "msg" }, "Arraste um post para outro dia ou reordene dentro do dia. Agendados levam o horário junto.")),
+        G.calLegend()),
+      el("p", { class: "msg cal-hint" }, "Arraste um post para outro dia ou reordene dentro do dia. Agendados levam o horário junto."),
       out, warn,
-      el("div", { class: "cal" }, el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells)));
+      el("div", { class: "cal" }, el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells),
+        el("div", { class: "cal-list" }, list)));
   }
 
   const openPosts = new Set(); // posts abertos no mês (sobrevive ao re-render)

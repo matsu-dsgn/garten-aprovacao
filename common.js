@@ -417,5 +417,21 @@ window.G = (() => {
   const skeleton = (lines = 3) => el("div", { class: "skel", role: "status", "aria-label": "Carregando" },
     Array.from({ length: lines }, () => el("i")));
 
-  return { refsView, isHttp, refHost, statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // Status do post no calendário (cliente e admin): publicado > agendado > resumo das aprovações
+  function calStatus(data, p) {
+    if (p.publish_status === "publicado") return "publicado";
+    if (p.scheduled) return "agendado";
+    try { return postSummary(data, p); } catch { return "pendente"; }
+  }
+  function calLegend() {
+    return el("div", { class: "legend" },
+      el("span", {}, el("i", { class: "aprovado" }), "Aprovado"),
+      el("span", {}, el("i", { class: "reprovado" }), "Ajuste"),
+      el("span", {}, el("i", { class: "contestado" }), "Em discussão"),
+      el("span", {}, el("i", { class: "agendado" }), "Agendado"),
+      el("span", {}, el("i", { class: "publicado" }), "Publicado"),
+      el("span", {}, el("i", {}), "Sua vez"));
+  }
+
+  return { calStatus, calLegend, refsView, isHttp, refHost, statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

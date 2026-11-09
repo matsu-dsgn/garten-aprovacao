@@ -30,6 +30,7 @@
   }
   function data_posts_refresh() { for (const p of data?.posts || []) refresh(p.id); }
   const openTab = {};
+  const openCards = {}; // abre/fecha manual de cada card (sobrevive ao re-render)
   let data = null;
   let pillarFocus = null; // pilar escolhido pelo usuário (filtra o calendário)
   let cycleTimer = null;
@@ -246,7 +247,7 @@
 
   // ---------- Calendário ----------
   function calPost(p) {
-    const s = p.publish_status === "publicado" ? "publicado" : G.postSummary(data, p);
+    const s = G.calStatus(data, p);
     return el("button", {
       class: "cal-post", type: "button", "data-ed": p.editoria || "",
       onclick: () => goTo(p.id),
@@ -282,14 +283,9 @@
 
     return el("section", { class: "block wrap reveal", id: "calendario" },
       el("div", { class: "sec-head" },
-        el("div", {}, el("div", { class: "eyebrow" }, "O mês num relance · toque num post para ir até ele"),
+        el("div", { class: "cal-title" }, el("div", { class: "eyebrow" }, "O mês num relance · toque num post para ir até ele"),
           el("h2", {}, `${G.MONTHS[first.getMonth()][0].toUpperCase()}${G.MONTHS[first.getMonth()].slice(1)} ${first.getFullYear()}`)),
-        el("div", { class: "legend" },
-          el("span", {}, el("i", { class: "aprovado" }), "Aprovado"),
-          el("span", {}, el("i", { class: "reprovado" }), "Ajuste"),
-          el("span", {}, el("i", { class: "contestado" }), "Em discussão"),
-          el("span", {}, el("i", { class: "publicado" }), "Publicado"),
-          el("span", {}, el("i", {}), "Sua vez"))),
+        G.calLegend()),
       el("div", { class: "cal" },
         el("div", { class: "cal-grid" }, G.DOW.map((d) => el("div", { class: "cal-dow" }, d)), cells),
         el("div", { class: "cal-list" }, list)));
@@ -453,12 +449,20 @@
         G.historyList(data, st.decisions)));
 
     const checklist = post.checklist || [];
-    return el("article", { class: `card reveal${opp ? " is-opp" : ""}`, id: `post-${post.id}`, "data-status": G.postSummary(data, post), "data-opp": opp ? "1" : null },
+    // Aberto por padrão só o que pede ação (sua vez / em discussão); o resto começa fechado
+    const summ = G.postSummary(data, post);
+    const open = post.id in openCards ? openCards[post.id] : ["pendente", "contestado"].includes(summ);
+    const cs = G.calStatus(data, post);
+    const toggle = el("button", { class: "card-toggle", type: "button", "aria-expanded": String(open), "aria-controls": `post-${post.id}`,
+      onclick: () => { openCards[post.id] = !open; refresh(post.id); } },
+      el("span", { class: `pill ${cs}` }, cs === "agendado" ? "Agendado" : cs === "publicado" ? "Publicado" : LABEL[summ] || summ),
+      el("span", { class: "card-toggle-txt" }, open ? "Recolher" : "Ver post"), el("i", { "aria-hidden": "true" }, "⌄"));
+    return el("article", { class: `card reveal${opp ? " is-opp" : ""}${open ? "" : " is-closed"}`, id: `post-${post.id}`, "data-status": G.postSummary(data, post), "data-opp": opp ? "1" : null },
       el("div", { class: "date-col" }, el("b", {}, d.getDate()), el("span", {}, `${G.DOW[d.getDay()]} · ${G.MONTHS[d.getMonth()]}`)),
       el("div", { class: `card-body${current === "arte" && st.version ? " art-mode" : ""}` },
         el("div", { class: "card-main" },
           opp ? el("div", { class: "meta" }, oppBadge(post), deadlineChip(post)) : null,
-          el("h3", {}, post.title),
+          el("div", { class: "card-title" }, el("h3", {}, post.title), toggle),
           el("div", { class: "meta" },
             el("span", { class: "mono" }, longDate[0].toUpperCase() + longDate.slice(1)),
             el("span", { class: "chip" }, G.FORMATS[post.format] || post.format),
@@ -470,11 +474,12 @@
           post.direction ? el("p", { class: "direction" }, post.direction) : null,
           checklist.length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
             el("ul", {}, checklist.map((c) => el("li", {}, c)))) : null),
-        side));
+        open ? side : null));
   }
 
   // ---------- Barra fixa ----------
   function goTo(id) {
+    if (openCards[id] === false || document.getElementById(`post-${id}`)?.classList.contains("is-closed")) { openCards[id] = true; refresh(id); }
     document.getElementById(`post-${id}`)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   }
   function dock() {
