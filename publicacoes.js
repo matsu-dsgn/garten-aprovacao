@@ -63,8 +63,10 @@
     const cover = {};
     for (const v of vers) if (!cover[v.post_id] || v.number > cover[v.post_id].number) cover[v.post_id] = v;
     const urls = await GWork.signed(sb, Object.values(cover).map((v) => v.asset_paths?.[0]).filter(Boolean));
+    // Cópias guardadas no nosso storage (Stories somem da Meta em 24h)
+    const archive = await GWork.signed(sb, (media.data || []).map((m) => m.archive_path).filter(Boolean));
     d = { media: media.data || [], queue: queue.data || [], posts: new Map(posts.map((p) => [p.id, p])),
-      eds: eds.data || [], run: runs.data?.[0] || null, cover, urls };
+      eds: eds.data || [], run: runs.data?.[0] || null, cover, urls, archive };
     render();
   }
 
@@ -208,7 +210,7 @@
     const card = (m) => {
       const p = m.post_id && d.posts.get(m.post_id);
       const link = safeUrl(m.permalink);
-      const thumb = safeUrl(m.thumb_url);
+      const thumb = (m.archive_path && d.archive[m.archive_path]) || safeUrl(m.thumb_url);
       const fmt = fmtOf(m);
       const title = p?.title || (m.caption || "").split("\n")[0].slice(0, 90) || (fmt === "stories" ? "Stories" : "Post sem legenda");
       let ed = null;
@@ -240,7 +242,7 @@
     return el("section", { class: "panel" },
       el("h3", { class: "ov-h" }, `Publicados · ${d.media.length}`),
       d.media.length ? el("ul", { class: "pub-list" }, d.media.map(card)) : msg("Nada publicado neste período."),
-      d.media.some((m) => m.product_type === "STORY") ? el("p", { class: "msg" }, "Stories têm métricas só nas primeiras 24h; depois disso os números ficam congelados.") : null);
+      d.media.some((m) => m.product_type === "STORY") ? el("p", { class: "msg" }, "Stories têm métricas só nas primeiras 24h: o sistema lê de hora em hora, guarda os números e uma cópia da imagem, e congela tudo quando o Story some.") : null);
   }
 
   boot();

@@ -69,6 +69,8 @@ async function sync() {
   ];
   if (rows.length) { const { error } = await db.from("ig_media").upsert(rows); if (error) throw error; }
 
+  await archiveImages(stories.map((m) => m.id));
+
   // Liga ao post do sistema quando o ID bate (feed/Reels publicados pelo agendamento)
   const ids = rows.map((r) => r.id);
   if (ids.length) {
@@ -91,7 +93,9 @@ async function sync() {
       const val: Record<string, number> = {};
       for (const it of json.data ?? []) val[it.name] = it.values?.[0]?.value ?? it.total_value?.value ?? null;
       await db.from("ig_media").update({ reach: val.reach ?? null, views: val.views ?? null, saved: val.saved ?? null,
-        shares: val.shares ?? null, replies: val.replies ?? null, insights_at: now, insights_error: null }).eq("id", m.id);
+        shares: val.shares ?? null, replies: val.replies ?? null, insights_at: now, insights_error: null,
+        // Story com mais de 22h: esta é (quase) a última leitura possível; marca os números como finais
+        ...(m.product_type === "STORY" && Date.now() - new Date(m.published_at).getTime() > 22 * 3600e3 ? { metrics_final: true } : {}) }).eq("id", m.id);
       got++;
     } catch (e) {
       const err = e as MetaError;
@@ -112,6 +116,29 @@ async function sync() {
   const fb = await syncFacebook(now);
   await snapshotFollowers();
   return { media: rows.length, insights: got, error: permError, facebook: fb };
+}
+
+// ---------- Arquivo de imagens ----------
+// A Meta apaga o Story em 24h e as URLs do CDN expiram: guardamos uma cópia da imagem (ou da capa, no vídeo)
+// no bucket privado "artes". Stories primeiro; depois feed/Reels sem cópia, poucos por rodada.
+const cdnOk = (u: string | null) => { try { const x = new URL(u ?? ""); return x.protocol === "https:" && /(\.cdninstagram\.com|\.fbcdn\.net)$/.test(x.hostname); } catch { return false; } };
+async function archiveImages(storyIds: string[]) {
+  const { data } = await db.from("ig_media").select("id, product_type, thumb_url").eq("network", "instagram").is("archive_path", null)
+    .not("thumb_url", "is", null).order("product_type", { ascending: false }).order("published_at", { ascending: false }).limit(15);
+  const list = (data ?? []).sort((a, b) => Number(storyIds.includes(b.id)) - Number(storyIds.includes(a.id)));
+  for (const m of list) {
+    if (!cdnOk(m.thumb_url)) continue;
+    try {
+      const res = await fetch(m.thumb_url!, { redirect: "error" });
+      const type = res.headers.get("content-type") ?? "";
+      if (!res.ok || !/^image\/(jpeg|png|webp)$/.test(type.split(";")[0])) continue;
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.byteLength > 8 * 1024 * 1024) continue;
+      const path = `_arquivo/${m.id.replace(/[^\w]/g, "")}.jpg`;
+      const up = await db.storage.from("artes").upload(path, buf, { contentType: type.split(";")[0], upsert: true });
+      if (!up.error) await db.from("ig_media").update({ archive_path: path }).eq("id", m.id);
+    } catch (_) { /* tenta de novo na próxima rodada */ }
+  }
 }
 
 // ---------- Facebook (Página ligada ao Instagram) ----------

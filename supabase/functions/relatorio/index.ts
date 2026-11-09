@@ -28,7 +28,7 @@ function range(slug: string) {
 }
 const prevSlug = (slug: string) => { const [y, m] = slug.split("-").map(Number); const d = new Date(Date.UTC(y, m - 2, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
-type Row = { id: string; post_id: string | null; network: string; product_type: string; media_type: string | null; caption: string | null;
+type Row = { id: string; post_id: string | null; network: string; product_type: string; media_type: string | null; caption: string | null; archive_path?: string | null;
   permalink: string | null; thumb_url: string | null; published_at: string; reach: number | null; views: number | null; saved: number | null;
   shares: number | null; like_count: number | null; comments_count: number | null; editoria: string | null };
 const n = (v: number | null | undefined) => v || 0;
@@ -96,6 +96,7 @@ async function main(slug: string) {
         const first = (v?.[0]?.asset_paths ?? []).find((x: string) => !/\.mp4$/i.test(x));
         if (first) image = first;
       }
+      if (!image && r.archive_path) image = r.archive_path; // cópia guardada pela sincronização
       // Só baixa miniatura do CDN da Meta (nunca um endereço qualquer)
       const cdnOk = (() => { try { const u = new URL(r.thumb_url ?? ""); return u.protocol === "https:" && /(\.cdninstagram\.com|\.fbcdn\.net)$/.test(u.hostname); } catch { return false; } })();
       if (!image && cdnOk) {
