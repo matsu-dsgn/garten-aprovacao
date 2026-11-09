@@ -486,11 +486,11 @@
     const n = document.getElementById(`post-${id}`); if (!n) return;
     const body = n.querySelector(".card-body"); const toH = body.offsetHeight;
     if (!reduce && fromH) {
-      const ease = "cubic-bezier(.22,.8,.24,1)";
-      body.animate([{ height: `${fromH}px` }, { height: `${toH}px` }], { duration: 420, easing: ease });
+      const ease = "cubic-bezier(.7,0,.25,1)"; // arranca devagar, acelera e pousa macio
+      body.animate([{ height: `${fromH}px` }, { height: `${toH}px` }], { duration: 480, easing: ease });
       n.querySelector(".card-toggle i")?.animate([{ transform: open ? "none" : "rotate(180deg)" }, { transform: open ? "rotate(180deg)" : "none" }], { duration: 300, easing: ease });
       if (open) n.querySelectorAll(".card-side, .objective, .direction, .must").forEach((x, i) =>
-        x.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 140 + i * 40, easing: ease, fill: "backwards" }));
+        x.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 200 + i * 40, easing: ease, fill: "backwards" }));
     }
     if (!open || !follow) return;
     followCard(n);
@@ -511,7 +511,7 @@
     const end = setTimeout(() => followStop?.(), 2500);
     ro.observe(n);
     addEventListener("wheel", quit, { passive: true }); addEventListener("touchmove", quit, { passive: true });
-    setTimeout(target, 440); // fim da animação de altura
+    setTimeout(target, 500); // fim da animação de altura
   }
 
   function goTo(id) {

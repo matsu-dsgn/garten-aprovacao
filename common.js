@@ -438,7 +438,7 @@ window.G = (() => {
   let lenis = null;
   function initSmooth() {
     if (lenis || !window.Lenis || reduceMotion() || !matchMedia("(pointer: fine)").matches || document.querySelector('link[href="deck.css"]')) return;
-    lenis = new window.Lenis({ duration: 1.05, easing: (t) => 1 - Math.pow(1 - t, 4), allowNestedScroll: true, anchors: true });
+    lenis = new window.Lenis({ duration: 0.8, easing: (t) => 1 - Math.pow(1 - t, 4), allowNestedScroll: true, anchors: true });
     const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); };
     requestAnimationFrame(raf);
   }
