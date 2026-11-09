@@ -792,7 +792,7 @@ body.locked #top-actions { display: none; }
 @media (min-width: 821px) { .login-grid { grid-template-columns: 1fr 300px; } .login-box .panel { max-width: none; } }
 
 /* ---------- Radar legislativo (admin) ---------- */
-.radar-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: stretch; margin: 28px 0 16px; }
+.radar-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 400px); gap: 24px; align-items: stretch; margin: 28px 0 16px; }
 .radar-intro { display: grid; gap: 10px; align-content: space-between; padding: 4px 0 2px; }
 .radar-intro .msg { max-width: 640px; }
 .radar-head .radar-intro h1 { font-size: clamp(36px, 5.2vw, 64px); line-height: .98; max-width: 9.5em; }
@@ -810,7 +810,7 @@ body.locked #top-actions { display: none; }
 .radar-status-lines li.hl { font-family: var(--font); font-size: 15px; font-weight: 600; color: var(--accent-ink); }
 .radar-status-lines .nav-ico { width: 17px; height: 17px; flex: none; }
 .radar-status-lines li:not(.hl) { margin-top: 2px; }
-.radar-alert { font-size: 14px; border-top: 1px solid currentColor; padding-top: 12px; }
+.radar-alert { font-size: 14px; overflow-wrap: anywhere; border-top: 1px solid currentColor; padding-top: 12px; }
 .radar-status.is-running { border-color: var(--accent-ink); }
 .radar-status.is-alert { border-color: var(--bad); background: var(--bad-bg); }
 .radar-status.is-alert b, .radar-status.is-alert .radar-alert { color: var(--bad); }
