@@ -449,10 +449,10 @@
         G.historyList(data, st.decisions)));
 
     const checklist = post.checklist || [];
-    // Aberto por padrão só o que pede ação (sua vez / em discussão); o resto começa fechado
+    // Regra: aprovado, agendado ou publicado começa fechado; o resto (sua vez, ajuste, discussão, em produção) aberto
     const summ = G.postSummary(data, post);
-    const open = post.id in openCards ? openCards[post.id] : ["pendente", "contestado"].includes(summ);
     const cs = G.calStatus(data, post);
+    const open = post.id in openCards ? openCards[post.id] : !["aprovado", "agendado", "publicado"].includes(cs);
     const toggle = el("button", { class: "card-toggle", type: "button", "aria-expanded": String(open), "aria-controls": `post-${post.id}`,
       onclick: () => toggleCard(post.id, !open) },
       el("span", { class: `pill ${cs}` }, cs === "agendado" ? "Agendado" : cs === "publicado" ? "Publicado" : LABEL[summ] || summ),

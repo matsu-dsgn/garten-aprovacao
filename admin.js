@@ -538,6 +538,18 @@
         el("div", { class: "cal-list" }, list)));
   }
 
+  // Pílulas da linha do post: Pauta, Conteúdo (copy + arte, aprovados juntos) e Status de publicação
+  const PILL_LABEL = { pendente: "Aguardando", aguardando: "Aguardando", aprovado: "Aprovado", reprovado: "Ajuste", contestado: "Em discussão" };
+  function stagePills(p, states) {
+    const pill = (label, st) => el("span", { class: `pill ${st}` }, `${label}: ${PILL_LABEL[st] || st}`);
+    const out = [];
+    if (p.kind !== "oportunidade") out.push(pill("Pauta", states.pauta.status));
+    out.push(pill("Conteúdo", states.arte.status));
+    if (p.publish_status === "publicado") out.push(el("span", { class: "pill publicado" }, "Status: Publicado"));
+    else if (p.scheduled) out.push(el("span", { class: "pill agendado" }, "Status: Agendado"));
+    return out;
+  }
+
   const openPosts = new Set(); // posts abertos no mês (sobrevive ao re-render)
   const openComposers = new Set(); // bloco "Copy e arte" aberto (sobrevive ao re-render)
   let flash = null; // { id, text } mensagem de sucesso que sobrevive ao re-render
@@ -846,8 +858,7 @@
     const row = el("details", { class: "post-row", id: `row-${p.id}`, open: openPosts.has(p.id) },
       el("summary", { class: "row between" },
         el("h4", {}, `${p.post_date.split("-").reverse().join("/")} · ${p.title}`),
-        el("div", { class: "row stage-pills" }, G.STAGES.map((s) =>
-          el("span", { class: `pill ${states[s.key].status}` }, `${s.label}: ${G.STATUS_LABEL[states[s.key].status]}`)))),
+        el("div", { class: "row stage-pills" }, stagePills(p, states))),
       el("div", { class: "post-body" },
       composerBox,
       review,
