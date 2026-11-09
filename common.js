@@ -433,5 +433,28 @@ window.G = (() => {
       el("span", {}, el("i", {}), "Sua vez"));
   }
 
-  return { calStatus, calLegend, refsView, isHttp, refHost, statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // ---------- Smooth scroll do sistema (Lenis) ----------
+  // Só no desktop (mouse/trackpad): no iPhone/iPad o scroll nativo já é suave. Fora dos decks de relatório.
+  let lenis = null;
+  function initSmooth() {
+    if (lenis || !window.Lenis || reduceMotion() || !matchMedia("(pointer: fine)").matches || document.querySelector('link[href="deck.css"]')) return;
+    lenis = new window.Lenis({ duration: 1.05, easing: (t) => 1 - Math.pow(1 - t, 4), allowNestedScroll: true, anchors: true });
+    const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); };
+    requestAnimationFrame(raf);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initSmooth); else initSmooth();
+  // scroll programático único: alvo = elemento ou y; block "start" | "center"; immediate sem animação
+  function scrollTo(target, { block = "start", offset = 20, immediate = false } = {}) {
+    let y = target;
+    if (target && typeof target === "object") {
+      const r = target.getBoundingClientRect();
+      y = window.scrollY + r.top - (block === "center" ? Math.max(offset, (innerHeight - r.height) / 2) : offset);
+    }
+    y = Math.max(0, y);
+    const instant = immediate || reduceMotion();
+    if (lenis) lenis.scrollTo(y, { immediate: instant, force: true });
+    else window.scrollTo({ top: y, behavior: instant ? "auto" : "smooth" });
+  }
+
+  return { scrollTo, calStatus, calLegend, refsView, isHttp, refHost, statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

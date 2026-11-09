@@ -1283,3 +1283,10 @@ details.post-row[open] > summary .stage-pills { display: none; }
 
 /* Admin: calendário com legenda e lista no mobile */
 .admin-cal .cal-hint { margin: 6px 0 10px; }
+
+/* Smooth scroll: nativo como base; Lenis assume no desktop */
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: clip; }

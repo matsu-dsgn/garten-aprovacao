@@ -328,7 +328,7 @@
       const slot = document.getElementById("new-month");
       if (!slot) return;
       const f = monthForm(null); slot.replaceWith(f); e.currentTarget.remove();
-      f.scrollIntoView({ behavior: "smooth", block: "start" }); f.querySelector("input:not([disabled])")?.focus();
+      G.scrollTo(f); f.querySelector("input:not([disabled])")?.focus();
     } }, "+ Novo mês");
   }
 
@@ -474,7 +474,7 @@
         title: locked ? "Publicado: não dá para mover" : "Arraste para outro dia · clique para abrir" },
         el("b", {}, el("i", { class: `dot ${s}` }), p.title),
         el("span", {}, [G.FORMATS[p.format], edName(p.editoria), p.scheduled && p.scheduled_at ? `${tight.has(p.id) ? "⚠" : "⏱"} ${new Date(p.scheduled_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : null].filter(Boolean).join(" · ")));
-      b.addEventListener("click", () => { const r = document.getElementById(`row-${p.id}`); if (r) { r.open = true; openPosts.add(p.id); r.scrollIntoView({ behavior: "smooth", block: "start" }); } });
+      b.addEventListener("click", () => { const r = document.getElementById(`row-${p.id}`); if (r) { r.open = true; openPosts.add(p.id); G.scrollTo(r); } });
       b.addEventListener("dragstart", (e) => { dragId = p.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", p.id); b.classList.add("dragging"); });
       b.addEventListener("dragend", () => { b.classList.remove("dragging"); document.querySelectorAll(".cal-day.drop").forEach((x) => x.classList.remove("drop")); });
       return b;
@@ -547,7 +547,7 @@
     const y = window.scrollY;
     if (!soft) app.replaceChildren(G.skeleton(5));
     try { data = await loadData(m); } catch (e) { return app.replaceChildren(msg(e.message, "err")); }
-    if (soft) requestAnimationFrame(() => window.scrollTo(0, y));
+    if (soft) requestAnimationFrame(() => G.scrollTo(y, { immediate: true }));
     app.replaceChildren(
       el("div", { class: "row" },
         el("button", { class: "btn ghost", onclick: () => { current = null; monthsView(); } }, "← Meses"),

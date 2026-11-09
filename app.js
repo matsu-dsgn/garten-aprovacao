@@ -493,17 +493,30 @@
         x.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 140 + i * 40, easing: ease, fill: "backwards" }));
     }
     if (!open || !follow) return;
-    // posição final (sem a animação): centraliza se cabe na tela, senão alinha o topo
-    const top = n.getBoundingClientRect().top + window.scrollY - (body.offsetHeight - toH);
-    const h = n.offsetHeight + (toH - body.offsetHeight);
-    const vh = window.innerHeight;
-    const y = h < vh - 40 ? top - (vh - h) / 2 : top - 20;
-    window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" });
+    followCard(n);
+  }
+
+  // Acompanha o card enquanto ele cresce (animação + imagens carregando).
+  // Cabe na tela: centraliza. Não cabe: título no topo. Para se a pessoa rolar por conta própria.
+  let followStop = null;
+  function followCard(n) {
+    followStop?.();
+    const target = () => {
+      const h = n.getBoundingClientRect().height;
+      return h < innerHeight - 40 ? G.scrollTo(n, { block: "center" }) : G.scrollTo(n, { offset: 20 });
+    };
+    let t; const ro = new ResizeObserver(() => { clearTimeout(t); t = setTimeout(target, 60); });
+    const quit = () => followStop?.();
+    followStop = () => { ro.disconnect(); clearTimeout(t); clearTimeout(end); removeEventListener("wheel", quit); removeEventListener("touchmove", quit); followStop = null; };
+    const end = setTimeout(() => followStop?.(), 2500);
+    ro.observe(n);
+    addEventListener("wheel", quit, { passive: true }); addEventListener("touchmove", quit, { passive: true });
+    setTimeout(target, 440); // fim da animação de altura
   }
 
   function goTo(id) {
     if (document.getElementById(`post-${id}`)?.classList.contains("is-closed")) { toggleCard(id, true); return; }
-    document.getElementById(`post-${id}`)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    const n = document.getElementById(`post-${id}`); if (n) G.scrollTo(n);
   }
   function dock() {
     const c = counts();
@@ -514,9 +527,9 @@
       const notHere = (n) => Math.abs(n.getBoundingClientRect().top) > 80;
       const after = pend.find((n) => n.dataset.opp && notHere(n))
         || pend.find((n) => n.getBoundingClientRect().top > 80) || pend[0];
-      after?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      if (after) G.scrollTo(after);
     });
-    const up = el("button", { class: "btn ghost", type: "button", onclick: () => document.getElementById("calendario")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" }) }, "↑ Calendário");
+    const up = el("button", { class: "btn ghost", type: "button", onclick: () => { const c = document.getElementById("calendario"); if (c) G.scrollTo(c); } }, "↑ Calendário");
     const hidden = window.scrollY < (document.querySelector(".hero")?.offsetHeight || 0) - 80;
     return el("div", { class: `dock${hidden ? " hide" : ""}`, id: "dock", role: "region", "aria-label": "Progresso do mês" },
       el("div", { class: "counts" },
