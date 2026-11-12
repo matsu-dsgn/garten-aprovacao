@@ -363,15 +363,19 @@
         ? GWork.schedulePanel(sb, p, async (on) => { await load(); render(); toast(on ? "Post agendado" : "Agendamento removido"); }) : null);
 
     // ---------- Briefing (recolhível, aberto enquanto ninguém produziu nada) ----------
-    const hasBrief = p.objective || p.direction || (p.checklist || []).length || (p.refs || []).length;
-    const refsSlot = el("div");
-    if ((p.refs || []).length) GWork.signRefs(sb, p.refs).then((u) => { const v = G.refsView(p.refs, u); if (v) refsSlot.replaceChildren(v); });
+    // Referências ficam fora do briefing recolhível: o DA precisa vê-las mesmo depois que a copy chega.
+    const hasBrief = p.objective || p.direction || (p.checklist || []).length;
+    const refsSlot = (p.refs || []).length ? el("div", { class: "kd-block kd-refs" }, el("p", { class: "msg" }, "Carregando referências…")) : null;
+    if (refsSlot) GWork.signRefs(sb, p.refs).then((u) => {
+      const v = G.refsView(p.refs, u);
+      refsSlot.replaceChildren(v || el("p", { class: "msg err" }, "Não foi possível abrir as referências. Recarregue a página."));
+    }).catch(() => refsSlot.replaceChildren(el("p", { class: "msg err" }, "Não foi possível abrir as referências. Recarregue a página.")));
     const brief = hasBrief ? el("details", { class: "kd-block kd-brief", open: !curArte && !curCopy ? "" : null },
       el("summary", {}, el("span", { class: "eyebrow" }, "Briefing")),
       p.objective ? el("p", { class: "objective" }, `Objetivo: ${p.objective}`) : null,
       p.direction ? el("p", { class: "direction" }, p.direction) : null,
       (p.checklist || []).length ? el("div", { class: "must" }, el("div", { class: "eyebrow" }, "O que precisa constar na peça"),
-        el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null, refsSlot) : null;
+        el("ul", {}, p.checklist.map((c) => el("li", {}, c)))) : null) : null;
 
     // ---------- Envio: um botão só, cada pessoa vê a parte da sua função ----------
     // A função também é checada no banco (políticas de versions e storage).
@@ -424,7 +428,7 @@
     const sendBar = cmp ? el("section", { class: "kd-block kd-send" }, cmp.actions) : null;
 
     return el("aside", { class: "kdetail kd", role: "dialog", "aria-modal": "true", "aria-labelledby": "kd-title" },
-      head, brief,
+      head, refsSlot, brief,
       review ? el("section", { class: "kd-block" }, review) : null,
       el("div", { class: "kd-body" }, left, right),
       sendBar,
