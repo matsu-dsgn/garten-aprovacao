@@ -418,7 +418,7 @@
     const right = el("div", { class: "kd-col" },
       el("section", { class: "kd-block" },
         el("div", { class: "kd-bh" }, el("span", { class: "eyebrow" }, "Arte"), curArte ? tagEl(curArte, "arte") : null),
-        curArte ? carousel(curArte.asset_paths || [], notes) : el("p", { class: "msg" }, "Nenhuma arte enviada ainda."),
+        curArte ? (curArte.is_options ? optionsGrid(curArte.asset_paths || []) : carousel(curArte.asset_paths || [], notes)) : el("p", { class: "msg" }, "Nenhuma arte enviada ainda."),
         curArte ? sendBtnFor(curArte) : null,
         mayArte ? el("div", { class: "kd-upload" }, el("span", { class: "eyebrow" }, curArte ? "Nova versão da arte" : "Subir arte"), cmp.arteEl) : null),
       arteVersions.length > 1 ? el("details", { class: "kd-hist" },
@@ -474,6 +474,19 @@
     });
     requestAnimationFrame(paint);
     return el("div", { class: "kc" }, el("div", { class: "kc-stage" }, track, prev, next), el("div", { class: "kc-bar" }, dots, count));
+  }
+
+  // Opções de arte: diferente do carrossel, não é sequência de lâminas — são variações da mesma arte.
+  // Mostradas lado a lado, sem navegação de "próxima lâmina". A escolha de qual vai ao cliente é no painel de revisão.
+  function optionsGrid(paths) {
+    if (!paths.length) return null;
+    return el("div", { class: "kc-options" }, paths.map((path, i) =>
+      el("figure", { class: "kc-option" },
+        /\.mp4$/i.test(path)
+          ? el("video", { src: d.urls[path], controls: true, preload: "metadata" })
+          : el("a", { href: d.urls[path], target: "_blank", rel: "noopener", "aria-label": `Abrir opção ${i + 1} em tamanho real` },
+              el("img", { src: d.urls[path], alt: `Opção ${i + 1}`, loading: "lazy" })),
+        el("figcaption", {}, `Opção ${i + 1}`))));
   }
 
   function render() {

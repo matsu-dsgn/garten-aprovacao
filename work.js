@@ -59,7 +59,9 @@ window.GWork = (() => {
   }
 
   // Sobe arte. sent=false manda para revisão interna; admin pode mandar direto ao cliente
-  async function uploadArte(sb, { slug, post, allVersions, files, sent, onProgress }) {
+  // isOptions: as imagens são variações alternativas de uma arte estática (o Rapha escolhe uma),
+  // não lâminas de um carrossel. Só faz sentido para post.format !== "carrossel".
+  async function uploadArte(sb, { slug, post, allVersions, files, sent, isOptions, onProgress }) {
     const list = [...files];
     if (!list.length || list.length > 10) throw new Error("Envie de 1 a 10 arquivos (limite do Instagram).");
     for (const f of list) {
@@ -67,6 +69,7 @@ window.GWork = (() => {
       const real = await sniff(f);
       if (!real || !TYPES[real] || real !== f.type) throw new Error(`${f.name}: tipo não permitido (PNG, JPG, WEBP ou MP4).`);
     }
+    const options = !!isOptions && post.format !== "carrossel" && list.length > 1;
     const n = (G.latestVersion(allVersions, post.id, "arte")?.number || 0) + 1;
     const paths = [];
     for (const [i, f] of list.entries()) {
@@ -77,8 +80,17 @@ window.GWork = (() => {
       paths.push(path);
     }
     const { data: email } = await sb.rpc("auth_email");
-    const { error } = await sb.from("versions").insert({ post_id: post.id, stage: "arte", number: n, asset_paths: paths, sent, author_email: email });
+    const { error } = await sb.from("versions").insert({ post_id: post.id, stage: "arte", number: n, asset_paths: paths, sent, is_options: options, author_email: email });
     if (error) throw error;
+  }
+
+  // Admin escolhe uma das opções de arte: a versão fica só com aquele path.
+  // Remove as demais do Storage (ficaram órfãs, ninguém mais as usa).
+  async function chooseArteOption(sb, { version, keepPath }) {
+    const { error } = await sb.rpc("reduce_arte_options", { p_version: version.id, p_keep_path: keepPath });
+    if (error) throw error;
+    const drop = (version.asset_paths || []).filter((p) => p !== keepPath);
+    if (drop.length) await sb.storage.from("artes").remove(drop);
   }
 
   // Copy (texto da arte) e legenda sobem juntas numa versão e são aprovadas juntas
@@ -156,7 +168,13 @@ window.GWork = (() => {
     drop.addEventListener("dragleave", () => drop.classList.remove("over"));
     drop.addEventListener("drop", (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); drop.classList.remove("over"); add([...e.dataTransfer.files]); });
     paintThumbs();
-    const arteEl = opts.showArte ? el("div", { class: "cmp-arte" }, drop, list) : null;
+    // Post não-carrossel: dá para marcar que as imagens são opções da mesma arte (o Rapha escolhe uma),
+    // em vez do sistema tratar como lâminas de carrossel.
+    const optionsChk = post.format !== "carrossel"
+      ? el("input", { type: "checkbox", id: `opts-${post.id}` }) : null;
+    const optionsField = optionsChk ? el("label", { class: "cmp-options-chk", for: `opts-${post.id}` },
+      optionsChk, "São opções da mesma arte (não um carrossel) — você escolhe qual vai pro cliente") : null;
+    const arteEl = opts.showArte ? el("div", { class: "cmp-arte" }, drop, list, optionsField) : null;
 
     // Envio único: manda só o que mudou
     const btn = el("button", { class: "btn ok", type: "button" }, opts.sendLabel || "Enviar");
@@ -176,10 +194,12 @@ window.GWork = (() => {
           done.push(stories ? "texto" : "texto e legenda");
         }
         if (sendArte) {
-          await uploadArte(sb, { slug: opts.slug, post, allVersions: opts.getVersions(), files: files.map((f) => f.file), sent,
+          const isOptions = !!optionsChk?.checked;
+          await uploadArte(sb, { slug: opts.slug, post, allVersions: opts.getVersions(), files: files.map((f) => f.file), sent, isOptions,
             onProgress: (t) => say(t.replace("Enviando", "Enviando arte")) });
-          done.push(`${files.length} ${files.length === 1 ? "arte" : "artes"}`);
+          done.push(isOptions && files.length > 1 ? `${files.length} opções de arte` : `${files.length} ${files.length === 1 ? "arte" : "artes"}`);
           files.forEach((f) => URL.revokeObjectURL(f.url)); files = []; paintThumbs();
+          if (optionsChk) optionsChk.checked = false;
         }
         const msgOk = `Enviado ✓ ${done.join(" + ")}${sent ? " · já está com o cliente" : opts.draftNote ?? " · foi para aprovação do Rapha"}`;
         say(msgOk, "okk");
@@ -228,6 +248,29 @@ window.GWork = (() => {
         } }, "Pedir ajuste"),
         el("button", { class: "btn ghost", type: "button", onclick: () => { form.hidden = true; ask.hidden = false; } }, "Cancelar")));
       ask.addEventListener("click", () => { form.hidden = false; ask.hidden = true; note.focus(); });
+
+      // Arte subida como opções: mostra lado a lado, o Rapha escolhe uma antes de aprovar/enviar.
+      if (v.stage === "arte" && v.is_options && (v.asset_paths || []).length > 1) {
+        const choiceOut = el("p", { class: "msg" });
+        const pick = (path) => el("div", { class: "cmp-option" },
+          el("img", { src: opts.urls[path], alt: "" }),
+          el("button", { class: "btn ghost", type: "button", onclick: async (e) => {
+            e.target.disabled = true;
+            try {
+              await chooseArteOption(sb, { version: v, keepPath: path });
+              opts.onChange?.("Opção escolhida ✓ · pode aprovar internamente ou enviar ao cliente");
+            } catch (err) {
+              e.target.disabled = false;
+              choiceOut.className = "msg err"; choiceOut.textContent = err.message || String(err);
+            }
+          } }, "Usar esta"));
+        return el("div", { class: "draft" },
+          el("div", { class: "msg" }, `${label} v${v.number} · ${(v.asset_paths || []).length} opções · por ${nameOf(opts.team, v.author_email)} · ${when(v.created_at)}`),
+          el("div", { class: "cmp-options-grid" }, (v.asset_paths || []).map(pick)),
+          choiceOut,
+          el("div", { class: "row" }, ask, form));
+      }
+
       return el("div", { class: "draft" },
         el("div", { class: "msg" }, `${label} v${v.number} · por ${nameOf(opts.team, v.author_email)} · ${when(v.created_at)}`),
         preview(v, opts.urls),
@@ -419,5 +462,5 @@ window.GWork = (() => {
     return box;
   }
 
-  return { refsView: G.refsView, refsEditor, signRefs, signed, preview, comments, uploadArte, uploadCopy, composer, reviewPanel, recallPanel, forceSendPanel, nameOf, when, schedulePanel, schedLabel };
+  return { refsView: G.refsView, refsEditor, signRefs, signed, preview, comments, uploadArte, uploadCopy, chooseArteOption, composer, reviewPanel, recallPanel, forceSendPanel, nameOf, when, schedulePanel, schedLabel };
 })();

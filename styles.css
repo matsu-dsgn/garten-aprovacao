@@ -1044,6 +1044,16 @@ details.post-row > summary .pill { letter-spacing: normal; }
 .cmp-ctl button:disabled { opacity: .35; cursor: default; }
 .cmp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .cmp-current { display: grid; gap: 10px; }
+.cmp-options-chk { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 13.5px; color: var(--ink-soft); cursor: pointer; }
+.cmp-options-chk input { margin-top: 3px; }
+.cmp-options-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 8px 0; }
+.cmp-option { display: grid; gap: 6px; }
+.cmp-option img { display: block; width: 100%; height: 175px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2, #0b3459); }
+.cmp-option .btn { width: 100%; }
+.kc-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.kc-option { margin: 0; display: grid; gap: 4px; }
+.kc-option img, .kc-option video { display: block; width: 100%; height: 210px; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-2); }
+.kc-option figcaption { font-size: 12.5px; color: var(--ink-soft); text-align: center; }
 
 /* ---------- Publicações ---------- */
 .pub-page .panel { display: grid; gap: 14px; }

@@ -302,7 +302,10 @@
     if (stage === "copy") return el("div", { class: "stack-0" },
       el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, `Texto da arte · versão ${st.version.number}`), st.version.copy_text || ""),
       st.version.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Legenda do post"), st.version.caption_text) : null);
-    const paths = st.version.asset_paths || [];
+    // Lâminas só existem em carrossel. Se chegar mais de 1 imagem fora disso (não deveria: "opções" nunca são
+    // enviadas ao cliente sem o Rapha reduzir a 1 antes), mostra só a primeira em vez de virar um carrossel sem querer.
+    const allPaths = st.version.asset_paths || [];
+    const paths = post.format === "carrossel" ? allPaths : allPaths.slice(0, 1);
     // A copy mais recente aparece junto da arte, para o cliente avaliar a peça completa
     const cp = G.latestVersion(data.versions, post.id, "copy");
     return el("div", { class: "stack-0" },
