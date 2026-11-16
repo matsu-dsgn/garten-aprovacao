@@ -72,16 +72,27 @@ window.GWork = (() => {
     const options = !!isOptions && post.format !== "carrossel" && list.length > 1;
     const n = (G.latestVersion(allVersions, post.id, "arte")?.number || 0) + 1;
     const paths = [];
+    // Sufixo único por envio: uma tentativa que falhou no meio nunca bloqueia a próxima
+    const run = Date.now().toString(36);
     for (const [i, f] of list.entries()) {
       onProgress?.(`Enviando ${i + 1}/${list.length}…`);
-      const path = `${slug}/${post.id}/arte-v${n}/${String(i + 1).padStart(2, "0")}.${TYPES[f.type]}`;
+      const path = `${slug}/${post.id}/arte-v${n}/${String(i + 1).padStart(2, "0")}-${run}.${TYPES[f.type]}`;
       const { error } = await sb.storage.from("artes").upload(path, f, { contentType: f.type, upsert: false });
-      if (error) throw error;
+      if (error) {
+        if (paths.length) await sb.storage.from("artes").remove(paths).catch(() => {});
+        throw error;
+      }
       paths.push(path);
     }
     const { data: email } = await sb.rpc("auth_email");
-    const { error } = await sb.from("versions").insert({ post_id: post.id, stage: "arte", number: n, asset_paths: paths, sent, is_options: options, author_email: email });
-    if (error) throw error;
+    const row = { post_id: post.id, stage: "arte", number: n, asset_paths: paths, sent, author_email: email };
+    if (options) row.is_options = true;
+    const { error } = await sb.from("versions").insert(row);
+    if (error) {
+      // Sem versão registrada, os arquivos ficariam órfãos e travariam o próximo envio ("já existe")
+      await sb.storage.from("artes").remove(paths).catch(() => {});
+      throw error;
+    }
   }
 
   // Admin escolhe uma das opções de arte: a versão fica só com aquele path.
