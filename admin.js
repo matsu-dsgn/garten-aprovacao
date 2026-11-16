@@ -374,6 +374,17 @@
     return box;
   }
 
+  // Abre o painel do cliente do mês numa aba nova (mesmo link que vai pro WhatsApp)
+  async function openClient(m) {
+    const tab = window.open("about:blank", "_blank"); // abre já no clique, senão o navegador bloqueia
+    const { data } = await sb.from("month_links").select("token").eq("month_id", m.id).maybeSingle();
+    let url = null;
+    if (data?.token) url = `${location.href.replace(/admin\.html.*$/, "")}index.html?m=${encodeURIComponent(m.slug)}#k=${data.token}`;
+    else { try { url = localStorage.getItem(`garten-link-${m.slug}`); } catch { /* ok */ } }
+    if (!url) { tab?.close(); G.toast("Este mês ainda não tem link do cliente. Abra o mês e gere um.", true); return; }
+    if (tab) { tab.opener = null; tab.location.href = url; } else location.href = url;
+  }
+
   function monthsView() {
     const stats = months.length ? sb.from("posts").select("month_id, scheduled").in("month_id", months.map((m) => m.id)).then(({ data }) => {
       const o = {}; for (const p of data || []) { const x = (o[p.month_id] ||= { total: 0, sched: 0 }); x.total++; if (p.scheduled) x.sched++; } return o;
@@ -390,7 +401,8 @@
         el("h3", { class: "mcard-t" }, m.title), stat,
         el("div", { class: "row mcard-acts" },
           el("button", { class: "btn ghost", type: "button", onclick: () => { current = m; openMonth(m); } }, "Abrir"),
-          el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban")));
+          el("a", { class: "btn ghost", href: `kanban.html?mes=${encodeURIComponent(m.slug)}` }, "Kanban"),
+          el("button", { class: "btn ghost", type: "button", onclick: () => openClient(m) }, "Cliente")));
     });
     app.replaceChildren(...[
       avisosPanel(),
