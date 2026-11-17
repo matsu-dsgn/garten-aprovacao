@@ -405,7 +405,7 @@ window.G = (() => {
     return el("div", { class: "refs" },
       el("span", { class: "eyebrow" }, "Referências"),
       imgs.length ? el("div", { class: "refs-grid" }, imgs.map((r, i) => el("button", { class: "ref-thumb", type: "button", "aria-label": `Ampliar referência ${i + 1}`,
-        onclick: () => (onZoom ? onZoom(imgs.map((x) => x.path), i) : window.open(urls[r.path], "_blank", "noopener")) },
+        onclick: () => (onZoom ? onZoom(imgs.map((x) => x.path), i) : lightbox(imgs.map((x) => x.path), i, urls)) },
         el("img", { src: urls[r.path], alt: "", loading: "lazy" })))) : null,
       links.length ? el("ul", { class: "refs-links" }, links.map((r) => el("li", {},
         el("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, r.label || refHost(r.url)),
@@ -456,5 +456,37 @@ window.G = (() => {
     else window.scrollTo({ top: y, behavior: instant ? "auto" : "smooth" });
   }
 
-  return { scrollTo, calStatus, calLegend, refsView, isHttp, refHost, statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
+  // Visualização em tela cheia, com navegação entre lâminas
+  function lightbox(paths, start, urls) {
+    const imgs = paths.filter((p) => !/\.mp4$/i.test(p));
+    if (!imgs.length) return;
+    let i = Math.max(0, imgs.indexOf(paths[start]));
+    const img = el("img", { alt: "" });
+    const count = el("span", { class: "lb-count" });
+    const show = () => { img.src = urls[imgs[i]]; img.alt = `Lâmina ${i + 1}`; count.textContent = `${i + 1} / ${imgs.length}`; };
+    const go = (d) => {
+      i = (i + d + imgs.length) % imgs.length; show();
+      img.style.setProperty("--dir", d); img.classList.remove("swap"); void img.offsetWidth; img.classList.add("swap");
+    };
+    let release = null;
+    const close = () => { document.removeEventListener("keydown", key); release?.(); leave(box); };
+    const key = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") go(1); if (e.key === "ArrowLeft") go(-1); };
+    const nav = imgs.length > 1;
+    const box = el("div", { class: "lightbox", role: "dialog", "aria-modal": "true", "aria-label": "Arte ampliada",
+      onclick: (e) => { if (e.target === box) close(); } },
+      el("button", { class: "lb-close", type: "button", "aria-label": "Fechar", onclick: close }, "✕"),
+      nav ? el("button", { class: "lb-nav prev", type: "button", "aria-label": "Anterior", onclick: () => go(-1) }, "‹") : null,
+      img,
+      nav ? el("button", { class: "lb-nav next", type: "button", "aria-label": "Próxima", onclick: () => go(1) }, "›") : null,
+      nav ? count : null);
+    let x0 = null;
+    box.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+    box.addEventListener("touchend", (e) => { if (x0 == null || !nav) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); x0 = null; });
+    document.addEventListener("keydown", key);
+    document.body.append(box); show();
+    release = trapFocus(box);
+    box.querySelector(".lb-close").focus();
+  }
+
+  return { lightbox, scrollTo, calStatus, calLegend, refsView, isHttp, refHost, statusSelect, publishToggle, leave, trapFocus, toast, ask, skeleton, reduceMotion, readiness, radarImpacto, radarScope, radarStatus, groupByPeriod, groupedList, KANBAN_SUB, kanbanState, radarTiming, radarEmpty, icon, navLink, STAGES, FORMATS, STATUS_LABEL, el, latestVersion, stageState, pauteLocked, postSummary, fmtDate, MONTHS, DOW, when, actorName, historyList, logoMark };
 })();

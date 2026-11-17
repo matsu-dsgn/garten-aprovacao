@@ -19,7 +19,8 @@ window.GWork = (() => {
       v.caption_text ? el("div", { class: "content-box" }, el("span", { class: "eyebrow" }, "Legenda"), v.caption_text) : null);
     return el("div", { class: "thumbs" }, (v.asset_paths || []).map((p) => /\.mp4$/i.test(p)
       ? el("video", { src: urls[p], controls: true, preload: "metadata" })
-      : el("a", { href: urls[p], target: "_blank", rel: "noopener" }, el("img", { src: urls[p], alt: "", loading: "lazy" }))));
+      : el("button", { type: "button", class: "thumb-zoom", "aria-label": "Ampliar arte", onclick: () => G.lightbox(v.asset_paths, v.asset_paths.indexOf(p), urls) },
+          el("img", { src: urls[p], alt: "", loading: "lazy" }))));
   }
 
   const nameOf = (team, email) => (team.find((t) => t.email === email) || {}).name || (email || "").split("@")[0];

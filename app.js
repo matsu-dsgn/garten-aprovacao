@@ -323,36 +323,7 @@
       })));
   }
 
-  // Visualização em tela cheia, com navegação entre lâminas
-  function lightbox(paths, start) {
-    const imgs = paths.filter((p) => !/\.mp4$/i.test(p));
-    let i = Math.max(0, imgs.indexOf(paths[start]));
-    const img = el("img", { alt: "" });
-    const count = el("span", { class: "lb-count" });
-    const show = () => { img.src = data.urls[imgs[i]]; img.alt = `Lâmina ${i + 1}`; count.textContent = `${i + 1} / ${imgs.length}`; };
-    const go = (d) => {
-      i = (i + d + imgs.length) % imgs.length; show();
-      img.style.setProperty("--dir", d); img.classList.remove("swap"); void img.offsetWidth; img.classList.add("swap");
-    };
-    let release = null;
-    const close = () => { document.removeEventListener("keydown", key); release?.(); G.leave(box); };
-    const key = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") go(1); if (e.key === "ArrowLeft") go(-1); };
-    const nav = imgs.length > 1;
-    const box = el("div", { class: "lightbox", role: "dialog", "aria-modal": "true", "aria-label": "Arte ampliada",
-      onclick: (e) => { if (e.target === box) close(); } },
-      el("button", { class: "lb-close", type: "button", "aria-label": "Fechar", onclick: close }, "✕"),
-      nav ? el("button", { class: "lb-nav prev", type: "button", "aria-label": "Anterior", onclick: () => go(-1) }, "‹") : null,
-      img,
-      nav ? el("button", { class: "lb-nav next", type: "button", "aria-label": "Próxima", onclick: () => go(1) }, "›") : null,
-      nav ? count : null);
-    let x0 = null;
-    box.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
-    box.addEventListener("touchend", (e) => { if (x0 == null || !nav) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); x0 = null; });
-    document.addEventListener("keydown", key);
-    document.body.append(box); show();
-    release = G.trapFocus(box);
-    box.querySelector(".lb-close").focus();
-  }
+  const lightbox = (paths, start) => G.lightbox(paths, start, data.urls);
 
   function decideForm(post, stage, st) {
     if (stage !== "pauta" && !st.version) return null;

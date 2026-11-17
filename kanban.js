@@ -446,7 +446,7 @@
         const note = notes[String(i)];
         const media = /\.mp4$/i.test(path)
           ? el("video", { src: url, controls: true, preload: "metadata" })
-          : el("a", { href: url, target: "_blank", rel: "noopener", "aria-label": `Abrir lâmina ${i + 1} em tamanho real` }, el("img", { src: url, alt: `Lâmina ${i + 1}`, loading: "lazy" }));
+          : el("button", { type: "button", class: "thumb-zoom", "aria-label": `Ampliar lâmina ${i + 1}`, onclick: () => G.lightbox(paths, i, d.urls) }, el("img", { src: url, alt: `Lâmina ${i + 1}`, loading: "lazy" }));
         return el("figure", { class: "kc-slide" }, media,
           note ? el("figcaption", { class: "kc-note" }, el("b", {}, `Ajuste na lâmina ${i + 1}`), note) : null);
       }));
@@ -484,7 +484,7 @@
       el("figure", { class: "kc-option" },
         /\.mp4$/i.test(path)
           ? el("video", { src: d.urls[path], controls: true, preload: "metadata" })
-          : el("a", { href: d.urls[path], target: "_blank", rel: "noopener", "aria-label": `Abrir opção ${i + 1} em tamanho real` },
+          : el("button", { type: "button", class: "thumb-zoom", "aria-label": `Ampliar opção ${i + 1}`, onclick: () => G.lightbox(paths, i, d.urls) },
               el("img", { src: d.urls[path], alt: `Opção ${i + 1}`, loading: "lazy" })),
         el("figcaption", {}, `Opção ${i + 1}`))));
   }
